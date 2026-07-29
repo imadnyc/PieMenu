@@ -4951,6 +4951,12 @@ def pieMenuStart():
         if not any(item[1] == "DisplaySpinBox" for item in settingContent):
             config.get_params()["main"].SetBool("DisplaySpinBox", True)
 
+        # DelayRightClick is only written by setDefaultPie() on a fresh install,
+        # so installs predating the right-click trigger have no value for it and
+        # GetInt returns 0. Use the same default setDefaultPie() does.
+        if not any(item[1] == "DelayRightClick" for item in settingContent):
+            config.get_params()["main"].SetInt("DelayRightClick", 100)
+
     #### Preferences dialog ####
     def onControl():
         """Initializes the preferences dialog."""
