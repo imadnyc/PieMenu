@@ -5243,8 +5243,14 @@ def pieMenuStart():
     checkboxDefaultPie.setCheckable(True)
     checkboxDefaultPie.stateChanged.connect(lambda state: onDefaultPie(state))
 
+    checkboxDefaultPie.setToolTip(translate(
+        "PieMenuTab",
+        "The PieMenu opened by the global shortcut when the workbench you are "
+        "in has no PieMenu of its own. Only one PieMenu can be the fallback."))
+
     labelDefaultPie = QtGui.QLabel(
-        translate("GlobalSettingsTab", "Set this PieMenu as default"))
+        translate("PieMenuTab",
+                  "Use this PieMenu when no workbench matches"))
     labelDefaultPie.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
     layoutDefaultPieLeft = QtGui.QHBoxLayout()
@@ -5273,8 +5279,11 @@ def pieMenuStart():
 
     piemenuSettingGroup = QGroupBox(translate("PieMenuTab", "Assignment"))
     piemenuSettingGroup.setLayout(QtGui.QVBoxLayout())
-    piemenuSettingGroup.layout().addLayout(layoutDefaultPie)
+    # workbench first, then the fallback: the two controls are halves of one
+    # rule -- "this workbench opens this pie, and this pie is used when none
+    # matches" -- and only read that way in this order
     piemenuSettingGroup.layout().addLayout(layoutWbForPieMenu)
+    piemenuSettingGroup.layout().addLayout(layoutDefaultPie)
 
     ## group Shape ####
     labelShape = QtGui.QLabel(translate("PieMenuTab", "Shape:"))
