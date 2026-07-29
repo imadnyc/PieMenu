@@ -3605,10 +3605,20 @@ def pieMenuStart():
             None
 
     def getShape(keyValue=None):
-        """ Get value of shape of current PieMenu """
+        """ Get value of shape of current PieMenu.
+
+        The starting value is only a fallback for the case where keyValue names
+        no pie in the index -- the loop below overwrites it whenever one
+        matches. It used to come from getGroup(), whose default mode reads the
+        preferences combo box, which made this a dialog read on the render path
+        and meant the fallback silently changed once the dialog was open and
+        showing a different pie. The default pie's group is the deterministic
+        equivalent: it is what getGroup() already resolved to whenever the
+        dialog had not been opened.
+        """
         if keyValue is None:
             keyValue = getParam("CurrentPie")
-        group = getGroup()
+        group = ensureDefaultPieGroup()
         shape = group.GetString("Shape")
 
         indexList = getIndexList()
