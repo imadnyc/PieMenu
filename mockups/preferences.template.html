@@ -35,16 +35,19 @@ border-bottom:1px solid var(--line);flex:0 0 auto}
 .grip{display:flex;align-items:center;color:var(--dim);opacity:.45;cursor:grab;flex:0 0 auto}
 .row:hover .grip{opacity:.9}
 .row.sel .grip{opacity:.75;color:var(--hitext)}
-.grip svg{width:14px;height:14px}
-.ico{display:flex;flex:0 0 auto}
-.ico svg{width:15px;height:15px;display:block}
+.grip{width:14px;height:14px}
+.grip svg{width:100%;height:100%;display:block}
+svg{max-width:100%;max-height:100%}
+.ico{display:flex;flex:0 0 auto;width:15px;height:15px}
+.ico svg{width:100%;height:100%;display:block}
 .tool{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--text);
 width:26px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .tool:hover{background:var(--btnhi)}
 .tool.sm{width:22px;height:20px;border-color:transparent;background:transparent}
 .tool.sm:hover{background:var(--btnhi);border-color:var(--line)}
 .tool.sm.on{background:var(--hi);border-color:var(--hi)}
-.tool svg{width:14px;height:14px;display:block}
+.tool.sm .ico{width:13px;height:13px}
+.tool .ico{width:14px;height:14px}
 .tools{display:flex;gap:2px;padding-top:2px;align-items:center}
 .sep{width:1px;height:16px;background:var(--line);margin:0 3px}
 .form{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}
@@ -60,7 +63,7 @@ overflow:hidden;min-height:0;flex:1}
 .canvas .lbl{position:absolute;top:6px;left:8px;color:#928374;font-size:12px;pointer-events:none}
 .slot{position:absolute;display:flex;align-items:center;justify-content:center;background:var(--slot);
 border:1px solid var(--slotline);border-radius:4px;cursor:grab;user-select:none;font-size:11px}
-.slot svg{width:62%;height:62%;display:block}
+.slot .ico{width:60%;height:60%}
 .slot.empty{background:transparent;border-style:dashed;border-color:var(--empty);cursor:pointer;color:var(--empty)}
 .slot.empty:hover{border-color:var(--hi);color:var(--hi)}
 .slot.sel{box-shadow:0 0 0 2px var(--hi)}
