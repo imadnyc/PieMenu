@@ -3019,6 +3019,7 @@ def pieMenuStart():
         defaultPie = getParameterGlobal("String", "CurrentPie")
         index = cBox.findText(defaultPie)
         shape = getShape(cBox.currentText())
+        syncShapeCombo(shape)
         radiusSize = getParameterGroup(cBox.currentText(), "Int", "Radius")
         buttonSize = getParameterGroup(cBox.currentText(), "Int", "Button")
         numColumn = getParameterGroup(cBox.currentText(), "Int", "NumColumn")
@@ -3595,6 +3596,10 @@ def pieMenuStart():
                 param = config.get_params()["index"].GetGroup(str(i))
                 shape = param.GetString("Shape")
 
+        return shape
+
+    def syncShapeCombo(shape):
+        """ Clear and repopulate comboShape to reflect the given shape """
         comboShape.blockSignals(True)
         comboShape.clear()
         # TODO only place available_shape is used: inline
@@ -3603,8 +3608,6 @@ def pieMenuStart():
         if index != -1:
             comboShape.setCurrentIndex(index)
         comboShape.blockSignals(False)
-
-        return shape
 
     def onDisplayCommandName(state):
         """ Set parameter to show or not 'Command names' """
@@ -4998,6 +5001,7 @@ def pieMenuStart():
 
         pieMenuDialog.show()
         shape = getShape(cBox.currentText())
+        syncShapeCombo(shape)
         onShape(shape)
         updateIconsPieMenus()
         updatePiemenuPreview()
