@@ -502,22 +502,22 @@ def pieMenuStart():
             # is installed application-wide and sees every event.
             if event.type() in (QtCore.QEvent.MouseButtonPress,
                                 QtCore.QEvent.MouseButtonRelease):
-                try:
-                    if (event.button() == QtCore.Qt.RightButton
-                            and checkboxRightClick.isChecked()):
-                        if event.type() == QtCore.QEvent.MouseButtonPress:
-                            self.timer.start(spinDelayRightClick.value())
-                            return False
+                if (event.button() == QtCore.Qt.RightButton
+                        and getParameterGlobal("Bool", "RightClickTrigger")):
+                    if event.type() == QtCore.QEvent.MouseButtonPress:
+                        # Floor at the preferences spinbox minimum: a 0 delay
+                        # would open the pie on every right-click.
+                        self.timer.start(
+                            max(getParameterGlobal("Int", "DelayRightClick"), 50))
+                        return False
 
-                        if self.timer.isActive():
-                            self.timer.stop()
-                            self.debounceTimer.start(100)
-                            self.stop_filter()
-                            return False
-                        else:
-                            return True
-                except:
-                    None
+                    if self.timer.isActive():
+                        self.timer.stop()
+                        self.debounceTimer.start(100)
+                        self.stop_filter()
+                        return False
+                    else:
+                        return True
 
             # Special case when shortcut is assigned to tool PieMenu AND also other there
             if event.type() == QtCore.QEvent.ShortcutOverride and self.menu.isVisible():
