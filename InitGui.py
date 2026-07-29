@@ -2538,6 +2538,82 @@ def pieMenuStart():
             # a malformed rule must not make the tool unreachable
             return True
 
+    def selectedToolCommand():
+        """ Command name of the tool selected in the pie's tool list """
+        if buttonListWidget is None:
+            return None
+        row = buttonListWidget.currentRow()
+        if row < 0:
+            return None
+        item = buttonListWidget.item(row, 1)
+        if item is None:
+            return None
+        return item.data(QtCore.Qt.UserRole)
+
+    def onToolContext():
+        """ Edit the context rule of the tool selected in the tool list.
+
+        Same six axes as a per-pie context rule, stored per tool by Part 5.
+        While it is off the tool is always available, which is how every tool
+        starts out.
+        """
+        command = selectedToolCommand()
+        if not command:
+            return
+        if command == "PieMenu_Separator":
+            return
+
+        pieName = currentPieName()
+        group = getToolGroup(pieName, command, create=True)
+        if group is None:
+            return
+
+        dialog = QtGui.QDialog(pieMenuDialog)
+        dialog.setWindowTitle(
+            translate("ContextTab", "Context rule for {}").format(command))
+        form = QtGui.QGridLayout()
+
+        enabled = QCheckBox(
+            translate("ContextTab", "Only enable this tool when the selection matches"))
+        enabled.setChecked(group.GetBool("ContextEnabled", False))
+        form.addWidget(enabled, 0, 0, 1, 3)
+
+        signs = sorted(constants.get_signs().keys())
+        rows = {}
+        for offset, axis in enumerate(CONTEXT_AXES):
+            label = QLabel(translate("ContextTab", axis))
+            combo = QtGui.QComboBox()
+            combo.addItems(signs)
+            stored = group.GetString(axis + "Sign", "==")
+            if combo.findText(stored) != -1:
+                combo.setCurrentIndex(combo.findText(stored))
+            spin = QtGui.QSpinBox()
+            spin.setMaximum(999)
+            spin.setValue(group.GetInt(axis + "Value", 0))
+            form.addWidget(label, offset + 1, 0)
+            form.addWidget(combo, offset + 1, 1)
+            form.addWidget(spin, offset + 1, 2)
+            rows[axis] = (combo, spin)
+
+        buttons = QtGui.QDialogButtonBox(
+            QtGui.QDialogButtonBox.Ok | QtGui.QDialogButtonBox.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+
+        layout = QtGui.QVBoxLayout()
+        layout.addLayout(form)
+        layout.addWidget(buttons)
+        dialog.setLayout(layout)
+
+        if dialog.exec() != QtGui.QDialog.Accepted:
+            return
+
+        group.SetBool("ContextEnabled", enabled.isChecked())
+        for axis, (combo, spin) in rows.items():
+            group.SetString(axis + "Sign", combo.currentText())
+            group.SetInt(axis + "Value", spin.value())
+        updatePiemenuPreview()
+
     def selectionCounts():
         """ Count the current selection by topology.
 
@@ -6296,8 +6372,19 @@ def pieMenuStart():
         buttonDown.setMinimumWidth(30)
         buttonDown.clicked.connect(onButtonDown)
 
+        buttonContext = QtGui.QToolButton()
+        buttonContext.setText("⊙")
+        buttonContext.setToolTip(
+            translate("ContextTab",
+                      "Context rule for the selected tool: only enable it when "
+                      "the selection matches"))
+        buttonContext.setMinimumHeight(30)
+        buttonContext.setMinimumWidth(30)
+        buttonContext.clicked.connect(onToolContext)
+
         buttonsLayout = QtGui.QHBoxLayout()
         buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(buttonContext)
         buttonsLayout.addWidget(buttonAddSeparator)
         buttonsLayout.addWidget(buttonRemoveCommand)
         buttonsLayout.addWidget(buttonDown)
