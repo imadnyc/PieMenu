@@ -23,6 +23,7 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 14 | A distinct icon per tool | Currently every tool row shows the same dot, so the list reads as undifferentiated. |
 | 20 | Replace, not delete-then-add | A filled slot's right-click menu needs **Replace tool…**, so changing what is in a slot is one step rather than clearing it and adding again. |
 | 23 | Playground needs a workbench switch | Changing workbench there must resolve which pie opens through the Assignment setting, so the workbench-to-pie mapping can actually be tried. |
+| 26 | Any number of global shortcuts, not four | F2 capped the slots at four for no reason beyond having to pick a number. The list should grow and shrink, so a pie's "on shortcut" is bounded by how many you have defined rather than a constant. In the demo the keys are 1-4 so several can be tried quickly. |
 | 25 | Arc: free number plus presets, and a facing angle | Arc should be typeable as well as pickable, and needs a direction: a 90° arc must be able to face up, down, left or right rather than always starting from the top. |
 | 24 | Selection chips do not belong on the preview | Previewing against a selection is an occasional action, so it goes in the preview's right-click menu rather than sitting permanently across the top of it. |
 | 21 | A playground under the dialog | A rudimentary viewport: pick a vertex, edge, face or body on a solid, open the pie, and watch which tool each slot resolves to and what firing it does. |
@@ -94,6 +95,11 @@ Schema: `TriggerMode` becomes `OpenOn` plus `RunOn`, with a migration mapping
 release).
 
 ## Design change — pinning, hierarchy and conditional slots
+
+> **17 and 18 are deferred.** Pinning is out of the mockup for now — how it
+> should work is still open. The reasoning below is kept so it can be picked up
+> again at the end rather than re-derived. The pie hierarchy stays, since
+> organising pies into a tree is worth having on its own.
 
 **17. Corner pinning is wrong.** Shared tools were placed in the four corners of
 the bounding box because those are empty for the pie shapes. But the cursor is

@@ -198,6 +198,8 @@ body{display:flex;align-items:flex-start}
 .pitem.shown{border-left-color:#b8bb26}
 .pitem.todo{border-left-color:var(--warn)}
 .pitem.super{border-left-color:#fb4934}
+.pitem.defer{border-left-color:#7c6f64}
+.st.d{background:#333;color:#a89984}
 .pitem .st{font-size:9.5px;padding:1px 4px;border-radius:2px;height:fit-content;white-space:nowrap}
 .st.a{background:#3a4020;color:#b8bb26}
 .st.b{background:#40371c;color:var(--warn)}
@@ -227,7 +229,7 @@ body{display:flex;align-items:flex-start}
   <h3>Playground — does it behave the way you expect?</h3>
   <div class="playrow">
     <div class="viewport" id="viewport">
-      <div class="vplbl">Click a vertex, edge or face on the solid, or <b>Body</b> in the tree. Then press <b>TAB</b>, or click <b>Open pie</b>.</div>
+      <div class="vplbl">Click a vertex, edge or face on the solid, or <b>Body</b> in the tree. Then press <b>1</b>–<b>4</b> here, or click <b>Open pie</b>.</div>
       <div class="vpmain">
         <div class="mtree" id="mtree"></div>
         <svg id="solid" viewBox="0 0 220 240"></svg>
@@ -346,7 +348,7 @@ const CORNERS=["TopLeft","TopRight","BottomLeft","BottomRight"];
    rule from F3. Which binding a slot shows depends on what is selected; none
    matching greys the slot, several matching offers a chooser on hover. */
 const CONDS=["any","vertex","edge","face","body"];
-const slot=(bindings,pin)=>({b:bindings.map(x=>typeof x==="string"?{cmd:x,when:"any"}:x),pin:!!pin});
+const slot=bindings=>({b:bindings.map(x=>typeof x==="string"?{cmd:x,when:"any"}:x)});
 
 function mkPie(name,items,o={}){return Object.assign({
  name,parent:null,open:true,def:false,family:"circle",
@@ -360,13 +362,13 @@ function mkPie(name,items,o={}){return Object.assign({
 const S={pies:[
  mkPie("Main",[
    slot(["Std_New"]),slot(["Std_Open"]),
-   slot([{cmd:"Std_Save",when:"any"}],true),                 /* pinned: children inherit */
+   slot(["Std_Save"]),
    null,
    slot([{cmd:"PartDesign_Pad",when:"face"},
          {cmd:"PartDesign_Fillet",when:"edge"},
          {cmd:"PartDesign_Chamfer",when:"edge"}]),           /* conditional, two on edge */
    slot(["View_Fit"]),null,slot(["PieMenu_Sketcher"]),
-  ],{key:"TAB"}),
+  ],{key:"1"}),
  mkPie("Modelling",[
    slot([{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Pocket",when:"face"}]),
    slot([{cmd:"PartDesign_Fillet",when:"edge"}]),
@@ -381,19 +383,16 @@ const S={pies:[
  mkPie("View",[slot(["View_Fit"]),slot(["View_Front"]),slot(["View_Top"]),
                slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"])],
    {def:true,slots:12,perRing:6,radius:56}),
-], cur:0, selection:"face"};
+], cur:0, selection:"face",
+ /* Any number of global shortcuts; a pie's shortcutSlot indexes into this. */
+ globals:[{key:"1"},{key:"2"},{key:"3"},{key:"4"}]};
 
 const childrenOf=n=>S.pies.filter(p=>p.parent===n);
 const ancestors=p=>{const out=[]; let cur=p;
  while(cur&&cur.parent){cur=S.pies.find(x=>x.name===cur.parent); if(cur)out.push(cur);} return out;};
-/* a pinned slot on any ancestor occupies the same index in this pie */
-function inheritedSlot(p,i){
- for(const a of ancestors(p)){const sl=a.items[i]; if(sl&&sl.pin)return {slot:sl,from:a.name};}
- return null;}
-function effectiveSlot(p,i){
- const inh=inheritedSlot(p,i);
- if(inh)return {slot:inh.slot,inherited:inh.from};
- return {slot:p.items[i],inherited:null};}
+/* Pinning and slot inheritance are deferred -- see UI-FEEDBACK.md #17/#18.
+   A slot belongs to its own pie for now. */
+function effectiveSlot(p,i){return {slot:p.items[i],inherited:null};}
 /* which bindings of a slot apply to the current selection */
 const matches=sl=>!sl?[]:sl.b.filter(x=>x.when==="any"||x.when===S.selection);
 const pie=()=>S.pies[S.cur];
@@ -486,7 +485,6 @@ function chooseTool(idx,bindingIdx){
   p.sel=idx;},"Use tool");
 }
 const clearSlot=i=>{const p=pie(); p.items[i]=null; render();};
-function slotPin(i){const p=pie(); if(!p.items[i])return; p.items[i].pin=!p.items[i].pin; render();}
 function slotBindings(i){
  const p=pie(),sl=p.items[i]; if(!sl)return;
  const box=el("div","picker");
@@ -550,13 +548,7 @@ function pieListEl(){
    r.append(tw,svg(T.grip,"grip"),
             svg(p.def?uiIcon("PieMenu_Logo"):uiIcon("PieMenuEditMenu")),
             el("span","name",p.name));
-   const pins=p.items.filter(x=>x&&x.pin).length;
-   if(pins){const tg=el("span","tag");
-    tg.innerHTML=T.pin.replace("<svg","<svg style='width:11px;height:11px;vertical-align:-1px'")
-      +" "+pins;
-    tg.title=pins+" pinned slot"+(pins>1?"s":"")+" — every pie under "+p.name
-      +" shows "+(pins>1?"them":"it")+" in the same position";
-    r.append(tg);}
+
    if(p.def)r.append(el("span","tag","default"));
    r.onclick=()=>{S.cur=i; render();};
    r.ondblclick=()=>{S.cur=i; pieRename();};
@@ -660,10 +652,7 @@ function paint(c){
    s.title="Empty slot \u2014 double-click to choose a tool";
    s.append(el("span","plus","+"));
   }
-  /* pinned and inherited are marked with a small pin rather than a colour --
-     the colour alone said nothing about what it meant */
-  if(cls&&/(^| )pin( |$)/.test(cls)){const m=el("span","pinmark"); m.innerHTML=T.pin; s.append(m);}
-  else if(cls&&/inherited/.test(cls)){const m=el("span","pinmark inh"); m.innerHTML=T.pin; s.append(m);}
+
   if(idx!=null){
    s.onclick=()=>{p.sel=idx; render();};
    s.ondblclick=()=>chooseTool(idx);
@@ -675,8 +664,6 @@ function paint(c){
      !(p.items[idx]&&p.items[idx].b.length===1)],
     [uiIcon("PieMenuEditMenu"),"What appears here\u2026",()=>slotBindings(idx),!p.items[idx]],
     "-",
-    [uiIcon("PieMenuAddMenu"),(p.items[idx]&&p.items[idx].pin)?"Unpin from child pies":"Pin to child pies",
-     ()=>slotPin(idx),!p.items[idx]],
     [uiIcon("PieMenuRemoveCommand"),"Clear this slot",()=>clearSlot(idx),!p.items[idx]],
    ]);};
    if(cmd) s.onmousedown=ev=>{
@@ -710,22 +697,18 @@ function paint(c){
  p.items.forEach((_,i)=>{
   const eff=effectiveSlot(p,i), sl=eff.slot, hits=matches(sl);
   const cls=[];
-  if(sl&&sl.pin&&!eff.inherited)cls.push("pin");
-  if(eff.inherited)cls.push("inherited");
   if(sl&&!hits.length)cls.push("unbound");
   if(hits.length>1)cls.push("multi");
   const pick=hits.length?hits[Math.min(chooserPick[i]||0,hits.length-1)].cmd:null;
   const node=mk(sl?(pick||sl.b[0].cmd):null,i,cx+pos[i][0],cy+pos[i][1],p.button,cls.join(" "));
   if(sl){
    node.title=(pick?shortName(pick):"nothing here applies to this selection")
-    +(eff.inherited?"  \u00b7 pinned on "+eff.inherited:"")
+
     +(hits.length>1?"  \u00b7 "+hits.length+" apply, hover to choose":"")
     +"\n"+sl.b.map(b=>b.when+" \u2192 "+shortName(b.cmd)).join("\n");
    if(hits.length>1)node.onmouseenter=()=>showChooser(c,node,i,hits);
   }});
  const seen=[];
- if(c.querySelector(".slot.pin"))seen.push(["pin","\ud83d\udccc pinned here — child pies inherit it"]);
- if(c.querySelector(".slot.inherited"))seen.push(["inh","\ud83d\udccc faded — inherited from a parent pie"]);
  if(c.querySelector(".slot.unbound"))seen.push(["un","nothing applies to this selection"]);
  if(c.querySelector(".slot.multi"))seen.push(["mu","several apply — hover to choose"]);
  if(seen.length){
@@ -796,11 +779,11 @@ function build(){
   ["Open on:",sel(p.openOn,["single","double","hold","double-hold"],v=>p.openOn=v)],
   ["Run on:",sel(p.runOn,["click","hover","release"],v=>p.runOn=v)],
   ["Delay:",num(p.delay,v=>p.delay=v,0,1000)],
-  ["Shortcut:",sel(p.key||"—",["—","TAB","Q","W","E","R"],v=>p.key=v==="—"?"":v)],
+  ["Shortcut:",sel(p.key||"—",["—"].concat(S.globals.map(g=>g.key)),v=>p.key=v==="—"?"":v)],
  ])));
  c3.append(group("Assignment",formGrid([
   ["Workbench:",sel(p.wb,["None","PartDesign","Sketcher","Assembly","Part"],v=>p.wb=v)],
-  ["On shortcut:",num(p.slot,v=>p.slot=v,1,4)],
+  ["On shortcut:",num(p.shortcutSlot,v=>p.shortcutSlot=v,1,Math.max(1,S.globals.length))],
  ])));
  const show=el("div");
  show.append(check("Command names",p.names,v=>p.names=v));
@@ -817,12 +800,30 @@ document.getElementById("btnAbout").onclick=()=>{
 document.getElementById("btnPrefs").onclick=()=>{
  const w=el("div");
  w.append(group("Appearance",formGrid([["Theme:",sel("Legacy",["Legacy","Dark","Light"],()=>{})]])));
- w.append(group("Triggers",formGrid([
-  ["Global 1:",sel("TAB",["TAB","Q","W"],()=>{})],
-  ["Global 2:",sel("—",["—","Q","W","E"],()=>{})],
-  ["Global 3:",sel("—",["—","Q","W","E"],()=>{})],
-  ["Global 4:",sel("—",["—","Q","W","E"],()=>{})],
- ])));
+ const trg=el("div");
+ const drawGlobals=()=>{
+  trg.innerHTML="";
+  const f=el("div","form");
+  S.globals.forEach((g,i)=>{
+   const key=el("input"); key.type="text"; key.value=g.key; key.maxLength=12;
+   key.onchange=()=>{g.key=key.value; render();};
+   const del=el("button","tool sm"); del.title="Remove this shortcut";
+   del.append(svg(uiIcon("PieMenuRemove")));
+   del.onclick=()=>{S.globals.splice(i,1);
+    S.pies.forEach(q=>{if(q.shortcutSlot>S.globals.length)q.shortcutSlot=Math.max(1,S.globals.length);});
+    drawGlobals(); render();};
+   const cell=el("div"); cell.style.cssText="display:flex;gap:5px";
+   cell.append(key,del);
+   f.append(el("label",null,"Shortcut "+(i+1)+":"),cell);
+  });
+  trg.append(f);
+  const add=el("button","btn tiny","Add a shortcut");
+  add.style.marginTop="8px";
+  add.onclick=()=>{S.globals.push({key:String(S.globals.length+1)}); drawGlobals(); render();};
+  trg.append(add);
+ };
+ drawGlobals();
+ w.append(group("Global shortcuts",trg));
  const beh=el("div");
  beh.append(check("Show QuickMenu",true,()=>{}),check("Global context",false,()=>{}),
             check("Toggle show/hide",true,()=>{}),check("Long right-click to open",false,()=>{}));
@@ -902,10 +903,10 @@ function closeLivePie(reason){
  if(reason)logLine(uiIcon("PieMenuClose"),reason);
 }
 
-function openLivePie(x,y){
+function openLivePie(x,y,slotNo){
  const vp=document.getElementById("viewport"); if(!vp)return;
  closeLivePie(null);
- const p=(typeof activePie==="function")?activePie():pie();
+ const p=(typeof activePie==="function")?activePie(slotNo):pie();
  const n=slotCount(p), pos=positions(p), size=p.button;
  const wrap=el("div","livepie"); livePie=wrap;
  wrap.dataset.cx=x; wrap.dataset.cy=y;
@@ -926,7 +927,7 @@ function openLivePie(x,y){
  const fire=(cmd,i,eff)=>{
   logLine(toolIcon(cmd),"ran <b>"+shortName(cmd)+"</b> on "+S.selection
    +" <i>("+p.runOn+")</i>"
-   +(eff&&eff.inherited?" <i>\u2014 inherited from "+eff.inherited+"</i>":""));
+);
   closeLivePie(null);
  };
 
@@ -934,13 +935,11 @@ function openLivePie(x,y){
  for(let i=0;i<n;i++){
   const eff=effectiveSlot(p,i), sl=eff.slot, hits=matches(sl);
   const s2=el("div","slot"+(sl?"":" empty")+(sl&&!hits.length?" unbound":"")
-            +(hits.length>1?" multi":"")+(eff.inherited?" inherited":"")
-            +(sl&&sl.pin&&!eff.inherited?" pin":""));
+            +(hits.length>1?" multi":""));
   s2.style.cssText=`left:${x+pos[i][0]-size/2}px;top:${y+pos[i][1]-size/2}px;width:${size}px;height:${size}px`;
   const cmd=hits.length?hits[Math.min(chooserPick[i]||0,hits.length-1)].cmd:null;
   if(cmd)s2.append(svg(toolIcon(cmd)));
-  if(sl&&sl.pin&&!eff.inherited){const m=el("span","pinmark"); m.innerHTML=T.pin; s2.append(m);}
-  else if(eff.inherited){const m=el("span","pinmark inh"); m.innerHTML=T.pin; s2.append(m);}
+
   s2.title=cmd?shortName(cmd):"nothing here applies to "+S.selection;
   s2._cmd=cmd; s2._i=i; s2._eff=eff;
   nodes.push(s2);
@@ -1024,15 +1023,17 @@ const WORKBENCHES=["None","PartDesign","Sketcher","Assembly","Part"];
 let playWb="PartDesign";
 /* Mirrors the addon: a pie claimed by the active workbench wins, otherwise the
    pie marked as the fallback. */
-function activePie(){
- return S.pies.find(p=>p.wb===playWb) || S.pies.find(p=>p.def) || S.pies[0];
+function activePie(slot){
+ slot = slot || 1;
+ return S.pies.find(p=>p.wb===playWb && (p.shortcutSlot||1)===slot)
+     || S.pies.find(p=>p.def) || S.pies[0];
 }
 function initPlayground(){
  const wbSel=document.getElementById("wbPick");
  WORKBENCHES.forEach(w=>{const o=el("option",null,w); if(w===playWb)o.selected=true; wbSel.append(o);});
  wbSel.onchange=()=>{playWb=wbSel.value;
-  logLine(uiIcon("PieMenuEditMenu"),"workbench \u2192 <b>"+playWb+"</b>, pie resolves to <b>"
-    +activePie().name+"</b>");};
+  logLine(uiIcon("PieMenuEditMenu"),"workbench \u2192 <b>"+playWb+"</b>; shortcut "
+    +S.globals.map((g,i)=>g.key+"\u2192"+activePie(i+1).name).join(", "));};
  drawSolid();
  const vp=document.getElementById("viewport");
  vp.tabIndex=0;
@@ -1040,26 +1041,28 @@ function initPlayground(){
   const r=vp.getBoundingClientRect();
   mousePos={x:e.clientX-r.left,y:e.clientY-r.top};
   if(gestureOn)updateGesture();});
- let lastTap=0, holdTimer=null;
- const openHere=()=>openLivePie(mousePos.x,mousePos.y);
+ let lastTap=0, lastKey=null, heldSlot=null;
+ const openHere=slot=>openLivePie(mousePos.x,mousePos.y,slot);
+ const slotForKey=k=>{const i=S.globals.findIndex(g=>g.key===k); return i<0?null:i+1;};
  vp.addEventListener("keydown",e=>{
-  if(e.key!=="Tab")return;
+  const slot=slotForKey(e.key);
+  if(slot==null)return;
   e.preventDefault();
   if(e.repeat)return;                       // auto-repeat is not a second tap
-  const p=activePie(), now=Date.now(), isDouble=(now-lastTap)<350;
-  lastTap=now;
+  const p=activePie(slot), now=Date.now(), isDouble=(now-lastTap)<350&&lastKey===e.key;
+  lastTap=now; lastKey=e.key; heldSlot=slot;
 
-  if(p.openOn==="single"){ livePie?closeLivePie("closed"):openHere(); }
-  else if(p.openOn==="double"){ if(isDouble)openHere();
+  if(p.openOn==="single"){ livePie?closeLivePie("closed"):openHere(slot); }
+  else if(p.openOn==="double"){ if(isDouble)openHere(slot);
     else logLine(uiIcon("PieMenuBlank"),"one tap \u2014 tap again to open <i>(double)</i>"); }
-  else if(p.openOn==="hold"){ gestureOn=true; openHere(); updateGesture(); }
+  else if(p.openOn==="hold"){ gestureOn=true; openHere(slot); updateGesture(); }
   else if(p.openOn==="double-hold"){
-    if(isDouble){ gestureOn=true; openHere(); updateGesture(); }
+    if(isDouble){ gestureOn=true; openHere(slot); updateGesture(); }
     else logLine(uiIcon("PieMenuBlank"),"one tap \u2014 tap again and hold <i>(double-hold)</i>"); }
  });
  vp.addEventListener("keyup",e=>{
-  if(e.key!=="Tab")return;
-  const p=activePie();
+  if(slotForKey(e.key)==null)return;
+  const p=activePie(heldSlot);
   if(!gestureOn)return;
   gestureOn=false;
   if(p.runOn==="release")commitGesture();
@@ -1069,7 +1072,7 @@ function initPlayground(){
   vp.focus();
   const r=vp.getBoundingClientRect();
   if(!mousePos.x&&!mousePos.y)mousePos={x:r.width/2,y:r.height/2-20};
-  openLivePie(mousePos.x,mousePos.y);};
+  openLivePie(mousePos.x,mousePos.y,1);};
  document.getElementById("clearSel").onclick=()=>select("none",-1);
  document.getElementById("clearLog").onclick=()=>{
   document.getElementById("log").innerHTML="";
@@ -1077,9 +1080,9 @@ function initPlayground(){
 }
 function drawPlan(){
  const box=document.getElementById("side"); if(!box)return;
- const shown=PLAN.filter(p=>p.shown&&!p.supersedes);
+ const shown=PLAN.filter(p=>p.shown&&!p.supersedes&&!p.deferred);
  const supers=PLAN.filter(p=>p.supersedes);
- const todo=PLAN.filter(p=>!p.shown&&!p.supersedes);
+ const todo=PLAN.filter(p=>!p.shown&&!p.supersedes&&!p.deferred);
  box.innerHTML="";
  box.append(el("h2","","Running plan"));
  const sub=el("div","sub");
@@ -1098,7 +1101,9 @@ function drawPlan(){
    r.title=p.note||p.title;
    box.append(r);});
  };
- section("Shown in this mockup",shown,"shown","mockup","a");
+ const deferred=PLAN.filter(p=>p.deferred);
+ section("Shown in this mockup",shown.filter(p=>!p.deferred),"shown","mockup","a");
+ section("Deferred — decide later",deferred,"defer","later","d");
  section("Replaces shipped code",supers,"super","revert","c");
  section("Still to build",todo,"todo","todo","b");
  const foot=el("div","sub"); foot.style.marginTop="14px";

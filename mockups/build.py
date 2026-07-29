@@ -39,7 +39,8 @@ def inline_icons():
     return icons
 
 
-DEMOED = {1,2,3,4,5,6,7,8,9,10,11,12,14,15,16,17,18,19,20,21,22}
+DEMOED = {1,2,3,4,5,6,7,8,9,10,11,12,14,15,16,19,20,21,22,23,24,25}
+DEFERRED = {17, 18}   # pinning: revisit once the model is settled
 SUPERSEDES = {13: "F9.2 · bc3df9c", 17: "F8.c · b619aed", 18: "F8.c · b619aed",
               16: "F6.0 · 2b75adc", 19: "F3 · dded196", 22: "F10a · cb443f3"}
 
@@ -63,7 +64,8 @@ def plan_items():
         out.append({"n": n, "title": clean,
                     "note": re.sub(r"[*`]", "", it["note"])[:150],
                     "shown": n in DEMOED,
-                    "supersedes": SUPERSEDES.get(n, "")})
+                    "deferred": n in DEFERRED,
+                    "supersedes": "" if n in DEFERRED else SUPERSEDES.get(n, "")})
     return out
 
 
