@@ -469,6 +469,24 @@ def pieMenuStart():
 
         def eventFilter(self, obj, event):
             """Handle mouse and keyboard events """
+            # Cache the global pointer position from the event stream. On
+            # Wayland QCursor.pos() is unreliable/stale (clients may not poll
+            # the global pointer), but input events still carry global coords,
+            # so caching here is correct everywhere (X11/Windows/Wayland). This
+            # filter runs for every event in FreeCAD, so it must stay cheap and
+            # never raise. Qt6 replaced QMouseEvent.globalPos() (QPoint) with
+            # globalPosition() (QPointF); PySide6 may still expose the old name.
+            if event.type() in (QtCore.QEvent.MouseMove,
+                                QtCore.QEvent.MouseButtonPress,
+                                QtCore.QEvent.MouseButtonRelease):
+                try:
+                    if hasattr(event, "globalPosition"):
+                        state.app_state.last_mouse_pos = event.globalPosition().toPoint()
+                    else:
+                        state.app_state.last_mouse_pos = event.globalPos()
+                except Exception:
+                    pass
+
             if event.type() == QtCore.QEvent.MouseButtonRelease:
                 if event.button() == QtCore.Qt.LeftButton:
                     if self.menu.isActiveWindow() or pieMenuDialog.isVisible():
@@ -1515,6 +1533,46 @@ def pieMenuStart():
                 i.hide()
             self.menu.hide()
 
+        def cursorGlobalPos(self):
+            """Global cursor position to anchor the pie at.
+
+            Wayland does not let a client poll the global pointer, so
+            QCursor.pos() there returns the last position Qt happened to see --
+            a plausible-looking but stale point once the pointer has been over
+            another window, not a null one that could be detected. The position
+            cached from the event stream is authoritative on Wayland.
+
+            On X11 and Windows QCursor.pos() is live and stays correct even
+            while the pointer is outside a FreeCAD surface, so it is preferred
+            there and the cache is only a fallback.
+            """
+            cached = state.app_state.last_mouse_pos
+
+            try:
+                onWayland = QtGui.QGuiApplication.platformName().startswith(
+                    "wayland")
+            except Exception:
+                onWayland = False
+
+            if onWayland and cached is not None:
+                return cached
+
+            try:
+                pos = QtGui.QCursor.pos()
+                if pos is not None and not pos.isNull():
+                    return pos
+            except Exception:
+                pass
+
+            if cached is not None:
+                return cached
+
+            if mw is not None:
+                rect = mw.geometry()
+                return QtCore.QPoint(rect.x() + rect.width() // 2,
+                                     rect.y() + rect.height() // 2)
+            return QtCore.QPoint(0, 0)
+
         def showAtMouseInstance(self, keyValue=None):
             nonlocal contextPhase
             enableContext = config.get_params()["main"].GetBool("EnableContext")
@@ -1543,8 +1601,7 @@ def pieMenuStart():
             posY = height / 2
 
             if windowShadow:
-                pos = mw.mapFromGlobal(QtGui.QCursor.pos())
-                cursor_pos = QtGui.QCursor.pos()
+                cursor_pos = self.cursorGlobalPos()
                 self.menu.move(cursor_pos.x() - self.menu.width() // 2,
                                cursor_pos.y() - self.menu.height() // 2)
 
@@ -1556,10 +1613,6 @@ def pieMenuStart():
                     i.setParent(self.menu)
                     i.repaint()
             else:
-                #### a vérifier ####
-                pos = QtGui.QCursor.pos()
-                x = int(pos.x() - self.menuSize / 2)
-                y = int(pos.y() - self.menuSize / 2)
                 self.menu.show()
 
                 for i in self.buttons:
