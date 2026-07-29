@@ -5443,12 +5443,12 @@ def pieMenuStart():
 
     ### group Trigger Mode ####
     radioButtonPress = QtGui.QRadioButton(
-        translate("GlobalSettingsTab", "Press"))
+        translate("PieMenuTab", "Press"))
     radioButtonPress.toggled.connect(
         lambda checked, data="Press": setTriggerMode(data))
 
     radioButtonHover = QtGui.QRadioButton(
-        translate("GlobalSettingsTab", "Hover"))
+        translate("PieMenuTab", "Hover"))
     radioButtonHover.toggled.connect(
         lambda checked, data="Hover":  setTriggerMode(data))
 
@@ -5461,7 +5461,7 @@ def pieMenuStart():
     layoutActionHoverButton.addWidget(radioButtonHover)
 
     labelHoverDelay = QtGui.QLabel(
-        translate("GlobalSettingsTab", "Hover delay (ms):"))
+        translate("PieMenuTab", "Hover delay (ms):"))
     labelHoverDelay.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
     spinHoverDelay = QtGui.QSpinBox()
@@ -5547,7 +5547,7 @@ def pieMenuStart():
     shortcutLineEdit.setText(shortcutKey)
 
     assignShortcutButton = QtGui.QPushButton(
-        translate("GlobalSettingsTab", "Assign"))
+        translate("PieMenuTab", "Assign"))
     assignShortcutButton.clicked.connect(
         lambda: updateShortcutKey(shortcutLineEdit.text()))
 
@@ -6147,20 +6147,6 @@ def pieMenuStart():
     layoutSpinBox.addWidget(labelSpinBox)
     layoutSpinBox.addStretch(1)
 
-    globalSettingsGroup = QGroupBox(
-        translate("GlobalSettingsTab", "Global settings"))
-    globalSettingsGroup.setLayout(QtGui.QVBoxLayout())
-    globalSettingsGroup.layout().addLayout(layoutTheme)
-    globalSettingsGroup.layout().addLayout(layoutShowQuickMenu)
-    globalSettingsGroup.layout().addLayout(layoutGlobalContext)
-    globalSettingsGroup.layout().addLayout(layoutGlobalToggle)
-    globalSettingsGroup.layout().addLayout(layoutSpinBox)
-
-    experimentalGroup = QGroupBox(
-        translate("GlobalSettingsTab", "Experimental"))
-    experimentalGroup.setLayout(QtGui.QVBoxLayout())
-    experimentalGroup.layout().addLayout(layoutRightClick)
-
     buttonParamExport = QtGui.QPushButton(
         translate("GlobalSettingsTab", "Export"))
     buttonParamExport.clicked.connect(onParamExport)
@@ -6190,10 +6176,6 @@ def pieMenuStart():
     exportGroup.layout().addLayout(layoutParamExport)
     exportGroup.layout().addLayout(layoutParamImport)
 
-    # spinBoxGroup = QGroupBox(translate("GlobalSettingsTab", "SpinBox settings"))
-    # spinBoxGroup.setLayout(QtGui.QVBoxLayout())
-    # spinBoxGroup.layout().addLayout(layoutSpinBox)
-
     state.app_state.global_shortcut_key = config.get_params()["main"].GetString("GlobalShortcutKey")
 
     labelGlobalShortcut = QLabel()
@@ -6206,7 +6188,7 @@ def pieMenuStart():
         translate("GlobalSettingsTab", "For TAB press CTRL+TAB"))
 
     assignGlobalShortcutButton = QtGui.QPushButton(
-        translate("PieMenuTab", "Assign"))
+        translate("GlobalSettingsTab", "Assign"))
     assignGlobalShortcutButton.clicked.connect(
         lambda: updateGlobalShortcutKey(globalShortcutLineEdit.text()))
 
@@ -6223,13 +6205,34 @@ def pieMenuStart():
     layoutGlobalShortcut.addWidget(assignGlobalShortcutButton)
     layoutGlobalShortcut.addWidget(deleteGlobalShortcutButton)
 
-    settingsTabLayout.insertWidget(0, globalSettingsGroup)
-    # settingsTabLayout.insertWidget(1, spinBoxGroup)
-    settingsTabLayout.insertWidget(1, experimentalGroup)
-    settingsTabLayout.insertWidget(2, exportGroup)
+    appearanceGroup = QGroupBox(
+        translate("GlobalSettingsTab", "Appearance"))
+    appearanceGroup.setLayout(QtGui.QVBoxLayout())
+    appearanceGroup.layout().addLayout(layoutTheme)
+
+    # Every way of opening a pie, together. These were previously split three
+    # ways: the toggle in the "Global settings" group, long right-click in a
+    # group called "Experimental", and the global shortcut loose at the bottom
+    # of the tab below a stretch.
+    triggersGroup = QGroupBox(
+        translate("GlobalSettingsTab", "Triggers"))
+    triggersGroup.setLayout(QtGui.QVBoxLayout())
+    triggersGroup.layout().addLayout(layoutGlobalShortcut)
+    triggersGroup.layout().addLayout(layoutGlobalToggle)
+    triggersGroup.layout().addLayout(layoutRightClick)
+
+    behaviourGroup = QGroupBox(
+        translate("GlobalSettingsTab", "Behaviour"))
+    behaviourGroup.setLayout(QtGui.QVBoxLayout())
+    behaviourGroup.layout().addLayout(layoutShowQuickMenu)
+    behaviourGroup.layout().addLayout(layoutGlobalContext)
+    behaviourGroup.layout().addLayout(layoutSpinBox)
+
+    settingsTabLayout.addWidget(appearanceGroup)
+    settingsTabLayout.addWidget(triggersGroup)
+    settingsTabLayout.addWidget(behaviourGroup)
+    settingsTabLayout.addWidget(exportGroup)
     settingsTabLayout.addStretch(1)
-    settingsTabLayout.insertSpacing(3, 42)
-    settingsTabLayout.insertLayout(4, layoutGlobalShortcut)
 
     # Create a fake command in FreeCAD to handle the PieMenu Separator
     Gui.addCommand('PieMenu_Separator', PieMenuSeparator())
