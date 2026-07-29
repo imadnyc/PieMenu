@@ -1458,6 +1458,7 @@ def pieMenuStart():
             except:
                 None
 
+            self.add_regions(keyValue, commands, icon)
             self.add_shared_tools(keyValue, buttonSize, icon)
 
             if compositingManager:
@@ -1465,6 +1466,86 @@ def pieMenuStart():
             else:
                 for i in self.buttons:
                     i.setAttribute(QtCore.Qt.WA_PaintOnScreen)
+
+        def add_regions(self, keyValue, commands, icon):
+            """ Lay out the pie's extra regions beside the main one.
+
+            The main loop has already placed region 0 and sized the menu. Each
+            further region lays its own tools out with its own shape and sizes,
+            offset by its anchor from the main box, and the menu grows to the
+            union so nothing is clipped.
+
+            Tools are assigned by the per-tool Region attribute, and regions are
+            walked in sorted name order so shortcut codes stay stable when a
+            region is added -- codes are positional, so an unstable order would
+            silently reshuffle every tool's key.
+            """
+            regions = getRegions(keyValue)
+            if not regions:
+                return
+
+            byRegion = {}
+            for action in commands:
+                command = action.objectName()
+                region = getToolAttr(keyValue, command, "Int", "Region", 0)
+                if region:
+                    byRegion.setdefault(region, []).append(action)
+            if not byRegion:
+                return
+
+            counts = selectionCounts()
+            baseWidth = self.menu.width()
+            baseHeight = self.menu.height()
+            maxRight = maxBottom = 0
+
+            for position, region in enumerate(regions, start=1):
+                actions = byRegion.get(position)
+                if not actions:
+                    continue
+
+                dx, dy = REGION_ANCHORS.get(region["anchor"], (1, 0))
+                originX = dx * (baseWidth / 2)
+                originY = dy * (baseHeight / 2)
+                opts = {
+                    "buttonSize": region["buttonSize"], "icon": icon,
+                    "iconSpacing": region["iconSpacing"],
+                    "radius": region["radius"], "valueRadius": region["radius"],
+                    "commandNumber": len(actions),
+                    "numColumn": max(1, region["numColumn"]),
+                }
+
+                for offset, action in enumerate(actions, start=1):
+                    shape = region["shape"]
+                    if shape not in ("TableTop", "TableDown", "TableLeft",
+                                     "TableRight", "UpDown"):
+                        shape = "TableRight"
+                    (bx, by), _, (regionW, regionH) = tableLayout(
+                        shape, offset, opts)
+
+                    button = HoverButton()
+                    button.setParent(self.menu)
+                    button.setObjectName("pieMenu")
+                    button.setAttribute(QtCore.Qt.WA_Hover)
+                    button.setStyleSheet(styleCurrentTheme)
+                    button.setDefaultAction(action)
+                    button.setIconSize(QtCore.QSize(icon, icon))
+                    button.setGeometry(0, 0, region["buttonSize"],
+                                       region["buttonSize"])
+
+                    if not toolAllowedInContext(
+                            keyValue, action.objectName(), counts):
+                        button.setEnabled(False)
+
+                    button.setProperty("ButtonX", originX + bx)
+                    button.setProperty("ButtonY", originY + by)
+                    self.buttons.append(button)
+
+                    maxRight = max(maxRight, abs(originX) + regionW)
+                    maxBottom = max(maxBottom, abs(originY) + regionH)
+
+            # union of the main box and everything the regions needed
+            self.menu.setFixedSize(int(max(baseWidth, maxRight * 2)),
+                                   int(max(baseHeight, maxBottom * 2)))
 
         def add_shared_tools(self, keyValue, buttonSize, icon):
             """ Place the shared tools into the corners of the finished pie.
@@ -2659,6 +2740,59 @@ def pieMenuStart():
             group.SetString(axis + "Sign", combo.currentText())
             group.SetInt(axis + "Value", spin.value())
         updatePiemenuPreview()
+
+    REGION_ANCHORS = {
+        "Right": (1, 0), "Left": (-1, 0), "Above": (0, -1), "Below": (0, 1),
+    }
+
+    def getRegions(pieName):
+        """ Extra layout regions of a pie, beyond its main one.
+
+        Region 0 is the pie itself, described by the existing per-pie Shape,
+        Radius, Button and so on. Further regions live in a Regions subgroup
+        and carry their own copies of those keys, which is the point: a compact
+        TableRight of small buttons can sit beside a large-radius Pie. Each
+        tool names its region through the per-tool Region attribute.
+
+        A pie with no Regions subgroup is exactly one region, so nothing has to
+        be migrated for existing pies to keep rendering as they do.
+        """
+        index = getCurrentMenuIndex(pieName)
+        if index == "-1":
+            return []
+        pieGroup = config.get_params()["index"].GetGroup(index)
+        if "Regions" not in pieGroup.GetGroups():
+            return []
+
+        regionsGroup = pieGroup.GetGroup("Regions")
+        regions = []
+        for name in sorted(regionsGroup.GetGroups()):
+            group = regionsGroup.GetGroup(name)
+            regions.append({
+                "name": name,
+                "shape": group.GetString("Shape", "TableRight"),
+                "radius": group.GetInt("Radius", 80),
+                "buttonSize": group.GetInt("Button", 32),
+                "iconSpacing": group.GetInt("IconSpacing", 0),
+                "numColumn": group.GetInt("NumColumn", 1),
+                "anchor": group.GetString("Anchor", "Right"),
+            })
+        return regions
+
+    def setRegion(pieName, name, shape="TableRight", anchor="Right",
+                  radius=80, buttonSize=32, iconSpacing=0, numColumn=1):
+        """ Create or update one extra region of a pie """
+        index = getCurrentMenuIndex(pieName)
+        if index == "-1":
+            return
+        group = (config.get_params()["index"].GetGroup(index)
+                 .GetGroup("Regions").GetGroup(name))
+        group.SetString("Shape", shape)
+        group.SetString("Anchor", anchor)
+        group.SetInt("Radius", radius)
+        group.SetInt("Button", buttonSize)
+        group.SetInt("IconSpacing", iconSpacing)
+        group.SetInt("NumColumn", numColumn)
 
     def tableLayout(shape, num, opts):
         """ Geometry for one button of a table-family shape.
