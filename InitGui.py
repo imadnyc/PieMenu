@@ -6420,18 +6420,36 @@ def pieMenuStart():
 
     if start:
         compositingManager = True
-        if QtCore.qVersion() < "5":
-            windowShadow = False
-        else:
+        # Compare the Qt major version numerically. The previous string compare
+        # (qVersion() < "5") gives the right answer today only by accident: it
+        # would report "10.0" as older than "5".
+        try:
+            windowShadow = int(QtCore.qVersion().split(".")[0]) >= 5
+        except (ValueError, IndexError):
             windowShadow = True
+
+        try:
+            platformName = QtGui.QGuiApplication.platformName()
+        except Exception:
+            platformName = ""
+
         if platform.system() == "Linux":
-            try:
-                if QtGui.QX11Info.isCompositingManagerRunning():
-                    windowShadow = True
-                else:
-                    compositingManager = False
-            except AttributeError:
+            if platformName.startswith("wayland"):
+                # A Wayland session always has a compositor running; there is
+                # no equivalent of the X11 query, and none is needed.
                 windowShadow = True
+            else:
+                try:
+                    if QtGui.QX11Info.isCompositingManagerRunning():
+                        windowShadow = True
+                    else:
+                        compositingManager = False
+                except AttributeError:
+                    # QX11Info was removed in Qt6. Reaching here means X11 on
+                    # Qt6; assume a compositor, as every current desktop has
+                    # one. This was previously the only branch that ran on
+                    # Wayland too, which made the result accidentally correct.
+                    windowShadow = True
         else:
             pass
         if platform.system() == "Windows":
