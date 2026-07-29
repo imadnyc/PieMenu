@@ -182,7 +182,7 @@ def pieMenuStart():
             global triggerMode
             mode = triggerMode
             if self.isMouseOver and self.defaultAction().isEnabled() and mode == "Hover":
-                if not pieMenuDialog.isVisible():
+                if not isPreviewMode():
                     PieMenuInstance.hide()
                     self.defaultAction().trigger()
                     module = None
@@ -211,7 +211,7 @@ def pieMenuStart():
 
         def mouseReleaseEvent(self, event):
             if self.isMouseOver and self.defaultAction().isEnabled():
-                if not pieMenuDialog.isVisible():
+                if not isPreviewMode():
                     PieMenuInstance.hide()
                     mw.setFocus()
                     self.defaultAction().trigger()
@@ -248,7 +248,7 @@ def pieMenuStart():
 
         def mouseReleaseEvent(self, event):
             if self.defaultAction().isEnabled():
-                if not pieMenuDialog.isVisible():
+                if not isPreviewMode():
                     PieMenuInstance.hide()
                     mw.setFocus()
                     self.defaultAction().trigger()
@@ -489,7 +489,7 @@ def pieMenuStart():
 
             if event.type() == QtCore.QEvent.MouseButtonRelease:
                 if event.button() == QtCore.Qt.LeftButton:
-                    if self.menu.isActiveWindow() or pieMenuDialog.isVisible():
+                    if self.menu.isActiveWindow() or isPreviewMode():
                         pass
                     else:
                         self.menu.hide()
@@ -1864,6 +1864,20 @@ def pieMenuStart():
     #### END Classes definitions ####
 
     ### BEGIN Functions Def ####
+    def isPreviewMode():
+        """True when the preferences dialog exists and is open (preview mode).
+
+        Buttons must not execute their command while the pie is only being
+        previewed in the settings. pieMenuDialog is a local of pieMenuStart()
+        captured by closure rather than a module global, so before it is
+        created the name is simply unbound; treat that as "not previewing" so
+        the dialog can later be built lazily.
+        """
+        try:
+            return pieMenuDialog.isVisible()
+        except NameError:
+            return False
+
     def getParamIndex(name):
         """ Get parameter from User parameter:BaseApp/PieMenu/Index """
         try:
