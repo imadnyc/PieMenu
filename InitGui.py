@@ -2711,6 +2711,26 @@ def pieMenuStart():
         if not keyValue == "toolBarTab":
             PieMenuInstance.add_commands(actions, context, text)
 
+    def ensureDefaultPieGroup():
+        """Return the default PieMenu group (index "0"), creating it on a fresh install.
+
+        Existing install (0 in indexList): a harmless no-op read of GetGroup("0").
+        Fresh install (no pies): seed the default pie via setDefaultPie() and
+        refresh commands, then return the newly created GetGroup("0"). This is
+        the fallback getGroup uses when the requested pie name is not found, and
+        the bootstrap calls it directly on startup so that path no longer reads
+        the empty preferences-dialog combobox.
+        """
+        indexList = getIndexList()
+        if 0 in indexList:
+            return config.get_params()["index"].GetGroup("0")
+        setDefaultPie()
+        try:
+            updateCommands()
+        except:
+            None
+        return config.get_params()["index"].GetGroup("0")
+
     def getGroup(mode=0):
         """
         Obtain the parameter group.
@@ -2743,15 +2763,7 @@ def pieMenuStart():
             pass
         else:
             # return the default PieMenu group
-            if 0 in indexList:
-                group = config.get_params()["index"].GetGroup("0")
-            else:
-                setDefaultPie()
-                try:
-                    updateCommands()
-                except:
-                    None
-                group = config.get_params()["index"].GetGroup("0")
+            group = ensureDefaultPieGroup()
 
         return group
 
@@ -6379,8 +6391,10 @@ def pieMenuStart():
         mw.addAction(actionKey)
         getShortcutList()
         legacyFix()
-        # Fix errors at first init
-        getGroup()
+        # Fix errors at first init: ensure the default PieMenu group exists.
+        # Previously this called getGroup(), which read the empty preferences
+        # combobox and always fell through to the default-group fallback.
+        ensureDefaultPieGroup()
         # let the addition of the accessoriesMenu wait until FC is ready for it
         t = QtCore.QTimer()
         t.timeout.connect(addAccessoriesMenu)
