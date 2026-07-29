@@ -6923,6 +6923,80 @@ def pieMenuStart():
         showPiemenuLayout.setContentsMargins(0, 0, 0, 0)
         showPiemenuLayout.addWidget(showPreviewWidget)
 
+
+        class PreviewDragFilter(QtCore.QObject):
+            """ Drag tools between slots directly on the preview.
+
+            The preview buttons carry WA_Disabled so that clicking one cannot fire
+            the real command, which also means Qt delivers them no mouse events.
+            The drag is therefore handled on the canvas and the button under the
+            cursor found by hit-testing.
+
+            A slot is a position the layout generated, so a tool is stored by which
+            slot it occupies -- its index in ToolList -- rather than by pixel
+            coordinates. Radius, shape and spacing stay meaningful, and a layout
+            survives a change of icon size or DPI.
+            """
+
+            def __init__(self, parent=None):
+                super(PreviewDragFilter, self).__init__(parent)
+                self.fromSlot = None
+
+            def eventPos(self, event):
+                try:
+                    return event.position().toPoint()
+                except AttributeError:
+                    return event.pos()
+
+            def slotAt(self, pos):
+                """ Index of the preview button under a canvas position """
+                if PieMenuInstance is None:
+                    return None
+                for slot, button in enumerate(PieMenuInstance.buttons):
+                    if button.parent() is showPiemenu and button.geometry().contains(pos):
+                        return slot
+                return None
+
+            def eventFilter(self, obj, event):
+                if event.type() == QtCore.QEvent.MouseButtonPress:
+                    self.fromSlot = self.slotAt(self.eventPos(event))
+                    return False
+
+                if event.type() == QtCore.QEvent.MouseButtonRelease:
+                    if self.fromSlot is None:
+                        return False
+                    target = self.slotAt(self.eventPos(event))
+                    source, self.fromSlot = self.fromSlot, None
+                    if target is None or target == source:
+                        return False
+                    moveToolToSlot(source, target)
+                    return True
+
+                return False
+
+
+        def moveToolToSlot(source, target):
+            """ Move a tool from one slot to another and redraw the preview.
+
+            ToolList order is what the layout walks, so moving a tool within it is
+            exactly moving it between slots. Both indices are positions in the
+            rendered pie, which lines up with ToolList only while every entry
+            produced a button, so a move is skipped when they have diverged.
+            """
+            pieName = currentPieName()
+            if not pieName:
+                return
+            group = getGroup(mode=0)
+            tools = [t for t in group.GetString("ToolList", "").split(".,.") if t]
+            if not (0 <= source < len(tools)) or not (0 <= target < len(tools)):
+                return
+
+            tools.insert(target, tools.pop(source))
+            group.SetString("ToolList", ".,.".join(tools))
+            buttonList()
+            updatePiemenuPreview()
+
+
         def onShowPiemenuResize(event):
             """ Keep the preview pie centred when the preview pane is resized """
             QtGui.QWidget.resizeEvent(showPiemenu, event)
@@ -6933,6 +7007,10 @@ def pieMenuStart():
                 pass
 
         showPiemenu.resizeEvent = onShowPiemenuResize
+
+        # Rearrange tools by dragging them on the preview itself.
+        previewDragFilter = PreviewDragFilter(showPiemenu)
+        showPiemenu.installEventFilter(previewDragFilter)
 
         #### Main Layout####
         vSplitter = QtGui.QSplitter()
