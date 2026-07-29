@@ -296,14 +296,20 @@ def pieMenuStart():
         """Class nested PieMenu """
 
         def __init__(self, keyValue, iconPath=None):
-            self.iconPath = resources.iconPieMenuLogo
+            # honour the caller's icon; createNestedPieMenus already resolves
+            # the pie's IconPath and falls back to the logo itself
+            self.iconPath = iconPath or resources.iconPieMenuLogo
             self.keyValue = keyValue
 
         def GetResources(self):
             """Return a dictionary with data that will be used by the button or menu item."""
             return {'Pixmap': self.iconPath,
                     'MenuText': self.keyValue,
-                    'ToolTip': self.keyValue,
+                    # say what it does: in the tool picker these sit among
+                    # hundreds of ordinary commands and are otherwise
+                    # indistinguishable from one
+                    'ToolTip': translate(
+                        "PieMenuTab", "Open the {} PieMenu").format(self.keyValue),
                     'CmdType': 'ForEdit'}
 
         def Activated(self):
@@ -3726,6 +3732,10 @@ def pieMenuStart():
             if workbench:
                 if workbench == "Std":
                     workbench = "FreeCAD"
+                elif workbench == "PieMenu":
+                    # nested pies: group them under a category that reads as
+                    # one, so they can be found among the ordinary commands
+                    workbench = translate("PieMenuTab", "PieMenus")
                 wb_item = QtGui.QTableWidgetItem(workbench)
                 wb_item.setFlags(QtCore.Qt.ItemIsEnabled)
                 toolListWidget.setItem(row, 2, wb_item)
