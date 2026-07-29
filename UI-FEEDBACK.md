@@ -23,6 +23,7 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 14 | A distinct icon per tool | Currently every tool row shows the same dot, so the list reads as undifferentiated. |
 | 20 | Replace, not delete-then-add | A filled slot's right-click menu needs **Replace tool…**, so changing what is in a slot is one step rather than clearing it and adding again. |
 | 23 | Playground needs a workbench switch | Changing workbench there must resolve which pie opens through the Assignment setting, so the workbench-to-pie mapping can actually be tried. |
+| 27 | Global vs direct shortcuts | **Open — undecided.** A first attempt was built and reverted (`7181ec8` / `ea66c16`). See the note below. |
 | 26 | Any number of global shortcuts, not four | F2 capped the slots at four for no reason beyond having to pick a number. The list should grow and shrink, so a pie's "on shortcut" is bounded by how many you have defined rather than a constant. In the demo the keys are 1-4 so several can be tried quickly. |
 | 25 | Arc: free number plus presets, and a facing angle | Arc should be typeable as well as pickable, and needs a direction: a 90° arc must be able to face up, down, left or right rather than always starting from the top. |
 | 24 | Selection chips do not belong on the preview | Previewing against a selection is an occasional action, so it goes in the preview's right-click menu rather than sitting permanently across the top of it. |
@@ -139,6 +140,42 @@ sees in that position depends on what is selected when the pie opens.
   flag on a slot, so commit `b619aed` is superseded rather than extended.
 - Resolution happens when the pie is built, which is where F3 already evaluates.
   The hover-to-choose slider is new interaction, not just new layout.
+
+## Open question — 27, presenting global vs direct shortcuts
+
+Two kinds of key that behave differently:
+
+- **Global** (`1`-`4`) is a *role*. Key 2 means "the modelling pie here", and
+  which pie that is depends on the workbench, so several pies compete for it and
+  no single pie owns it.
+- **Direct** (`9`, `0`) is an *address*. Key 9 means one named pie, anywhere,
+  whatever the workbench. Exactly one pie owns it.
+
+A first attempt split them by ownership -- global keys edited in Preferences,
+direct keys on the pie under "Its own key" -- and was rejected. Three directions
+are still on the table:
+
+**A. One shortcuts table.** Every key in a single Preferences table; a row is
+either workbench-resolved or fixed to a pie, and pies get no shortcut field at
+all. One place to bind, every conflict visible at once, which is how most
+editors present keybindings.
+
+    Key | Opens          | When
+    ----+----------------+------------
+     1  | (by workbench) | PartDesign     same key,
+     1  | (by workbench) | Sketcher       two rows
+     9  | Sketching      | always
+     0  | View           | always
+
+**B. One field, two modes.** The pie keeps a single Shortcut row with a toggle:
+either it answers a global slot for its workbench, or it owns a key outright.
+One line rather than two groups.
+
+**C. Key column in the pie list.** The list grows a Key column edited inline, so
+every pie and its key are visible together, the kind shown by styling.
+
+Whichever wins, a direct key must be refused when it collides with a global key
+or another pie's direct key. Nothing is built for this -- decide first.
 
 ## Notes
 
