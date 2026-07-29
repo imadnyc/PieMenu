@@ -1664,7 +1664,7 @@ def pieMenuStart():
                                      rect.y() + rect.height() // 2)
             return QtCore.QPoint(0, 0)
 
-        def showAtMouseInstance(self, keyValue=None):
+        def showAtMouseInstance(self, keyValue=None, slot=1):
             nonlocal contextPhase
             enableContext = config.get_params()["main"].GetBool("EnableContext")
 
@@ -1674,17 +1674,17 @@ def pieMenuStart():
                     if not sel:
                         self.hide()
                         contextPhase = False
-                        updateCommands()
+                        updateCommands(slot=slot)
                     elif not enableContext:
                         self.hide()
-                        updateCommands()
+                        updateCommands(slot=slot)
                     else:
                         keyValue = getParam("ContextPie")
-                        updateCommands(keyValue, context=True)
+                        updateCommands(keyValue, context=True, slot=slot)
                 else:
-                    updateCommands(keyValue)
+                    updateCommands(keyValue, slot=slot)
             else:
-                updateCommands(keyValue)
+                updateCommands(keyValue, slot=slot)
 
             height = self.menu.height()
             width = self.menu.width()
@@ -3017,7 +3017,7 @@ def pieMenuStart():
                         None
         return False
 
-    def updateCommands(keyValue=None, context=False):
+    def updateCommands(keyValue=None, context=False, slot=1):
         # keyValue = None > Global shortcut
         # keyValue != None > Custom shortcut
         global triggerMode
@@ -3034,7 +3034,7 @@ def pieMenuStart():
                 wbName = wb.name()
                 wbName = wbName.replace("Workbench", "")
                 # workbench
-                text = getPieName(wbName)
+                text = getPieName(wbName, slot)
 
                 # current Pie
                 if text is None:
@@ -3381,29 +3381,67 @@ def pieMenuStart():
         shortcutLineEdit.setText(state.app_state.shortcut_key)
         getShortcutList()
 
-    def updateGlobalShortcutKey(newShortcut):
-        if not newShortcut:
-            state.app_state.global_shortcut_key = newShortcut
-            config.get_params()["main"].SetString("GlobalShortcutKey", state.app_state.global_shortcut_key)
-            labelGlobalShortcut.setText(translate("GlobalSettingsTab",
-                                                  "Shortcut deleted ! No shortcut assigned ")
-                                        + state.app_state.global_shortcut_key)
+    def globalShortcutAction(slot):
+        """ The QAction carrying a given global shortcut slot, if it exists """
+        objectName = "PieMenuShortCut" if slot <= 1 else "PieMenuShortCut%d" % slot
+        for action in mw.findChildren(QtGui.QAction):
+            if action.objectName() == objectName:
+                return action
+        return None
 
+    def updateGlobalShortcutKey(newShortcut):
+        """ Assign the key for the currently selected global shortcut slot.
+
+        Slot 1 stays in GlobalShortcutKey, so an existing config and anything
+        reading that name keep working; further slots use GlobalShortcutKey2
+        and up. Each slot has its own QAction, created at startup for slot 1 and
+        for any further slot that has a key stored.
+        """
+        slot = spinGlobalSlot.value() if spinGlobalSlot is not None else 1
+        paramName = globalShortcutKeyName(slot)
+
+        def report(text, value):
+            labelGlobalShortcut.setText(
+                translate("GlobalSettingsTab", text) + value)
+
+        if not newShortcut:
+            config.get_params()["main"].SetString(paramName, "")
+            if slot == 1:
+                state.app_state.global_shortcut_key = ""
+            report("Shortcut deleted ! No shortcut assigned ", "")
         else:
             parties = set(newShortcut.replace(',', '+').split('+'))
-            for partie in parties:
-                if partie not in constants.touches_speciales and len(partie) > 1:
-                    labelGlobalShortcut.setText(translate("GlobalSettingsTab",
-                                                          "Invalid shortcut ! Current global shortcut : ")
-                                                + state.app_state.global_shortcut_key)
-                else:
+            invalid = any(partie not in constants.touches_speciales
+                          and len(partie) > 1 for partie in parties)
+            if invalid:
+                report("Invalid shortcut ! Current global shortcut : ",
+                       config.get_params()["main"].GetString(paramName))
+            else:
+                config.get_params()["main"].SetString(paramName, newShortcut)
+                if slot == 1:
                     state.app_state.global_shortcut_key = newShortcut
-                    config.get_params()["main"].SetString("GlobalShortcutKey", state.app_state.global_shortcut_key)
-                    labelGlobalShortcut.setText(translate("GlobalSettingsTab",
-                                                          "New global shortcut assigned: ")
-                                                + state.app_state.global_shortcut_key)
-        actionKey.setShortcut(QtGui.QKeySequence(state.app_state.global_shortcut_key))
-        globalShortcutLineEdit.setText(state.app_state.global_shortcut_key)
+                report("New global shortcut assigned: ", newShortcut)
+
+        stored = config.get_params()["main"].GetString(paramName)
+        action = globalShortcutAction(slot)
+        if action is None and stored:
+            # a slot whose key was empty at startup has no action yet
+            action = QtGui.QAction(mw)
+            action.setText("Invoke pie menu %d" % slot)
+            action.setObjectName("PieMenuShortCut%d" % slot)
+            action.triggered.connect(
+                lambda checked=False, s=slot:
+                    PieMenuInstance.showAtMouseInstance(slot=s))
+            mw.addAction(action)
+        if action is not None:
+            action.setShortcut(QtGui.QKeySequence(stored))
+
+        globalShortcutLineEdit.setText(stored)
+
+    def onGlobalSlotChanged(value):
+        """ Show the key stored for the newly selected shortcut slot """
+        globalShortcutLineEdit.setText(
+            config.get_params()["main"].GetString(globalShortcutKeyName(value)))
 
     def infoPopup():
         msg = """
@@ -3528,6 +3566,10 @@ def pieMenuStart():
         radioButtonPress.setChecked(triggerMode == "Press")
         radioButtonHover.setChecked(triggerMode == "Hover")
         spinHoverDelay.setValue(hoverDelay)
+        if spinShortcutSlot is not None:
+            spinShortcutSlot.blockSignals(True)
+            spinShortcutSlot.setValue(getPieSlot(getGroup(mode=0)))
+            spinShortcutSlot.blockSignals(False)
         toolShortcutGroup.setChecked(enableShortcut)
         buttonListWidget.setColumnHidden(0, not enableShortcut)
         checkboxDisplayShortcut.setChecked(displayShortcut)
@@ -3835,30 +3877,45 @@ def pieMenuStart():
 
         return wbList
 
-    def getWbAlreadySet():
-        """ Check if a workbench is already set for a PieMenu """
+    def getWbAlreadySet(slot=None):
+        """ Workbenches already claimed, within one shortcut slot.
+
+        A workbench may claim one pie per slot, not one pie overall -- that
+        single constraint is what used to make a second workbench-aware
+        shortcut impossible. Passing no slot keeps the old, global answer.
+        """
         indexList = getIndexList()
         wbAlreadySet = []
         for i in indexList:
             group = config.get_params()["index"].GetGroup(str(i))
             defWb = group.GetString("DefaultWorkbench")
             if defWb != 'None':
-                wbAlreadySet.append(defWb)
+                if slot is None or getPieSlot(group) == slot:
+                    wbAlreadySet.append(defWb)
 
         return wbAlreadySet
+
+    def onShortcutSlot(value):
+        """ Set which global shortcut this pie answers to """
+        group = getGroup(mode=0)
+        group.SetInt("ShortcutSlot", int(value))
+        setWbForPieMenu()
+        updatePiemenuPreview()
 
     def setWbForPieMenu():
         """ Set workbench to a dedicate PieMenu """
         comboWbForPieMenu.blockSignals(True)
         wbList = getListWorkbenches()
-        wbAlreadySet = getWbAlreadySet()
+        # only workbenches claimed within THIS pie's slot are unavailable: the
+        # same workbench may map to a different pie on a different shortcut
+        group = getGroup(mode=0)
+        wbAlreadySet = getWbAlreadySet(getPieSlot(group))
 
         for item in wbList[:]:
             if item in wbAlreadySet:
                 wbList.remove(item)
                 wbAlreadySet.remove(item)
 
-        group = getGroup(mode=0)
         defWorkbench = group.GetString("DefaultWorkbench")
         wbList.append(defWorkbench)
         if 'None' not in wbList:
@@ -3912,15 +3969,34 @@ def pieMenuStart():
         contextWorkbench = comboContextWorkbench.currentText()
         group.SetString("ContextWorkbench", contextWorkbench)
 
-    def getPieName(wbName):
-        """ Return PieMenu name corresponding to the setting Default Workbench """
+    GLOBAL_SHORTCUT_SLOTS = 4
+
+    def globalShortcutKeyName(slot):
+        """ Parameter name holding the key for a global shortcut slot.
+
+        Slot 1 keeps the original GlobalShortcutKey name so existing configs
+        and the existing preferences field go on working untouched.
+        """
+        return "GlobalShortcutKey" if slot <= 1 else "GlobalShortcutKey%d" % slot
+
+    def getPieSlot(group):
+        """ Which global shortcut a pie answers to. Absent or 0 means slot 1. """
+        return group.GetInt("ShortcutSlot", 0) or 1
+
+    def getPieName(wbName, slot=1):
+        """ PieMenu whose DefaultWorkbench is wbName, within one shortcut slot.
+
+        The mapping is stored inverted -- DefaultWorkbench lives on the pie --
+        so this scans. Slots let a workbench claim a different pie per shortcut:
+        one key opens PartDesign's main pie, another its sketch pie.
+        """
         text = None
         indexList = getIndexList()
         for i in indexList:
             pie = getParamIndex(str(i))
             group = config.get_params()["index"].GetGroup(str(i))
             defWb = group.GetString("DefaultWorkbench")
-            if defWb == wbName:
+            if defWb == wbName and getPieSlot(group) == slot:
                 text = pie
         return text
 
@@ -5708,7 +5784,7 @@ def pieMenuStart():
     addContextConditions = checkboxTriggerContext = comboContextWorkbench = listContextConditions = labelListContext = buttonBackToSettings = None
     listToolBar = toolBarTab = buttonsLayout = showPreviewWidget = showPiemenu = vSplitter = None
     comboBoxTheme = enableContext = checkboxGlobalKeyToggle = spinDelayRightClick = checkboxDisplaySpinBox = labelGlobalShortcut = None
-    globalShortcutLineEdit = None
+    globalShortcutLineEdit = spinShortcutSlot = spinGlobalSlot = None
 
     def buildPreferencesDialog():
         """ Build the preferences dialog.
@@ -5734,6 +5810,7 @@ def pieMenuStart():
         nonlocal toolBarTab, buttonsLayout, showPreviewWidget, showPiemenu, vSplitter
         nonlocal comboBoxTheme, enableContext, checkboxGlobalKeyToggle, spinDelayRightClick
         nonlocal checkboxDisplaySpinBox, labelGlobalShortcut, globalShortcutLineEdit
+        nonlocal spinShortcutSlot, spinGlobalSlot
 
         # pieMenuDialog itself is a module global (the block below declares it
         # global), so it cannot serve as the built-yet flag from in here.
@@ -5882,6 +5959,22 @@ def pieMenuStart():
         layoutWbForPieMenuLeft.addWidget(labelWbForPieMenu)
         layoutWbForPieMenuRight = QtGui.QHBoxLayout()
         layoutWbForPieMenuRight.addWidget(comboWbForPieMenu)
+
+        # Which global shortcut this workbench mapping answers to. One
+        # workbench may claim a different pie on each slot, which is what makes
+        # a second workbench-aware shortcut possible.
+        labelShortcutSlot = QtGui.QLabel(
+            translate("PieMenuTab", "on shortcut:"))
+        spinShortcutSlot = QtGui.QSpinBox()
+        spinShortcutSlot.setMinimum(1)
+        spinShortcutSlot.setMaximum(GLOBAL_SHORTCUT_SLOTS)
+        spinShortcutSlot.setMaximumWidth(50)
+        spinShortcutSlot.setToolTip(
+            translate("PieMenuTab",
+                      "Which global shortcut opens this pie for its workbench"))
+        spinShortcutSlot.valueChanged.connect(onShortcutSlot)
+        layoutWbForPieMenuRight.addWidget(labelShortcutSlot)
+        layoutWbForPieMenuRight.addWidget(spinShortcutSlot)
         layoutWbForPieMenu = QtGui.QHBoxLayout()
         layoutWbForPieMenu.addLayout(layoutWbForPieMenuLeft, 1)
         layoutWbForPieMenu.addLayout(layoutWbForPieMenuRight, 1)
@@ -6837,9 +6930,21 @@ def pieMenuStart():
         deleteGlobalShortcutButton.clicked.connect(
             lambda: updateGlobalShortcutKey(""))
 
+        # Which of the global shortcut slots the field below edits.
+        spinGlobalSlot = QtGui.QSpinBox()
+        spinGlobalSlot.setMinimum(1)
+        spinGlobalSlot.setMaximum(GLOBAL_SHORTCUT_SLOTS)
+        spinGlobalSlot.setMaximumWidth(50)
+        spinGlobalSlot.setToolTip(
+            translate("GlobalSettingsTab",
+                      "Global shortcut slot. Each slot opens the pie assigned "
+                      "to the active workbench for that slot."))
+        spinGlobalSlot.valueChanged.connect(onGlobalSlotChanged)
+
         layoutGlobalShortcut = QtGui.QHBoxLayout()
         layoutGlobalShortcut.addWidget(labelGlobalShortcut)
         layoutGlobalShortcut.addStretch(1)
+        layoutGlobalShortcut.addWidget(spinGlobalSlot)
         layoutGlobalShortcut.addWidget(globalShortcutLineEdit)
         layoutGlobalShortcut.addWidget(assignGlobalShortcutButton)
         layoutGlobalShortcut.addWidget(deleteGlobalShortcutButton)
@@ -6953,14 +7058,31 @@ def pieMenuStart():
         addObserver()
         setContextConditions()
         PieMenuInstance = PieMenu()
-        actionKey = QtGui.QAction(mw)
-        actionKey.setText("Invoke pie menu")
-        actionKey.setObjectName("PieMenuShortCut")
-        # fix shortcut not trigger on fresh install
-        state.app_state.global_shortcut_key = config.get_params()["main"].GetString("GlobalShortcutKey")
-        actionKey.setShortcut(QtGui.QKeySequence(state.app_state.global_shortcut_key))
-        actionKey.triggered.connect(PieMenuInstance.showAtMouseInstance)
-        mw.addAction(actionKey)
+        # One QAction per global shortcut slot. Slot 1 keeps the original
+        # parameter name and object name, so an existing install is unchanged
+        # and the re-entrancy guard above still finds it.
+        actionKey = None
+        for slot in range(1, GLOBAL_SHORTCUT_SLOTS + 1):
+            key = config.get_params()["main"].GetString(
+                globalShortcutKeyName(slot))
+            if slot > 1 and not key:
+                continue
+
+            action = QtGui.QAction(mw)
+            action.setText("Invoke pie menu" if slot == 1
+                           else "Invoke pie menu %d" % slot)
+            action.setObjectName("PieMenuShortCut" if slot == 1
+                                 else "PieMenuShortCut%d" % slot)
+            action.setShortcut(QtGui.QKeySequence(key))
+            action.triggered.connect(
+                lambda checked=False, s=slot:
+                    PieMenuInstance.showAtMouseInstance(slot=s))
+            mw.addAction(action)
+
+            if slot == 1:
+                actionKey = action
+                # fix shortcut not trigger on fresh install
+                state.app_state.global_shortcut_key = key
         getShortcutList()
         legacyFix()
         # Fix errors at first init: ensure the default PieMenu group exists.
