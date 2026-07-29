@@ -479,24 +479,27 @@ def pieMenuStart():
                             i.hide()
                         return False
 
-            try:
-                if checkboxRightClick.isChecked():
-                    if event.type() == QtCore.QEvent.MouseButtonPress:
-                        if event.button() == QtCore.Qt.RightButton:
+            # Only right-button press/release can trigger the long-click pie, so
+            # test the event type before reading the trigger settings: this filter
+            # is installed application-wide and sees every event.
+            if event.type() in (QtCore.QEvent.MouseButtonPress,
+                                QtCore.QEvent.MouseButtonRelease):
+                try:
+                    if (event.button() == QtCore.Qt.RightButton
+                            and checkboxRightClick.isChecked()):
+                        if event.type() == QtCore.QEvent.MouseButtonPress:
                             self.timer.start(spinDelayRightClick.value())
                             return False
 
-                    if event.type() == QtCore.QEvent.MouseButtonRelease:
-                        if event.button() == QtCore.Qt.RightButton:
-                            if self.timer.isActive():
-                                self.timer.stop()
-                                self.debounceTimer.start(100)
-                                self.stop_filter()
-                                return False
-                            else:
-                                return True
-            except:
-                None
+                        if self.timer.isActive():
+                            self.timer.stop()
+                            self.debounceTimer.start(100)
+                            self.stop_filter()
+                            return False
+                        else:
+                            return True
+                except:
+                    None
 
             # Special case when shortcut is assigned to tool PieMenu AND also other there
             if event.type() == QtCore.QEvent.ShortcutOverride and self.menu.isVisible():
