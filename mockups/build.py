@@ -32,6 +32,9 @@ def inline_icons():
             body = body[start.start():]
         # let CSS size it: drop the fixed width/height, keep the viewBox
         body = re.sub(r'\s(width|height)="[^"]*"', "", body, count=2)
+        # <metadata>/<title>/<desc> render as stray text inside a list row
+        for tag in ("metadata", "title", "desc"):
+            body = re.sub(r"<%s\b.*?</%s>" % (tag, tag), "", body, flags=re.S)
         icons[name[:-4]] = re.sub(r"\s+", " ", body).strip()
     return icons
 

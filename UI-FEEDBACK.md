@@ -21,6 +21,8 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 11 | Inner circle drawn in the preview | The QuickMenu button at the centre of the pie. |
 | 12 | Toolbars belong to their panel | Mounted in the panel header, so it is obvious which list a button acts on. |
 | 14 | A distinct icon per tool | Currently every tool row shows the same dot, so the list reads as undifferentiated. |
+| 20 | Replace, not delete-then-add | A filled slot's right-click menu needs **Replace tool…**, so changing what is in a slot is one step rather than clearing it and adding again. |
+| 21 | A playground under the dialog | A rudimentary viewport: pick a vertex, edge, face or body on a solid, open the pie, and watch which tool each slot resolves to and what firing it does. |
 | 15 | Dragging must be visible on the pie itself | The dragged tool should follow the cursor on the preview and the landing slot should be indicated, rather than only updating on drop. |
 
 ## Decisions that change shipped work
@@ -65,6 +67,47 @@ snap-to-slot already implies.
 - Shortcut codes are positional today, so they need to key off slot order.
 
 Mockup first, then the schema.
+
+## Design change — pinning, hierarchy and conditional slots
+
+**17. Corner pinning is wrong.** Shared tools were placed in the four corners of
+the bounding box because those are empty for the pie shapes. But the cursor is
+at the *centre* when a pie opens, so a corner is the furthest reachable point on
+the menu — the worst place for the tool you reach for most. Corner anchoring
+comes out.
+
+**18. Pin a slot, and let child pies inherit it.** Pinning belongs to a *slot*,
+not to a corner: a pinned slot keeps its position and its contents in that pie
+**and in every pie descended from it**. That requires pies to form a tree rather
+than a flat list, so the pie panel needs parents, children and expand/collapse.
+Inheritance flows down the tree, so a tool pinned on a parent sits at the same
+slot in each child, at the same distance from the cursor.
+
+**19. A slot resolves against the selection, not to a single command.** One slot
+holds several conditional bindings:
+
+- a face is selected → the slot is Pad
+- an edge is selected → the same slot is Fillet
+- nothing that slot knows about applies → the slot is greyed out
+- **more than one applies** → hovering the slot opens a slider to choose between
+  the candidates
+
+So a slot is a small ordered set of (condition, command) pairs, and what the user
+sees in that position depends on what is selected when the pie opens.
+
+**Backend consequences**
+
+- The per-tool context rule from F3 becomes a *per-binding* rule: it already
+  evaluates a six-axis condition, but it currently answers "enable or grey this
+  tool", not "which of these tools belongs here".
+- `ToolList` cannot express this at all — a slot needs a list of bindings, each
+  with its own rule. This lands on top of the slot model from feedback #16.
+- Pie parentage is new: an index entry needs a parent, and cycles must be
+  rejected.
+- `SharedToolList` and the per-tool `Anchor` from F8.c are replaced by a pinned
+  flag on a slot, so commit `b619aed` is superseded rather than extended.
+- Resolution happens when the pie is built, which is where F3 already evaluates.
+  The hover-to-choose slider is new interaction, not just new layout.
 
 ## Notes
 

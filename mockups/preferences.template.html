@@ -71,7 +71,24 @@ border:1px solid var(--slotline);border-radius:4px;cursor:grab;user-select:none;
 .slot.ghost{z-index:9;pointer-events:none;opacity:.95;box-shadow:0 5px 16px rgba(0,0,0,.6)}
 .slot.target{box-shadow:0 0 0 2px var(--hi)}
 .slot.off{opacity:.32;filter:grayscale(1)}
-.slot.pin{border-color:var(--warn);border-style:dashed}
+.slot.pin{border-color:var(--warn)}
+.slot.inherited{border-color:var(--warn);border-style:dashed;opacity:.85}
+.slot.multi::after{content:"";position:absolute;right:2px;bottom:2px;width:0;height:0;
+ border-left:5px solid transparent;border-bottom:5px solid var(--hi)}
+.slot.unbound{opacity:.28;filter:grayscale(1)}
+.chooser{position:absolute;z-index:12;display:flex;gap:3px;padding:3px;background:var(--win);
+ border:1px solid var(--hi);border-radius:4px;box-shadow:0 6px 18px rgba(0,0,0,.6)}
+.chooser .opt{width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+ background:var(--slot);border:1px solid var(--slotline);border-radius:3px;cursor:pointer}
+.chooser .opt.on{border-color:var(--hi);box-shadow:0 0 0 1px var(--hi)}
+.chooser .opt .ico{width:60%;height:60%}
+.selbar{position:absolute;top:6px;right:8px;display:flex;gap:3px;align-items:center;z-index:4}
+.selbar .lab{color:#928374;font-size:11px;margin-right:3px}
+.selchip{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--dim);
+ font-size:11px;padding:2px 7px;cursor:pointer}
+.selchip.on{background:var(--hi);border-color:var(--hi);color:var(--hitext)}
+.row.child2{padding-left:20px}
+.tw{width:12px;color:var(--dim);text-align:center;flex:0 0 auto;cursor:pointer}
 .slot.reg{border-color:var(--hi)}
 .slot.centre{border-radius:50%;background:#413b36;cursor:default;opacity:.85}
 .ring{position:absolute;border:1px solid #423c37;border-radius:50%;pointer-events:none}
@@ -106,6 +123,7 @@ box-shadow:0 8px 22px rgba(0,0,0,.5);padding:3px;min-width:200px}
 .sw.pin{border-color:var(--warn);border-style:dashed}
 .sw.off{opacity:.32;filter:grayscale(1)}
 .sw.reg{border-color:var(--hi)}
+.sw.pin{border-color:var(--warn);border-style:solid}
 .sheet{width:1080px;margin:0 auto 40px}
 .sheet h3{font-size:13px;color:var(--text);margin:0 0 8px}
 .sheet table{width:100%;border-collapse:collapse;font-size:12px;background:var(--win);
@@ -115,6 +133,32 @@ border:1px solid var(--line);border-radius:3px;overflow:hidden}
 .sheet tr:last-child td{border-bottom:0}
 .sheet td:first-child{white-space:nowrap;font-weight:600}
 .sheet td:nth-child(3){color:var(--dim)}
+.play{width:1080px;margin:0 auto 26px}
+.play h3{font-size:13px;color:var(--text);margin:0 0 8px}
+.playrow{display:flex;gap:8px}
+.viewport{position:relative;flex:1;height:330px;background:#1f2223;border:1px solid var(--line);
+ border-radius:3px;display:flex;flex-direction:column;overflow:hidden}
+.viewport svg{flex:1;width:100%}
+.vplbl{position:absolute;top:6px;left:9px;color:#7c6f64;font-size:11px;pointer-events:none;z-index:1}
+.vpfoot{display:flex;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line);
+ background:var(--win);font-size:12px;color:var(--dim)}
+.logbox{width:320px;display:flex;flex-direction:column;border:1px solid var(--line);
+ border-radius:3px;overflow:hidden;background:var(--base)}
+.log{flex:1;overflow:auto;padding:4px;font-size:12px}
+.log .e{display:flex;gap:7px;padding:3px 5px;border-bottom:1px solid #3a3735;align-items:center}
+.log .e .ico{width:14px;height:14px}
+.log .e b{color:var(--hi);font-weight:600}
+.log .e span.t{color:var(--dim);font-size:11px;margin-left:auto}
+.hit{cursor:pointer}
+.face{fill:#3f4547;stroke:#5a6265;stroke-width:1}
+.face.on{fill:#6b4a55;stroke:var(--hi);stroke-width:1.5}
+.edge{stroke:#7d878a;stroke-width:2.5;fill:none}
+.edge.on{stroke:var(--hi);stroke-width:4}
+.vert{fill:#9aa4a7;stroke:#1f2223;stroke-width:1}
+.vert.on{fill:var(--hi);r:6}
+.bodyhit{fill:transparent}
+.livepie{position:absolute;z-index:20}
+.livepie .slot{cursor:pointer}
 .new{color:#b8bb26}.fix{color:#fabd2f}.perf{color:#83a598}.int{color:#a89984}.ui{color:#d3869b}
 </style>
 
@@ -134,13 +178,35 @@ border:1px solid var(--line);border-radius:3px;overflow:hidden}
 </div>
 <div class="note" id="note"></div>
 
+<div class="play">
+  <h3>Playground — does it behave the way you expect?</h3>
+  <div class="playrow">
+    <div class="viewport" id="viewport">
+      <div class="vplbl">Click a vertex, edge, face, or the body. Then press <b>TAB</b> here, or click <b>Open pie</b>.</div>
+      <svg id="solid" viewBox="0 0 220 240"></svg>
+      <div class="vpfoot">
+        <span id="selnow">selection: nothing</span>
+        <span class="grow"></span>
+        <button class="btn" id="openPie">Open pie</button>
+        <button class="btn" id="clearSel">Clear</button>
+      </div>
+    </div>
+    <div class="logbox">
+      <div class="phead"><span class="ptitle">What happened</span><span class="grow"></span>
+        <button class="tool sm" id="clearLog" title="Clear">·</button></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+
 <div class="sheet">
   <h3>Everything added to PieMenu — 39 commits</h3>
   <table>
     <tr><th>Feature</th><th>What it does</th><th>Where in this mockup</th><th>Status</th></tr>
-    <tr><td>Per-tool context rules</td><td>Grey a tool out unless the selection matches a six-axis rule</td><td>right-click a slot → Context rule</td><td class="new">new feature</td></tr>
-    <tr><td>Shared / pinned tools</td><td>Define once, appears in the corner of every pie</td><td>right-click a slot → Pin to a corner</td><td class="new">new feature</td></tr>
-    <tr><td>Composite regions</td><td>Extra layout regions with their own shape and sizes beside the main pie</td><td>Regions box, then right-click a slot</td><td class="new">new feature</td></tr>
+    <tr><td>Per-tool context rules</td><td>The six-axis rule now decides <i>which</i> tool a slot shows, not just whether it is greyed</td><td>selection chips + playground</td><td class="new">new feature</td></tr>
+    <tr><td>Pinned slots</td><td>A pinned slot keeps its position and contents in this pie and every pie descended from it</td><td>right-click a slot → Pin to child pies</td><td class="new">reworked — feedback #17/#18</td></tr>
+    <tr><td>Conditional slots</td><td>One slot, several bindings: face→Pad, edge→Fillet, nothing applies→greyed, several apply→hover to choose</td><td>playground below</td><td class="new">new — feedback #19</td></tr>
     <tr><td>Gesture trigger mode</td><td>Hold the shortcut, move, release to run — marking-menu style</td><td>Trigger → Mode</td><td class="new">new feature</td></tr>
     <tr><td>Gesture cursor line</td><td>Line drawn from the pie centre to the pointer; first painted element in the addon</td><td>not shown here</td><td class="new">new feature</td></tr>
     <tr><td>Multiple workbench shortcuts</td><td>Four global shortcut slots; a workbench can map to a different pie per slot</td><td>Assignment → On shortcut</td><td class="new">new feature</td></tr>
@@ -251,25 +317,62 @@ const AXES=["Vertex","Edge","Face","Object","Axis","Plane"];
 const SIGNS=["<","<=","==","!=",">",">="];
 const CORNERS=["TopLeft","TopRight","BottomLeft","BottomRight"];
 
+/* A slot is null, or a set of conditional bindings:
+     {b:[{cmd, when}], pin:bool}
+   `when` is a named selection condition -- the real thing uses the six-axis
+   rule from F3. Which binding a slot shows depends on what is selected; none
+   matching greys the slot, several matching offers a chooser on hover. */
+const CONDS=["any","vertex","edge","face","body"];
+const slot=(bindings,pin)=>({b:bindings.map(x=>typeof x==="string"?{cmd:x,when:"any"}:x),pin:!!pin});
+
 function mkPie(name,items,o={}){return Object.assign({
- name,def:false,family:"circle",
+ name,parent:null,open:true,def:false,family:"circle",
  slots:8,perRing:8,radius:80,arc:360,stagger:false,
  cols:3,rows:2,anchor:"Center",split:false,
  button:34,spacing:6,sel:0,items:items.slice(),
- names:false,mode:"Press",delay:100,key:"",wb:"None",slot:1,
- inherit:true,regions:[],rules:{},toolRegion:{},
+ names:false,mode:"Press",delay:100,key:"",wb:"None",shortcutSlot:1,
+ regions:[],toolRegion:{},
 },o);}
+
 const S={pies:[
- mkPie("WB Selector",["Std_New","Std_Open","Std_Save",null,"View_Fit","View_Front",null,"PieMenu_Sketcher"],{key:"TAB"}),
- mkPie("View",["View_Fit","View_Front","View_Top","View_Right","View_Axo","View_Wireframe"],
+ mkPie("Main",[
+   slot(["Std_New"]),slot(["Std_Open"]),
+   slot([{cmd:"Std_Save",when:"any"}],true),                 /* pinned: children inherit */
+   null,
+   slot([{cmd:"PartDesign_Pad",when:"face"},
+         {cmd:"PartDesign_Fillet",when:"edge"},
+         {cmd:"PartDesign_Chamfer",when:"edge"}]),           /* conditional, two on edge */
+   slot(["View_Fit"]),null,slot(["PieMenu_Sketcher"]),
+  ],{key:"TAB"}),
+ mkPie("Modelling",[
+   slot([{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Pocket",when:"face"}]),
+   slot([{cmd:"PartDesign_Fillet",when:"edge"}]),
+   null,null,
+   slot([{cmd:"PartDesign_Revolution",when:"face"}]),
+   slot(["Std_Undo"]),null,null,
+  ],{parent:"Main",wb:"PartDesign",mode:"Gesture"}),
+ mkPie("Sketching",[
+   slot(["Sketcher_NewSketch"]),slot(["Sketcher_Line"]),
+   null,slot(["Sketcher_Circle"]),slot(["Sketcher_Rectangle"]),null,
+  ],{parent:"Main",wb:"Sketcher",family:"grid",cols:3,rows:2}),
+ mkPie("View",[slot(["View_Fit"]),slot(["View_Front"]),slot(["View_Top"]),
+               slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"])],
    {def:true,slots:12,perRing:6,radius:56}),
- mkPie("PartDesign",["PartDesign_Pad","PartDesign_Pocket","PartDesign_Revolution","PartDesign_Fillet","PartDesign_Chamfer",null,null,null],
-   {wb:"PartDesign",mode:"Gesture",rules:{"PartDesign_Fillet":{on:true,Edge:[">=",1]}}}),
- mkPie("PartDesignFrequent",["PartDesign_Pad","PartDesign_Pocket","Std_Undo","Std_Redo","PartDesign_Mirrored",null],
-   {family:"grid",cols:3,rows:2}),
- mkPie("Sketcher",["Sketcher_NewSketch","Sketcher_Line","Sketcher_Circle","Sketcher_Rectangle",null,null],
-   {wb:"Sketcher",slot:2,family:"grid",cols:2,rows:3,anchor:"Right"}),
-], cur:0, shared:{"Std_Save":"TopRight"}};
+], cur:0, selection:"face"};
+
+const childrenOf=n=>S.pies.filter(p=>p.parent===n);
+const ancestors=p=>{const out=[]; let cur=p;
+ while(cur&&cur.parent){cur=S.pies.find(x=>x.name===cur.parent); if(cur)out.push(cur);} return out;};
+/* a pinned slot on any ancestor occupies the same index in this pie */
+function inheritedSlot(p,i){
+ for(const a of ancestors(p)){const sl=a.items[i]; if(sl&&sl.pin)return {slot:sl,from:a.name};}
+ return null;}
+function effectiveSlot(p,i){
+ const inh=inheritedSlot(p,i);
+ if(inh)return {slot:inh.slot,inherited:inh.from};
+ return {slot:p.items[i],inherited:null};}
+/* which bindings of a slot apply to the current selection */
+const matches=sl=>!sl?[]:sl.b.filter(x=>x.when==="any"||x.when===S.selection);
 const pie=()=>S.pies[S.cur];
 const slotCount=p=>p.family==="circle"?p.slots:p.cols*p.rows;
 const filled=p=>p.items.filter(Boolean);
@@ -318,7 +421,8 @@ function ctxMenu(ev,items){
 const uniqueName=b=>{const n=S.pies.map(p=>p.name); if(!n.includes(b))return b;
  let i=2; while(n.includes(b+"-"+i))i++; return b+"-"+i;};
 
-const pieAdd=()=>askText("New PieMenu","Name:","",n=>{S.pies.push(mkPie(uniqueName(n),[])); S.cur=S.pies.length-1;});
+const pieAdd=parent=>askText("New PieMenu","Name:","",n=>{
+ S.pies.push(mkPie(uniqueName(n),[],{parent:parent||null})); S.cur=S.pies.length-1;});
 const pieRename=()=>askText("Rename PieMenu","Name:",pie().name,n=>{pie().name=uniqueName(n);});
 const pieCopy=()=>{const c=JSON.parse(JSON.stringify(pie())); c.name=uniqueName(pie().name); c.def=false;
  S.pies.splice(S.cur+1,0,c); S.cur++; render();};
@@ -328,76 +432,57 @@ const pieMove=d=>{const i=S.cur,j=i+d; if(j<0||j>=S.pies.length)return;
  [S.pies[i],S.pies[j]]=[S.pies[j],S.pies[i]]; S.cur=j; render();};
 
 /* the global tool list, folded by workbench -- reached by double-clicking a slot */
-function chooseTool(slot){
- const box=el("div","picker"); box.style.minWidth="420px";
+function chooseTool(idx,bindingIdx){
+ const box=el("div","picker"); box.style.minWidth="430px";
  let chosen=null; const open={};
  const draw=()=>{box.innerHTML="";
   Object.entries(CATALOG).forEach(([wb,cmds])=>{
    const h=el("div","row grp");
-   h.append(el("span","tw",open[wb]?"▾":"▸"),el("span","name",wb),el("span","tag",cmds.length+""));
+   h.append(el("span","tw",open[wb]?"\u25be":"\u25b8"),el("span","name",wb),el("span","tag",cmds.length+""));
    h.onclick=()=>{open[wb]=!open[wb]; draw();};
    box.append(h);
    if(!open[wb])return;
    cmds.forEach(c=>{
-    const has=pie().items.includes(c);
-    const r=el("div","row child"+(chosen===c?" sel":"")+(has?" dim":""));
-    r.append(el("span","tw",""),svg(toolIcon(c)),el("span","name",shortName(c)));
-    if(has)r.append(el("span","tag","in pie"));
+    const r=el("div","row child2"+(chosen===c?" sel":""));
+    r.append(svg(toolIcon(c)),el("span","name",shortName(c)));
     r.onclick=()=>{chosen=c; draw();};
-    r.ondblclick=()=>{chosen=c; h2.ok.click();};
+    r.ondblclick=()=>{chosen=c; m.ok.click();};
     box.append(r);});});};
  draw();
- const h2=modal("Choose a tool for slot "+(slot+1),box,()=>{
+ const cond=el("select"); CONDS.forEach(c=>cond.append(el("option",null,c)));
+ const wrap=el("div"); wrap.append(box);
+ const f=el("div","form"); f.style.marginTop="10px";
+ f.append(el("label",null,"Applies when:"),cond);
+ wrap.append(f);
+ const m=modal("Tool for slot "+(idx+1),wrap,()=>{
   if(chosen==null)return false;
-  const p=pie(); normalise(p); p.items[slot]=chosen; p.sel=slot;},"Use tool");
+  const p=pie(); normalise(p);
+  if(!p.items[idx])p.items[idx]=slot([]);
+  const b={cmd:chosen,when:cond.value};
+  if(bindingIdx==null)p.items[idx].b.push(b); else p.items[idx].b[bindingIdx]=b;
+  p.sel=idx;},"Use tool");
 }
-const clearSlot=i=>{const p=pie(),c=p.items[i]; if(!c)return;
- p.items[i]=null; delete p.rules[c]; delete p.toolRegion[c]; render();};
-function swapSlots(a,b){const p=pie(); if(a===b)return;
- [p.items[a],p.items[b]]=[p.items[b],p.items[a]]; p.sel=b; render();}
-function slotRule(i){
- const p=pie(),cmd=p.items[i]; if(!cmd)return;
- const cur=p.rules[cmd]||{on:false},w=el("div");
- const on=el("input"); on.type="checkbox"; on.checked=!!cur.on;
- const t=el("label","check"); t.append(on,el("span",null,"Only enable this tool when the selection matches"));
- w.append(t);
- const f=el("div","form"); f.style.marginTop="10px"; const rows={};
- AXES.forEach(a=>{
-  const s=el("select"); SIGNS.forEach(g=>{const o=el("option",null,g); if(cur[a]&&cur[a][0]===g)o.selected=true; s.append(o);});
-  const n=el("input"); n.type="number"; n.min=0; n.max=99; n.value=cur[a]?cur[a][1]:0;
-  const cell=el("div"); cell.style.cssText="display:flex;gap:6px"; s.style.width="74px"; n.style.width="74px";
-  cell.append(s,n); f.append(el("label",null,a+":"),cell); rows[a]=[s,n];});
- w.append(f);
- modal("Context rule — "+shortName(cmd),w,()=>{
-  const r={on:on.checked}; AXES.forEach(a=>r[a]=[rows[a][0].value,+rows[a][1].value]);
-  if(r.on)p.rules[cmd]=r; else delete p.rules[cmd];});
+const clearSlot=i=>{const p=pie(); p.items[i]=null; render();};
+function slotPin(i){const p=pie(); if(!p.items[i])return; p.items[i].pin=!p.items[i].pin; render();}
+function slotBindings(i){
+ const p=pie(),sl=p.items[i]; if(!sl)return;
+ const box=el("div","picker");
+ const draw=()=>{box.innerHTML="";
+  sl.b.forEach((b,j)=>{
+   const r=el("div","row");
+   r.append(svg(toolIcon(b.cmd)),el("span","name",shortName(b.cmd)));
+   const cond=el("select"); cond.style.width="98px";
+   CONDS.forEach(c=>{const o=el("option",null,c); if(c===b.when)o.selected=true; cond.append(o);});
+   cond.onchange=()=>{b.when=cond.value;};
+   const del=el("button","tool sm"); del.append(svg(uiIcon("PieMenuRemove")));
+   del.title="Remove this binding";
+   del.onclick=()=>{sl.b.splice(j,1); if(!sl.b.length)p.items[i]=null; draw(); render();};
+   r.append(cond,del); box.append(r);});};
+ draw();
+ const add=el("button","btn","Add another tool\u2026"); add.onclick=()=>chooseTool(i);
+ const w=el("div"); w.append(box,add);
+ modal("Slot "+(i+1)+" \u2014 what appears here",w,()=>{});
 }
-function slotPin(i){
- const p=pie(),cmd=p.items[i]; if(!cmd)return;
- if(S.shared[cmd]){delete S.shared[cmd]; render(); return;}
- const box=el("div","picker"); let chosen=null;
- CORNERS.forEach(c=>{const r=el("div","row"); r.append(el("span","name",c));
-  r.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("sel")); r.classList.add("sel"); chosen=c;};
-  box.append(r);});
- modal("Pin “"+shortName(cmd)+"” to a corner of every pie",box,()=>{if(!chosen)return false; S.shared[cmd]=chosen;});
-}
-function slotRegion(i){
- const p=pie(),cmd=p.items[i]; if(!cmd)return;
- if(!p.regions.length){alert("This pie has no extra regions yet.\nAdd one in the Regions box first."); return;}
- const box=el("div","picker"); let chosen=null;
- ["main"].concat(p.regions.map(r=>r.name)).forEach(c=>{
-  const r=el("div","row"); r.append(el("span","name",c));
-  r.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("sel")); r.classList.add("sel"); chosen=c;};
-  box.append(r);});
- modal("Region for “"+shortName(cmd)+"”",box,()=>{if(!chosen)return false;
-  if(chosen==="main")delete p.toolRegion[cmd]; else p.toolRegion[cmd]=chosen;});
-}
-const regionAdd=()=>askText("New region","Name:","sidebar",n=>{
- pie().regions.push({name:n,family:"grid",cols:1,rows:3,anchor:"Right",button:24,spacing:2,radius:40,slots:3,perRing:3});});
-const regionRemove=()=>{const p=pie(); if(!p.regions.length)return;
- const g=p.regions.pop().name;
- Object.keys(p.toolRegion).forEach(k=>{if(p.toolRegion[k]===g)delete p.toolRegion[k];}); render();};
-
 /* Two families only: circle and grid. */
 function positions(p){
  const out=[],n=slotCount(p),step=p.button+p.spacing;
@@ -426,35 +511,57 @@ function positions(p){
 
 function pieListEl(){
  const l=el("div","list");
- S.pies.forEach((p,i)=>{
-  const r=el("div","row"+(i===S.cur?" sel":"")); r.draggable=true;
-  r.append(svg(T.grip,"grip"),svg(p.def?uiIcon("PieMenu_Logo"):uiIcon("PieMenuEditMenu")),
-           el("span","name",p.name));
-  if(p.def)r.append(el("span","tag","default"));
-  if(p.slot>1)r.append(el("span","tag","⌨"+p.slot));
-  r.onclick=()=>{S.cur=i; render();};
-  r.ondblclick=()=>{S.cur=i; pieRename();};
-  r.oncontextmenu=e=>{S.cur=i; render(); return ctxMenu(e,[
-   [uiIcon("PieMenuRename"),"Rename…",pieRename],
-   [uiIcon("PieMenuCopy"),"Duplicate",pieCopy],
-   [uiIcon("PieMenuRemove"),"Delete",pieDelete,S.pies.length<2],
-   "-",
-   [uiIcon("PieMenu_Logo"),"Use when no workbench matches",pieDefault,p.def],
-   "-",
-   [uiIcon("PieMenuAdd"),"Add a new PieMenu…",pieAdd],
-  ]);};
-  r.ondragstart=e=>{e.dataTransfer.setData("text/plain","pie:"+i); r.classList.add("drag");};
-  r.ondragend=()=>r.classList.remove("drag");
-  r.ondragover=e=>{e.preventDefault(); r.classList.add("over");};
-  r.ondragleave=()=>r.classList.remove("over");
-  r.ondrop=e=>{e.preventDefault(); r.classList.remove("over");
-   const d=String(e.dataTransfer.getData("text/plain"));
-   if(!d.startsWith("pie:"))return;
-   const from=+d.slice(4); if(from===i)return;
-   const [x]=S.pies.splice(from,1); S.pies.splice(i,0,x); S.cur=i; render();};
-  l.append(r);});
- return l;}
-
+ const draw=(parent,depth)=>{
+  S.pies.filter(p=>p.parent===parent).forEach(p=>{
+   const i=S.pies.indexOf(p), kids=childrenOf(p.name);
+   const r=el("div","row"+(i===S.cur?" sel":"")); r.draggable=true;
+   r.style.paddingLeft=(3+depth*14)+"px";
+   const tw=el("span","tw",kids.length?(p.open?"\u25be":"\u25b8"):"");
+   if(kids.length)tw.onclick=e=>{e.stopPropagation(); p.open=!p.open; render();};
+   r.append(tw,svg(T.grip,"grip"),
+            svg(p.def?uiIcon("PieMenu_Logo"):uiIcon("PieMenuEditMenu")),
+            el("span","name",p.name));
+   const pins=p.items.filter(x=>x&&x.pin).length;
+   if(pins)r.append(el("span","tag","\ud83d\udccc"+pins));
+   if(p.def)r.append(el("span","tag","default"));
+   r.onclick=()=>{S.cur=i; render();};
+   r.ondblclick=()=>{S.cur=i; pieRename();};
+   r.oncontextmenu=e=>{S.cur=i; render(); return ctxMenu(e,[
+    [uiIcon("PieMenuRename"),"Rename\u2026",pieRename],
+    [uiIcon("PieMenuCopy"),"Duplicate",pieCopy],
+    [uiIcon("PieMenuRemove"),"Delete",pieDelete,S.pies.length<2||kids.length>0],
+    "-",
+    [uiIcon("PieMenuAddMenu"),"Add a child pie\u2026",()=>pieAdd(p.name)],
+    [uiIcon("PieMenuArrowDown"),"Re-parent\u2026",pieReparent],
+    "-",
+    [uiIcon("PieMenu_Logo"),"Use when no workbench matches",pieDefault,p.def],
+   ]);};
+   r.ondragstart=e=>{e.dataTransfer.setData("text/plain","pie:"+i); r.classList.add("drag");};
+   r.ondragend=()=>r.classList.remove("drag");
+   r.ondragover=e=>{e.preventDefault(); r.classList.add("over");};
+   r.ondragleave=()=>r.classList.remove("over");
+   r.ondrop=e=>{e.preventDefault(); r.classList.remove("over");
+    const d=String(e.dataTransfer.getData("text/plain"));
+    if(!d.startsWith("pie:"))return;
+    const from=S.pies[+d.slice(4)]; if(!from||from===p)return;
+    if(ancestors(p).includes(from))return;          // no cycles
+    from.parent=p.name; S.cur=S.pies.indexOf(from); render();};
+   l.append(r);
+   if(p.open)draw(p.name,depth+1);
+  });
+ };
+ draw(null,0);
+ return l;
+}
+function pieReparent(){
+ const p=pie(),box=el("div","picker"); let chosen="";
+ const opts=[["","(top level)"]].concat(
+   S.pies.filter(x=>x!==p&&!ancestors(x).includes(p)).map(x=>[x.name,x.name]));
+ opts.forEach(([v,label])=>{const r=el("div","row"); r.append(el("span","name",label));
+  r.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("sel")); r.classList.add("sel"); chosen=v;};
+  box.append(r);});
+ modal("Parent of \u201c"+p.name+"\u201d",box,()=>{p.parent=chosen||null;});
+}
 function iconBtn(icon,title,fn,active,small){
  const b=el("button","tool"+(small?" sm":"")+(active?" on":""));
  b.title=title; b.append(svg(icon)); b.onclick=fn; return b;}
@@ -469,9 +576,33 @@ function panel(title,count,actions,listNode){
 function canvasEl(){
  const c=el("div","canvas");
  c.append(el("div","lbl","Double-click a slot to choose a tool · right-click for options"));
+ const bar=el("div","selbar"); bar.append(el("span","lab","selection:"));
+ ["none","vertex","edge","face","body"].forEach(k=>{
+  const b=el("button","selchip"+(S.selection===k?" on":""),k);
+  b.onclick=()=>{S.selection=k; chooserPick={}; render();};
+  bar.append(b);});
+ c.append(bar);
  c.oncontextmenu=e=>e.preventDefault();
  requestAnimationFrame(()=>paint(c));
  return c;}
+let chooserPick={};
+function showChooser(canvas,node,idx,hits){
+ canvas.querySelectorAll(".chooser").forEach(n=>n.remove());
+ const box=el("div","chooser");
+ hits.forEach((b,j)=>{
+  const o=el("div","opt"+((chooserPick[idx]||0)===j?" on":""));
+  o.append(svg(toolIcon(b.cmd))); o.title=b.when+" \u2192 "+shortName(b.cmd);
+  o.onclick=e=>{e.stopPropagation(); chooserPick[idx]=j; box.remove(); paint(canvas);};
+  box.append(o);});
+ canvas.append(box);
+ const nb=node.getBoundingClientRect(),cb=canvas.getBoundingClientRect();
+ box.style.left=Math.max(2,Math.min(nb.left-cb.left+nb.width/2-box.offsetWidth/2,
+                                    cb.width-box.offsetWidth-2))+"px";
+ box.style.top=(nb.top-cb.top+nb.height+5)+"px";
+ node.onmouseleave=e=>{ if(!box.contains(e.relatedTarget))
+   setTimeout(()=>{if(!box.matches(":hover"))box.remove();},250); };
+ box.onmouseleave=()=>box.remove();
+}
 function paint(c){
  [...c.querySelectorAll(".slot,.ring")].forEach(n=>n.remove());
  const p=pie(); normalise(p);
@@ -484,25 +615,27 @@ function paint(c){
    ring.style.cssText=`left:${cx-rad}px;top:${cy-rad}px;width:${rad*2}px;height:${rad*2}px`;
    c.append(ring);}}
  const mk=(cmd,idx,x,y,size,cls)=>{
-  const off=cmd&&p.rules[cmd]&&p.rules[cmd].on;
-  const s=el("div","slot"+(cmd?"":" empty")+(off?" off":"")+(cls?" "+cls:"")
+  const s=el("div","slot"+(cmd?"":" empty")+(cls?" "+cls:"")
             +(idx===p.sel&&idx!=null?" sel":""));
   s.style.cssText=`left:${x-size/2}px;top:${y-size/2}px;width:${size}px;height:${size}px`;
   if(idx!=null)s.dataset.idx=idx;
-  if(cmd){s.title=shortName(cmd)+(off?" · greyed unless the selection matches":"")
-    +(S.shared[cmd]?" · shared, "+S.shared[cmd]:"");
+  if(cmd){
    if(p.names)s.textContent=shortName(cmd).split(" ")[0]; else s.append(svg(toolIcon(cmd)));}
   else{s.title="Empty slot — double-click to choose a tool"; s.textContent="+";}
   if(idx!=null){
    s.onclick=()=>{p.sel=idx; render();};
    s.ondblclick=()=>chooseTool(idx);
    s.oncontextmenu=e=>{p.sel=idx; render(); return ctxMenu(e,[
-    [uiIcon("PieMenuAddCommand"),cmd?"Change tool…":"Choose a tool…",()=>chooseTool(idx)],
-    [uiIcon("PieMenuRemoveCommand"),"Clear this slot",()=>clearSlot(idx),!cmd],
+    [uiIcon("PieMenuAddCommand"),
+     (p.items[idx]&&p.items[idx].b.length===1)?"Replace tool\u2026":"Add a tool to this slot\u2026",
+     ()=>chooseTool(idx,(p.items[idx]&&p.items[idx].b.length===1)?0:null)],
+    [uiIcon("PieMenuAddCommand"),"Add another tool\u2026",()=>chooseTool(idx),
+     !(p.items[idx]&&p.items[idx].b.length===1)],
+    [uiIcon("PieMenuEditMenu"),"What appears here\u2026",()=>slotBindings(idx),!p.items[idx]],
     "-",
-    [uiIcon("PieMenuReload"),"Context rule…",()=>slotRule(idx),!cmd],
-    [uiIcon("PieMenuAddMenu"),cmd&&S.shared[cmd]?"Unpin from every pie":"Pin to a corner…",()=>slotPin(idx),!cmd],
-    [uiIcon("PieMenuSeparator"),"Assign to a region…",()=>slotRegion(idx),!cmd],
+    [uiIcon("PieMenuAddMenu"),(p.items[idx]&&p.items[idx].pin)?"Unpin from child pies":"Pin to child pies",
+     ()=>slotPin(idx),!p.items[idx]],
+    [uiIcon("PieMenuRemoveCommand"),"Clear this slot",()=>clearSlot(idx),!p.items[idx]],
    ]);};
    if(cmd) s.onmousedown=ev=>{
     if(ev.button!==0)return;
@@ -529,19 +662,25 @@ function paint(c){
      if(over){over.classList.remove("target"); swapSlots(idx,+over.dataset.idx);} else render();};
     document.addEventListener("mousemove",move);
     document.addEventListener("mouseup",up);};}
-  c.append(s);};
- p.items.forEach((cmd,i)=>{if(cmd&&p.toolRegion[cmd])return;
-  mk(cmd,i,cx+pos[i][0],cy+pos[i][1],p.button);});
- p.regions.forEach(rg=>{
-  const tools=p.items.filter(t=>t&&p.toolRegion[t]===rg.name); if(!tools.length)return;
-  const rp=positions(Object.assign({},rg,{slots:tools.length,perRing:tools.length,rows:tools.length,cols:1}));
-  const dx={Right:1,Left:-1,Above:0,Below:0}[rg.anchor]||1;
-  const dy={Right:0,Left:0,Above:-1,Below:1}[rg.anchor]||0;
-  const ox=cx+dx*(p.radius+rg.button*2.4),oy=cy+dy*(p.radius+rg.button*2.4);
-  tools.forEach((cmd,i)=>mk(cmd,p.items.indexOf(cmd),ox+(rp[i]?rp[i][0]:0),oy+(rp[i]?rp[i][1]:0),rg.button,"reg"));});
- if(p.inherit)Object.entries(S.shared).forEach(([cmd,corner])=>{
-  const pad=10+p.button/2;
-  mk(cmd,null,corner.includes("Left")?pad:w-pad,corner.startsWith("Top")?pad:h-pad,p.button,"pin");});
+  c.append(s); return s;};
+ /* Each slot resolves against the current selection: nothing matching greys it
+    out, several matching offers a chooser on hover. */
+ p.items.forEach((_,i)=>{
+  const eff=effectiveSlot(p,i), sl=eff.slot, hits=matches(sl);
+  const cls=[];
+  if(sl&&sl.pin&&!eff.inherited)cls.push("pin");
+  if(eff.inherited)cls.push("inherited");
+  if(sl&&!hits.length)cls.push("unbound");
+  if(hits.length>1)cls.push("multi");
+  const pick=hits.length?hits[Math.min(chooserPick[i]||0,hits.length-1)].cmd:null;
+  const node=mk(sl?(pick||sl.b[0].cmd):null,i,cx+pos[i][0],cy+pos[i][1],p.button,cls.join(" "));
+  if(sl){
+   node.title=(pick?shortName(pick):"nothing here applies to this selection")
+    +(eff.inherited?"  \u00b7 pinned on "+eff.inherited:"")
+    +(hits.length>1?"  \u00b7 "+hits.length+" apply, hover to choose":"")
+    +"\n"+sl.b.map(b=>b.when+" \u2192 "+shortName(b.cmd)).join("\n");
+   if(hits.length>1)node.onmouseenter=()=>showChooser(c,node,i,hits);
+  }});
  const inner=el("div","slot centre"),isz=Math.max(24,Math.round(p.button*0.72));
  inner.style.cssText=`left:${cx-isz/2}px;top:${cy-isz/2}px;width:${isz}px;height:${isz}px`;
  inner.title="QuickMenu — switch pie, open preferences";
@@ -593,15 +732,8 @@ function build(){
   ["Workbench:",sel(p.wb,["None","PartDesign","Sketcher","Assembly","Part"],v=>p.wb=v)],
   ["On shortcut:",num(p.slot,v=>p.slot=v,1,4)],
  ])));
- const regs=el("div");
- regs.append(formGrid([["Extra:",el("span",null,p.regions.length?p.regions.map(r=>r.name).join(", "):"none")]]));
- const rb=el("div","tools");
- rb.append(iconBtn(uiIcon("PieMenuAdd"),"Add a layout region",regionAdd),
-           iconBtn(uiIcon("PieMenuRemove"),"Remove the last region",regionRemove));
- regs.append(rb); c3.append(group("Regions",regs));
  const show=el("div");
- show.append(check("Command names",p.names,v=>p.names=v),
-             check("Inherit shared tools",p.inherit,v=>p.inherit=v));
+ show.append(check("Command names",p.names,v=>p.names=v));
  c3.append(group("Show",show));
  b.append(c1,c2,c3); return b;}
 
@@ -615,11 +747,12 @@ function render(){
  +"<b>Two shape families, not eleven.</b> <code>circle</code> covers Pie, Concentric, Star and both "
  +"Rainbows; <code>grid</code> covers the four Tables plus UpDown and LeftRight."
  +"<div class=legend><span><i class='sw'></i>filled</span><span><i class='sw empty'></i>empty slot</span>"
- +"<span><i class='sw off'></i>greyed by a context rule</span>"
- +"<span><i class='sw pin'></i>shared, pinned to a corner</span>"
- +"<span><i class='sw reg'></i>in an extra region</span></div>"
+ +"<span><i class='sw off'></i>nothing here applies to this selection</span>"
+ +"<span><i class='sw pin'></i>pinned — child pies inherit this slot</span>"
+ +"<span><i class='sw reg'></i>two or more apply — hover to choose</span></div>"
  +"<div style='margin-top:6px'>Selected <code>"+p.name+"</code> · "+p.family+" · "
- +filled(p).length+" of "+slotCount(p)+" slots filled · trigger <code>"+p.mode+"</code></div>";}
+ +p.items.filter(Boolean).length+" of "+slotCount(p)+" slots used · selection <code>"+S.selection+"</code>"
+ +" · trigger <code>"+p.mode+"</code></div>";}
 
 document.getElementById("btnAbout").onclick=()=>{
  const d=el("div"); d.innerHTML="<b>PieMenu 1.13</b><br>Interactive mockup.";
@@ -641,6 +774,116 @@ document.getElementById("btnPrefs").onclick=()=>{
  bk.append(el("button","btn","Export all settings…"),el("button","btn","Import all settings…"));
  w.append(group("Backup",bk));
  modal("PieMenu Preferences — applies to every pie",w,()=>{});};
+/* ------------------------------------------------------------- playground */
+const V={a:[100,40],b:[170,78],c:[100,116],d:[30,78],e:[30,158],f:[100,196],g:[170,158]};
+const FACES=[["top",[V.a,V.b,V.c,V.d]],["left",[V.d,V.c,V.f,V.e]],["right",[V.b,V.c,V.f,V.g]]];
+const EDGES=[[V.a,V.b],[V.b,V.c],[V.c,V.d],[V.d,V.a],[V.d,V.e],[V.c,V.f],[V.b,V.g],
+             [V.e,V.f],[V.f,V.g]];
+let picked={kind:"none",idx:-1};
+
+function drawSolid(){
+ const svg=document.getElementById("solid"); if(!svg)return;
+ svg.innerHTML="";
+ const ns="http://www.w3.org/2000/svg";
+ const node=(t,attrs,cls)=>{const n=document.createElementNS(ns,t);
+  Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v)); if(cls)n.setAttribute("class",cls); return n;};
+ const body=node("polygon",{points:[V.a,V.b,V.g,V.f,V.e,V.d].map(q=>q.join(",")).join(" ")},"bodyhit hit");
+ body.onclick=e=>{e.stopPropagation(); select("body",-1);};
+ svg.append(body);
+ FACES.forEach(([name,pts],i)=>{
+  const f=node("polygon",{points:pts.map(q=>q.join(",")).join(" ")},
+               "face hit"+(picked.kind==="face"&&picked.idx===i?" on":""));
+  f.onclick=e=>{e.stopPropagation(); select("face",i);};
+  svg.append(f);});
+ EDGES.forEach(([p1,p2],i)=>{
+  const l=node("line",{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1]},
+               "edge hit"+(picked.kind==="edge"&&picked.idx===i?" on":""));
+  l.onclick=e=>{e.stopPropagation(); select("edge",i);};
+  svg.append(l);});
+ Object.values(V).forEach((q,i)=>{
+  const c=node("circle",{cx:q[0],cy:q[1],r:picked.kind==="vertex"&&picked.idx===i?6:4},
+               "vert hit"+(picked.kind==="vertex"&&picked.idx===i?" on":""));
+  c.onclick=e=>{e.stopPropagation(); select("vertex",i);};
+  svg.append(c);});
+ svg.onclick=()=>select("none",-1);
+ const lbl=document.getElementById("selnow");
+ if(lbl)lbl.textContent="selection: "+(picked.kind==="none"?"nothing":picked.kind);
+}
+function select(kind,idx){picked={kind,idx}; S.selection=kind; chooserPick={};
+ drawSolid(); render(); logLine(uiIcon("PieMenuEditMenu"),"selected <b>"+kind+"</b>");}
+
+function logLine(icon,html){
+ const box=document.getElementById("log"); if(!box)return;
+ const e=el("div","e"); e.append(svg(icon));
+ const t=el("span"); t.innerHTML=html; e.append(t);
+ const when=el("span","t",new Date().toLocaleTimeString().slice(0,8)); e.append(when);
+ box.prepend(e);
+}
+function openLivePie(x,y){
+ const vp=document.getElementById("viewport"); if(!vp)return;
+ vp.querySelectorAll(".livepie").forEach(n=>n.remove());
+ const p=pie(), n=slotCount(p), pos=positions(p);
+ const wrap=el("div","livepie");
+ const size=p.button;
+ wrap.style.cssText="left:0;top:0;width:100%;height:100%";
+ const centre=el("div","slot centre");
+ centre.style.cssText=`left:${x-11}px;top:${y-11}px;width:22px;height:22px`;
+ centre.append(svg(uiIcon("PieMenuEditMenu")));
+ wrap.append(centre);
+ let fired=false;
+ for(let i=0;i<n;i++){
+  const eff=effectiveSlot(p,i), sl=eff.slot, hits=matches(sl);
+  const s=el("div","slot"+(sl?"":" empty")+(sl&&!hits.length?" unbound":"")
+            +(hits.length>1?" multi":"")+(eff.inherited?" inherited":"")
+            +(sl&&sl.pin&&!eff.inherited?" pin":""));
+  s.style.cssText=`left:${x+pos[i][0]-size/2}px;top:${y+pos[i][1]-size/2}px;width:${size}px;height:${size}px`;
+  const cmd=hits.length?hits[Math.min(chooserPick[i]||0,hits.length-1)].cmd:null;
+  if(cmd)s.append(svg(toolIcon(cmd)));
+  s.title=cmd?shortName(cmd):"nothing here applies to "+S.selection;
+  if(cmd){
+   s.onclick=ev=>{ev.stopPropagation(); fired=true;
+    logLine(toolIcon(cmd),"ran <b>"+shortName(cmd)+"</b> on "+S.selection
+      +(eff.inherited?" <i>(inherited from "+eff.inherited+")</i>":""));
+    wrap.remove();};
+  }else{
+   s.onclick=ev=>{ev.stopPropagation();
+    logLine(uiIcon("PieMenuRemove"),"slot "+(i+1)+" is greyed \u2014 nothing bound for <b>"+S.selection+"</b>");};
+  }
+  if(hits.length>1){
+   s.onmouseenter=()=>{
+    wrap.querySelectorAll(".chooser").forEach(q=>q.remove());
+    const box=el("div","chooser");
+    hits.forEach((b,j)=>{
+     const o=el("div","opt"+((chooserPick[i]||0)===j?" on":""));
+     o.append(svg(toolIcon(b.cmd))); o.title=b.when+" \u2192 "+shortName(b.cmd);
+     o.onclick=ev=>{ev.stopPropagation(); chooserPick[i]=j; box.remove(); openLivePie(x,y);
+      logLine(toolIcon(b.cmd),"chose <b>"+shortName(b.cmd)+"</b> from "+hits.length+" candidates");};
+     box.append(o);});
+    box.style.cssText=`left:${x+pos[i][0]-32}px;top:${y+pos[i][1]+size/2+5}px`;
+    wrap.append(box);
+    s.onmouseleave=ev=>{if(!box.contains(ev.relatedTarget))
+      setTimeout(()=>{if(!box.matches(":hover"))box.remove();},250);};
+    box.onmouseleave=()=>box.remove();};
+  }
+  wrap.append(s);
+ }
+ wrap.onclick=()=>{if(!fired)logLine(uiIcon("PieMenuClose"),"closed without running anything"); wrap.remove();};
+ vp.append(wrap);
+ logLine(uiIcon("PieMenu_Logo"),"opened <b>"+p.name+"</b> \u2014 "
+   +p.items.filter((_,i)=>matches(effectiveSlot(p,i).slot).length).length+" of "+n+" slots usable");
+}
+function initPlayground(){
+ drawSolid();
+ const vp=document.getElementById("viewport");
+ vp.tabIndex=0;
+ vp.addEventListener("keydown",e=>{ if(e.key==="Tab"){e.preventDefault();
+   const r=vp.getBoundingClientRect(); openLivePie(r.width/2,r.height/2-20);} });
+ document.getElementById("openPie").onclick=()=>{
+   const r=vp.getBoundingClientRect(); openLivePie(r.width/2,r.height/2-20); vp.focus();};
+ document.getElementById("clearSel").onclick=()=>select("none",-1);
+ document.getElementById("clearLog").onclick=()=>document.getElementById("log").innerHTML="";
+}
 render();
+initPlayground();
 window.addEventListener("resize",()=>render());
 </script>
