@@ -545,7 +545,7 @@ def pieMenuStart():
                             j += 1
                         return True
                     # Handle toggle mode for global shortcut###
-                    elif checkboxGlobalKeyToggle.isChecked():
+                    elif getParameterGlobal("Bool", "GlobalKeyToggle"):
                         if event.key() == QtGui.QKeySequence(state.app_state.global_shortcut_key):
                             if self.menu.isVisible():
                                 self.menu.hide()
