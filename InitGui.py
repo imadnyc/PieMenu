@@ -2207,10 +2207,29 @@ def pieMenuStart():
                     pass
 
     def getIndexList():
-        """Get current pieMenus using available index."""
+        """Get current pieMenus using available index.
+
+        Duplicates are dropped, keeping first position. IndexList is written by
+        four separate places that each rebuild it from a list they assembled,
+        and it can end up holding the same index more than once -- one real
+        config has "3.,.2.,.4.,.6.,.7.,.1.,.0.,.1.,.2", with 1 and 2 repeated.
+        Every caller loops over this, so a repeat means a pie is processed
+        twice: listed twice in the selector, given two shortcut registrations,
+        and counted twice by anything that walks the pies.
+
+        Filtered on read rather than repaired on write, so a config that is
+        already in that state behaves correctly without being rewritten.
+        """
         indexList = config.get_params()["index"].GetString("IndexList")
         if indexList:
-            indexList = list(map(int, indexList.split(".,.")))
+            seen = set()
+            unique = []
+            for value in indexList.split(".,."):
+                index = int(value)
+                if index not in seen:
+                    seen.add(index)
+                    unique.append(index)
+            indexList = unique
         else:
             indexList = []
         return indexList
