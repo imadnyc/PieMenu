@@ -2492,6 +2492,34 @@ def pieMenuStart():
                 else:
                     pass
 
+    def matchesContext(rule, counts):
+        """ Does a selection satisfy one six-axis context rule?
+
+        counts is (vertex, edge, face, object, axis, plane). Each axis of the
+        rule is a Sign/Value pair, the sign naming one of the operators in
+        constants.get_signs(). All six must hold.
+
+        Axis and Plane fall back to equality when the rule carries no sign for
+        them, which is what the previous nested-callback form did in its except
+        branches for rules written before those keys existed.
+        """
+        v, e, f, o, a, p = counts
+
+        for name, value in (("Vertex", v), ("Edge", e), ("Face", f)):
+            if not sign[rule[name + "Sign"]](value, rule[name + "Value"]):
+                return False
+
+        for name, value in (("Axis", a), ("Plane", p)):
+            try:
+                if not sign[rule[name + "Sign"]](value, rule[name + "Value"]):
+                    return False
+            except Exception:
+                # legacy: no sign stored for this axis
+                if value != rule[name + "Value"]:
+                    return False
+
+        return bool(sign[rule["ObjectSign"]](o, rule["ObjectValue"]))
+
     def getContextPie(v, e, f, o, a, p):
         global globalContextPie
         global globalIndexPie
@@ -2499,71 +2527,26 @@ def pieMenuStart():
         globalContextPie = False
         globalIndexPie = None
         indexPie = None
+
         for i in state.app_state.context_all:
             current = state.app_state.context_all[i]
-            def vertex():
-                if sign[current["VertexSign"]](v, current["VertexValue"]):
-                    edge()
-                else:
-                    pass
+            if not matchesContext(current, (v, e, f, o, a, p)):
+                continue
 
-            def edge():
-                if sign[current["EdgeSign"]](e, current["EdgeValue"]):
-                    face()
-                else:
-                    pass
+            globalIndexPie = current["Index"]
+            if not globalIndexPie:
+                continue
 
-            def face():
-                if sign[current["FaceSign"]](f, current["FaceValue"]):
-                    axis()
-                else:
-                    pass
+            pieName = getParamIndex(globalIndexPie)
+            contextWorkbench = getParameterGroup(
+                pieName, "String", "ContextWorkbench")
+            activeWB = Gui.activeWorkbench().name().split("Workbench")
 
-            def axis():
-                try:
-                    if sign[current["AxisSign"]](a, current["AxisValue"]):
-                        planes()
-                    else:
-                        pass
-                except:
-                    # legacy fix : if there is no param for axis in parameters
-                    if (a == current["AxisValue"]):
-                        planes()
-                    else:
-                        pass
-            def planes():
-                try:
-                    if sign[current["PlaneSign"]](p, current["PlaneValue"]):
-                        obj()
-                    else:
-                        pass
-                except:
-                    # legacy fix : if there is no param for planes in parameters
-                    if (p == current["PlaneValue"]):
-                        obj()
-                    else:
-                        pass
-            def obj():
-                if sign[current["ObjectSign"]](o, current["ObjectValue"]):
-                    global globalContextPie
-                    global globalIndexPie
-                    global indexPie
-                    globalIndexPie = current["Index"]
-
-                    if globalIndexPie:
-                        pieName = getParamIndex(globalIndexPie)
-                        contextWorkbench = None
-                        contextWorkbench = getParameterGroup(
-                            pieName, "String", "ContextWorkbench")
-                        activeWB = Gui.activeWorkbench().name()
-                        activeWB = activeWB.split("Workbench")
-
-                        if contextWorkbench == activeWB[0] or contextWorkbench == translate("ContextTab", "All Workbenches"):
-                            globalContextPie = "True"
-                            indexPie = current["Index"]
-                else:
-                    pass
-            vertex()
+            if (contextWorkbench == activeWB[0]
+                    or contextWorkbench == translate("ContextTab",
+                                                     "All Workbenches")):
+                globalContextPie = "True"
+                indexPie = current["Index"]
 
         if globalContextPie == "True":
             return indexPie
