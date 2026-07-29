@@ -22,6 +22,8 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 12 | Toolbars belong to their panel | Mounted in the panel header, so it is obvious which list a button acts on. |
 | 14 | A distinct icon per tool | Currently every tool row shows the same dot, so the list reads as undifferentiated. |
 | 20 | Replace, not delete-then-add | A filled slot's right-click menu needs **Replace tool…**, so changing what is in a slot is one step rather than clearing it and adding again. |
+| 23 | Playground needs a workbench switch | Changing workbench there must resolve which pie opens through the Assignment setting, so the workbench-to-pie mapping can actually be tried. |
+| 24 | Selection chips do not belong on the preview | Previewing against a selection is an occasional action, so it goes in the preview's right-click menu rather than sitting permanently across the top of it. |
 | 21 | A playground under the dialog | A rudimentary viewport: pick a vertex, edge, face or body on a solid, open the pie, and watch which tool each slot resolves to and what firing it does. |
 | 15 | Dragging must be visible on the pie itself | The dragged tool should follow the cursor on the preview and the landing slot should be indicated, rather than only updating on drop. |
 
@@ -67,6 +69,28 @@ snap-to-slot already implies.
 - Shortcut codes are positional today, so they need to key off slot order.
 
 Mockup first, then the schema.
+
+**22. Split the trigger into two settings: how the pie opens, and how a tool runs.**
+
+Today `TriggerMode` conflates them — Press and Hover describe how a *tool* is
+chosen, while opening is always a single key press. Separating them gives every
+useful combination from two short lists:
+
+| Open on | Run on |
+| ------- | ------ |
+| single press | click |
+| double tap | hover for a delay |
+| press and hold | release (gesture / marking menu) |
+| double tap and hold | |
+
+So "double tap and hold, release to run" is a marking menu that cannot fire by
+accident, while "single press, click" is the current default. Press-and-hold
+variants close the pie on release unless a tool was chosen, which is what makes
+a held trigger feel momentary rather than modal.
+
+Schema: `TriggerMode` becomes `OpenOn` plus `RunOn`, with a migration mapping
+`Press` → (single, click), `Hover` → (single, hover), `Gesture` → (hold,
+release).
 
 ## Design change — pinning, hierarchy and conditional slots
 

@@ -39,9 +39,38 @@ def inline_icons():
     return icons
 
 
+DEMOED = {1,2,3,4,5,6,7,8,9,10,11,12,14,15,16,17,18,19,20,21,22}
+SUPERSEDES = {13: "F9.2 · bc3df9c", 17: "F8.c · b619aed", 18: "F8.c · b619aed",
+              16: "F6.0 · 2b75adc", 19: "F3 · dded196", 22: "F10a · cb443f3"}
+
+
+def plan_items():
+    """Read UI-FEEDBACK.md so the sidebar cannot drift from the plan."""
+    md = open(os.path.join(REPO, "UI-FEEDBACK.md"), encoding="utf-8").read()
+    items = {}
+    # table rows:  | 7 | Request | Notes |
+    for n, title, note in re.findall(r"^\|\s*(\d+)\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|\s*$",
+                                     md, re.M):
+        items[int(n)] = {"title": title, "note": note}
+    # prose entries:  **16. Consolidate ...**
+    for n, title in re.findall(r"\*\*(\d+)\.\s*(.+?)\*\*", md):
+        items.setdefault(int(n), {"title": title, "note": ""})
+    out = []
+    for n in sorted(items):
+        it = items[n]
+        clean = re.sub(r"[*`]", "", it["title"])
+        clean = re.sub(r"\s+", " ", clean).strip()
+        out.append({"n": n, "title": clean,
+                    "note": re.sub(r"[*`]", "", it["note"])[:150],
+                    "shown": n in DEMOED,
+                    "supersedes": SUPERSEDES.get(n, "")})
+    return out
+
+
 def main():
     tpl = open(os.path.join(HERE, "preferences.template.html"), encoding="utf-8").read()
     out = tpl.replace("__ICONS__", json.dumps(inline_icons()))
+    out = out.replace("__PLAN__", json.dumps(plan_items()))
     dest = os.path.join(HERE, "preferences.html")
     open(dest, "w", encoding="utf-8").write(out)
     print("wrote", dest)
