@@ -1556,11 +1556,68 @@ def pieMenuStart():
             except:
                 None
 
+            self.add_shared_tools(keyValue, buttonSize, icon)
+
             if compositingManager:
                 pass
             else:
                 for i in self.buttons:
                     i.setAttribute(QtCore.Qt.WA_PaintOnScreen)
+
+        def add_shared_tools(self, keyValue, buttonSize, icon):
+            """ Place the shared tools into the corners of the finished pie.
+
+            Runs after the shape branches have laid out the pie's own tools and
+            sized the menu, so the bounding box is final. For the pie-family
+            shapes the buttons sit on a circle inscribed in that box, which
+            leaves the four corners empty and already paid for -- a corner tool
+            costs no extra size and cannot collide with the trigonometry. The
+            table shapes fill their corners, so they are left alone rather than
+            given a padded box, which would change their geometry.
+            """
+            shapesWithFreeCorners = ("Pie", "RainbowUp", "RainbowDown",
+                                     "Concentric", "Star")
+            shape = getShape(keyValue)
+            if shape not in shapesWithFreeCorners:
+                return
+
+            shared = getSharedTools(keyValue)
+            if not shared:
+                return
+
+            actionMap = getGuiActionMapAll()
+            counts = selectionCounts()
+            width = self.menu.width()
+            height = self.menu.height()
+            corners = {
+                "TopLeft": (0, 0),
+                "TopRight": (width - buttonSize, 0),
+                "BottomLeft": (0, height - buttonSize),
+                "BottomRight": (width - buttonSize, height - buttonSize),
+            }
+
+            for command, anchor in shared:
+                action = actionMap.get(command)
+                if action is None or anchor not in corners:
+                    continue
+
+                button = HoverButton()
+                button.setParent(self.menu)
+                button.setObjectName("pieMenu")
+                button.setAttribute(QtCore.Qt.WA_Hover)
+                button.setStyleSheet(styleCurrentTheme)
+                button.setDefaultAction(action)
+                button.setIconSize(QtCore.QSize(icon, icon))
+                button.setGeometry(0, 0, buttonSize, buttonSize)
+
+                # shared tools obey their own context rule too
+                if not toolAllowedInContext(keyValue, command, counts):
+                    button.setEnabled(False)
+
+                x, y = corners[anchor]
+                button.setProperty("ButtonX", x)
+                button.setProperty("ButtonY", y)
+                self.buttons.append(button)
 
         def hide(self):
             for i in self.buttons:
@@ -2538,6 +2595,61 @@ def pieMenuStart():
             # a malformed rule must not make the tool unreachable
             return True
 
+    SHARED_ANCHORS = ("TopLeft", "TopRight", "BottomLeft", "BottomRight")
+
+    def getSharedTools(pieName):
+        """ Shared tools a pie inherits, as (command, anchor) pairs.
+
+        Defined once in the main group and pinned to a corner, so "Save sits in
+        the corner of every pie" is stated in one place. A pie can opt out
+        wholesale with InheritShared, or drop individual tools with
+        SharedExclude; absent means inherit, so existing pies pick them up.
+        """
+        main = config.get_params()["main"]
+        sharedList = main.GetString("SharedToolList", "")
+        if not sharedList:
+            return []
+
+        index = getCurrentMenuIndex(pieName)
+        if index == "-1":
+            return []
+        pieGroup = config.get_params()["index"].GetGroup(index)
+
+        # absent means inherit, so pies that predate this pick shared tools up
+        if not pieGroup.GetBool("InheritShared", True):
+            return []
+
+        excluded = set(
+            x for x in pieGroup.GetString("SharedExclude", "").split(".,.")
+            if x)
+
+        sharedGroup = main.GetGroup("Shared")
+        pairs = []
+        for command in sharedList.split(".,."):
+            if not command or command in excluded:
+                continue
+            anchor = sharedGroup.GetString(command, "TopLeft")
+            pairs.append((command, anchor))
+        return pairs
+
+    def setSharedTool(command, anchor):
+        """ Pin a command to a corner of every pie that inherits shared tools """
+        main = config.get_params()["main"]
+        current = [x for x in main.GetString("SharedToolList", "").split(".,.")
+                   if x]
+        if command not in current:
+            current.append(command)
+        main.SetString("SharedToolList", ".,.".join(current))
+        main.GetGroup("Shared").SetString(command, anchor)
+
+    def removeSharedTool(command):
+        """ Stop sharing a command """
+        main = config.get_params()["main"]
+        current = [x for x in main.GetString("SharedToolList", "").split(".,.")
+                   if x and x != command]
+        main.SetString("SharedToolList", ".,.".join(current))
+        main.GetGroup("Shared").RemString(command)
+
     def selectedToolCommand():
         """ Command name of the tool selected in the pie's tool list """
         if buttonListWidget is None:
@@ -2549,6 +2661,38 @@ def pieMenuStart():
         if item is None:
             return None
         return item.data(QtCore.Qt.UserRole)
+
+    def onToolShared():
+        """ Pin or unpin the selected tool as a shared tool.
+
+        Shared tools are defined once and appear in every pie that inherits
+        them, anchored to a corner. A nested pie is a valid choice here, so
+        "open the Sketch pie" can be available from every pie.
+        """
+        command = selectedToolCommand()
+        if not command or command == "PieMenu_Separator":
+            return
+
+        main = config.get_params()["main"]
+        current = [x for x in main.GetString("SharedToolList", "").split(".,.")
+                   if x]
+
+        if command in current:
+            removeSharedTool(command)
+            updatePiemenuPreview()
+            return
+
+        anchor, ok = QtGui.QInputDialog.getItem(
+            pieMenuDialog,
+            translate("PieMenuTab", "Share tool"),
+            translate("PieMenuTab", "Corner to pin {} to in every pie:").format(
+                command),
+            list(SHARED_ANCHORS), 0, False)
+        if not ok:
+            return
+
+        setSharedTool(command, anchor)
+        updatePiemenuPreview()
 
     def onToolContext():
         """ Edit the context rule of the tool selected in the tool list.
@@ -6382,8 +6526,19 @@ def pieMenuStart():
         buttonContext.setMinimumWidth(30)
         buttonContext.clicked.connect(onToolContext)
 
+        buttonShared = QtGui.QToolButton()
+        buttonShared.setText("📌")
+        buttonShared.setToolTip(
+            translate("PieMenuTab",
+                      "Pin the selected tool to a corner of every pie, or "
+                      "unpin it if it is already shared"))
+        buttonShared.setMinimumHeight(30)
+        buttonShared.setMinimumWidth(30)
+        buttonShared.clicked.connect(onToolShared)
+
         buttonsLayout = QtGui.QHBoxLayout()
         buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(buttonShared)
         buttonsLayout.addWidget(buttonContext)
         buttonsLayout.addWidget(buttonAddSeparator)
         buttonsLayout.addWidget(buttonRemoveCommand)
