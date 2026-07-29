@@ -898,6 +898,12 @@ def pieMenuStart():
                 state.app_state.list_commands = []
                 state.app_state.list_shortcut_code = []
                 maxTextLength = 0
+
+                # Counted once for the whole pie: it is rebuilt on every open
+                # and the selection cannot change while it is up, so evaluating
+                # per-tool rules at build time is enough.
+                contextCounts = selectionCounts()
+
                 for i in commands:
                     """ show PieMenu in Edit Feature and in Sketcher """
                     button = HoverButton()
@@ -908,6 +914,16 @@ def pieMenuStart():
                     button.setDefaultAction(commands[commands.index(i)])
                     button.setIconSize(QtCore.QSize(icon, icon))
                     button.setGeometry(0, 0, buttonSize, buttonSize)
+
+                    # Per-tool context rule. Disable the BUTTON, never the
+                    # action: these actions come from FreeCAD's global action
+                    # map and are shared with the toolbars and menus, so
+                    # action.setEnabled(False) would grey the command out
+                    # everywhere in FreeCAD. Qt delivers no mouse events to a
+                    # disabled widget, so the hover timer never starts either.
+                    if not toolAllowedInContext(
+                            keyValue, i.objectName(), contextCounts):
+                        button.setEnabled(False)
 
                     # Preselection Arrow
                     buttonPreselect = PreselectButton()
@@ -2492,6 +2508,79 @@ def pieMenuStart():
                 else:
                     pass
 
+    CONTEXT_AXES = ("Vertex", "Edge", "Face", "Object", "Axis", "Plane")
+
+    def getToolContextRule(pieName, command):
+        """ A tool's own context rule, or None when it has not got one.
+
+        Same six Sign/Value axes as the per-pie rules, so matchesContext
+        evaluates both. Absent or disabled means the tool is always available,
+        which is how every tool behaves until a rule is authored for it.
+        """
+        group = getToolGroup(pieName, command)
+        if group is None or not group.GetBool("ContextEnabled", False):
+            return None
+
+        rule = {}
+        for axis in CONTEXT_AXES:
+            rule[axis + "Sign"] = group.GetString(axis + "Sign", "==")
+            rule[axis + "Value"] = group.GetInt(axis + "Value", 0)
+        return rule
+
+    def toolAllowedInContext(pieName, command, counts):
+        """ Should this tool be usable given the current selection? """
+        rule = getToolContextRule(pieName, command)
+        if rule is None:
+            return True
+        try:
+            return matchesContext(rule, counts)
+        except Exception:
+            # a malformed rule must not make the tool unreachable
+            return True
+
+    def selectionCounts():
+        """ Count the current selection by topology.
+
+        Returns (vertexes, edges, faces, objects, axis, planes) -- the six axes
+        a context rule is written against. Lifted out of listTopo so per-tool
+        rules can be evaluated against the same numbers the per-pie rules use.
+        """
+        vertexes = edges = faces = objects = axis = planes = 0
+        allList = []
+        listAxis = ['X_Axis', 'Y_Axis', 'Z_Axis', 'H_Axis', 'V_Axis']
+        listPlanes = ['XY_Plane', 'XZ_Plane', 'YZ_Plane']
+
+        for i in Gui.Selection.getSelectionEx():
+            if i.ObjectName in listAxis or i.ObjectName in listPlanes:
+                allList.append(i.ObjectName)
+            elif i.ObjectName.startswith("DatumPlane"):
+                planes = planes + 1
+            elif i.ObjectName.startswith("DatumLine"):
+                axis = axis + 1
+            elif i.ObjectName.startswith("DatumPoint"):
+                vertexes = vertexes + 1
+            elif not i.SubElementNames:
+                objects = objects + 1
+            else:
+                for a in i.SubElementNames:
+                    allList.append(a)
+
+        for i in allList:
+            if i.startswith('Vertex') or i.startswith('ExternalVertex') or i.startswith('RootPoint'):
+                vertexes = vertexes + 1
+            elif i.startswith('Edge') or i.startswith('ExternalEdge'):
+                edges = edges + 1
+            elif i.startswith('Face'):
+                faces = faces + 1
+            elif i.startswith('X_Axis') or i.startswith('Y_Axis') or i.startswith('Z_Axis') or i.startswith('H_Axis') or i.startswith('V_Axis'):
+                axis = axis + 1
+            elif i.startswith('XY_Plane') or i.startswith('XZ_Plane') or i.startswith('YZ_Plane'):
+                planes = planes + 1
+            else:
+                pass
+
+        return vertexes, edges, faces, objects, axis, planes
+
     def matchesContext(rule, counts):
         """ Does a selection satisfy one six-axis context rule?
 
@@ -2565,43 +2654,7 @@ def pieMenuStart():
 
         if module is None or module == "SketcherGui":
             # nonlocal contextPhase
-            sel = Gui.Selection.getSelectionEx()
-            vertexes = 0
-            edges = 0
-            faces = 0
-            objects = 0
-            axis = 0
-            planes = 0
-            allList = []
-            listAxis = [ 'X_Axis', 'Y_Axis', 'Z_Axis', 'H_Axis', 'V_Axis' ]
-            listPlanes = [ 'XY_Plane', 'XZ_Plane', 'YZ_Plane' ]
-            for i in sel:
-                if i.ObjectName in listAxis or i.ObjectName in listPlanes:
-                    allList.append(i.ObjectName)
-                elif i.ObjectName.startswith("DatumPlane"):
-                    planes = planes + 1
-                elif i.ObjectName.startswith("DatumLine"):
-                    axis = axis + 1
-                elif i.ObjectName.startswith("DatumPoint"):
-                    vertexes = vertexes + 1
-                elif not i.SubElementNames:
-                    objects = objects + 1
-                else:
-                    for a in i.SubElementNames:
-                        allList.append(a)
-            for i in allList:
-                if i.startswith('Vertex') or i.startswith('ExternalVertex') or i.startswith('RootPoint'):
-                    vertexes = vertexes + 1
-                elif i.startswith('Edge') or i.startswith('ExternalEdge'):
-                    edges = edges + 1
-                elif i.startswith('Face'):
-                    faces = faces + 1
-                elif i.startswith('X_Axis') or i.startswith('Y_Axis') or i.startswith('Z_Axis') or i.startswith('H_Axis') or i.startswith('V_Axis') :
-                    axis = axis + 1
-                elif i.startswith('XY_Plane') or i.startswith('XZ_Plane') or i.startswith('YZ_Plane') :
-                    planes = planes + 1
-                else:
-                    pass
+            vertexes, edges, faces, objects, axis, planes = selectionCounts()
             pieIndex = getContextPie(vertexes,
                                      edges,
                                      faces,
