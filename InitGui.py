@@ -3930,6 +3930,70 @@ def pieMenuStart():
         group = getGroup()
         group.SetString("ToolList", ".,.".join(toolData))
 
+    def toolListDropRow(event):
+        """ Row a drop should land on, following the drop indicator """
+        try:
+            pos = event.position().toPoint()    # Qt6
+        except AttributeError:
+            pos = event.pos()                   # Qt5
+
+        index = buttonListWidget.indexAt(pos)
+        if not index.isValid():
+            return buttonListWidget.rowCount()
+
+        row = index.row()
+        if pos.y() > buttonListWidget.visualRect(index).center().y():
+            row += 1
+        return row
+
+    def onToolListDrop(event):
+        """ Reorder tools by dragging rows in the list.
+
+        Qt's InternalMove moves individual cells, which would break the pairing
+        between the Shortcut and Action columns, so the drop is handled here
+        instead: work out the new command order, store it, and let buttonList()
+        rebuild the table -- that also regenerates the positional shortcut
+        codes, exactly as onButtonUp/onButtonDown do after moving a row.
+        """
+        if event.source() is not buttonListWidget:
+            event.ignore()
+            return
+
+        selectedRows = sorted(
+            {i.row() for i in buttonListWidget.selectedIndexes()})
+        if not selectedRows:
+            event.ignore()
+            return
+
+        dropRow = toolListDropRow(event)
+
+        order = []
+        for row in range(buttonListWidget.rowCount()):
+            item = buttonListWidget.item(row, 1)
+            order.append(None if item is None
+                         else item.data(QtCore.Qt.UserRole))
+
+        moved = [order[row] for row in selectedRows]
+        remaining = [command for row, command in enumerate(order)
+                     if row not in selectedRows]
+        # rows dragged from above the drop point shift it up by that many
+        insertAt = dropRow - len([row for row in selectedRows if row < dropRow])
+        newOrder = remaining[:insertAt] + moved + remaining[insertAt:]
+
+        group = getGroup()
+        group.SetString("ToolList", ".,.".join(
+            [command for command in newOrder if command is not None]))
+        buttonList()
+
+        buttonListWidget.clearSelection()
+        for offset in range(len(moved)):
+            row = insertAt + offset
+            if 0 <= row < buttonListWidget.rowCount():
+                buttonListWidget.setRangeSelected(
+                    QtGui.QTableWidgetSelectionRange(row, 0, row, 1), True)
+
+        event.accept()
+
     def onButtonUp():
         """ Move up the selected tools in the list """
         selected_ranges = buttonListWidget.selectedRanges()
@@ -5832,6 +5896,13 @@ def pieMenuStart():
 
     buttonListWidget.setSelectionMode(
         QtGui.QAbstractItemView.ExtendedSelection)
+
+    # Drag-to-reorder. onToolListDrop fully replaces Qt's InternalMove handling,
+    # which would move single cells and split the Shortcut/Action pair.
+    buttonListWidget.setDragDropMode(QtGui.QAbstractItemView.InternalMove)
+    buttonListWidget.setDragDropOverwriteMode(False)
+    buttonListWidget.setDefaultDropAction(QtCore.Qt.MoveAction)
+    buttonListWidget.dropEvent = onToolListDrop
     pieButtons = QtGui.QWidget()
     pieButtonsLayout = QtGui.QVBoxLayout()
     pieButtons.setLayout(pieButtonsLayout)
