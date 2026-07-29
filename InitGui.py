@@ -4831,6 +4831,113 @@ def pieMenuStart():
         onPieChange()
         updatePiemenuPreview()
 
+    def freePieIndex():
+        """ Lowest index not already used by a pie """
+        used = set(getIndexList())
+        candidate = 0
+        while candidate in used:
+            candidate += 1
+        return candidate
+
+    def uniquePieName(name):
+        """ name, or name-2, name-3 ... if a pie already has it """
+        existing = {getParamIndex(str(i)) for i in getIndexList()}
+        if name not in existing:
+            return name
+        suffix = 2
+        while "%s-%d" % (name, suffix) in existing:
+            suffix += 1
+        return "%s-%d" % (name, suffix)
+
+    def onPieExport():
+        """ Export the selected pie on its own.
+
+        The whole-settings export hands over every pie, every global setting,
+        the theme and the shortcuts, so sharing one pie meant sharing all of
+        it. This writes just the selected pie's group -- which, since the tool
+        model stores attributes in a Tools subgroup underneath it, carries the
+        per-tool data with it.
+
+        The pie's name lives on the Index group keyed by number, not inside the
+        pie's own group, so it is written into the group as PieName for the
+        trip and removed again afterwards.
+        """
+        pieName = currentPieName()
+        if not pieName:
+            return
+        index = getCurrentMenuIndex(pieName)
+        if index == "-1":
+            return
+
+        file, _ = QFileDialog.getSaveFileName(
+            None,
+            translate("ExportSettingsWindow", "Export PieMenu '{}' to a file").format(pieName),
+            pieName, "XML (*.FCParam)")
+        if not file:
+            return
+
+        try:
+            if not file.endswith(".FCParam"):
+                file += ".FCParam"
+            group = config.get_params()["index"].GetGroup(index)
+            group.SetString("PieName", pieName)
+            group.Export(file)
+            group.RemString("PieName")
+
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText(translate("PieMenuTab",
+                                  "PieMenu '{}' exported successfully.").format(pieName))
+            msg.setWindowTitle(translate("GlobalSettingsTab", "Information"))
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
+        except Exception as e:
+            print(f"Error exporting pie: {str(e)}")
+
+    def onPieImport():
+        """ Import a single pie, added alongside the existing ones.
+
+        Deliberately additive: it takes the next free index and appends to
+        IndexList rather than replacing anything, and renames on a name
+        collision, so importing someone else's pie cannot overwrite yours.
+        """
+        file, _ = QFileDialog.getOpenFileName(
+            None,
+            translate("ExportSettingsWindow", "Import a PieMenu from a file"),
+            "", "XML (*.FCParam)")
+        if not file:
+            return
+
+        try:
+            index = freePieIndex()
+            group = config.get_params()["index"].GetGroup(str(index))
+            group.Import(file)
+
+            name = uniquePieName(group.GetString("PieName", "") or
+                                 translate("PieMenuTab", "Imported"))
+            group.RemString("PieName")
+
+            config.get_params()["index"].SetString(str(index), name)
+            indexList = [str(i) for i in getIndexList()]
+            if str(index) not in indexList:
+                indexList.append(str(index))
+            config.get_params()["index"].SetString(
+                "IndexList", ".,.".join(indexList))
+
+            createNestedPieMenus()
+            getShortcutList()
+            cBoxUpdate(name)
+
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Information)
+            msg.setText(translate("PieMenuTab",
+                                  "PieMenu imported as '{}'.").format(name))
+            msg.setWindowTitle(translate("GlobalSettingsTab", "Information"))
+            msg.setStandardButtons(QMessageBox.Ok)
+            msg.exec()
+        except Exception as e:
+            print(f"Error importing pie: {str(e)}")
+
     def onParamExport():
         """ Export parameter to a file """
         file, _ = QFileDialog.getSaveFileName(None, translate(
@@ -6629,8 +6736,28 @@ def pieMenuStart():
         buttonShared.setMinimumWidth(30)
         buttonShared.clicked.connect(onToolShared)
 
+        buttonPieExport = QtGui.QToolButton()
+        buttonPieExport.setText("↑")
+        buttonPieExport.setToolTip(
+            translate("PieMenuTab",
+                      "Export just this pie, with its per-tool settings"))
+        buttonPieExport.setMinimumHeight(30)
+        buttonPieExport.setMinimumWidth(30)
+        buttonPieExport.clicked.connect(onPieExport)
+
+        buttonPieImport = QtGui.QToolButton()
+        buttonPieImport.setText("↓")
+        buttonPieImport.setToolTip(
+            translate("PieMenuTab",
+                      "Import a pie, added alongside the existing ones"))
+        buttonPieImport.setMinimumHeight(30)
+        buttonPieImport.setMinimumWidth(30)
+        buttonPieImport.clicked.connect(onPieImport)
+
         buttonsLayout = QtGui.QHBoxLayout()
         buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(buttonPieExport)
+        buttonsLayout.addWidget(buttonPieImport)
         buttonsLayout.addWidget(buttonShared)
         buttonsLayout.addWidget(buttonContext)
         buttonsLayout.addWidget(buttonAddSeparator)
