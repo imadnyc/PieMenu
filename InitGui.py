@@ -5012,6 +5012,11 @@ def pieMenuStart():
     #### Preferences dialog ####
     def onControl():
         """Initializes the preferences dialog."""
+        # The dialog is built on first use rather than at FreeCAD startup; both
+        # ways in (the accessories menu entry and the QuickMenu button) land
+        # here, and everything below this line touches its widgets.
+        buildPreferencesDialog()
+
         wb = Gui.activeWorkbench()
         wbName = wb.name()
         wbName = wbName.replace("Workbench", "")
@@ -5260,1098 +5265,1146 @@ def pieMenuStart():
 
     #### Main code ####
 
-    #### MainWindow Preferences Dialog ####
-    #### group PieMenu ####
-    tabs = QtGui.QTabWidget()
-    tabToolBar = QtGui.QTabWidget()
-
-    ### Button set Icon ####
-    window_icons = QtGui.QWidget()
-
-    grid_layout = QtGui.QGridLayout()
-    grid_widget = QtGui.QWidget()
-    grid_widget.setLayout(grid_layout)
-    scroll_area = QtGui.QScrollArea()
-    scroll_area.setWidgetResizable(True)
-    scroll_area.setWidget(grid_widget)
-
-    buttonBrowse = QtGui.QPushButton(
-        translate("PieMenuTab", "Browse Icons Files..."))
-    buttonBrowse.clicked.connect(onButtonBrowseIcon)
-
-    cancel_window_icons_button = QtGui.QPushButton(
-        translate("PieMenuTab", "Cancel"))
-    cancel_window_icons_button.clicked.connect(window_icons_close)
-
-    buttonLayoutIcons = QtGui.QHBoxLayout()
-    buttonLayoutIcons.addWidget(buttonBrowse)
-    buttonLayoutIcons.addStretch(1)
-    buttonLayoutIcons.addWidget(cancel_window_icons_button)
-
-    main_layout = QtGui.QVBoxLayout()
-    main_layout.addWidget(scroll_area)
-    main_layout.addLayout(buttonLayoutIcons)
-
-    window_icons.setLayout(main_layout)
-
-    buttonIconPieMenu = QtGui.QToolButton()
-    buttonIconPieMenu.setToolTip(
-        translate("PieMenuTab", "Set icon to current PieMenu"))
-    buttonIconPieMenu.setMinimumHeight(30)
-    buttonIconPieMenu.setMinimumWidth(30)
-    buttonIconPieMenu.clicked.connect(onButtonIconPieMenu)
-
-    #### layout PieMenu Settings ####
-    cBox = QtGui.QComboBox()
-    cBox.setMinimumHeight(28)
-    cBox.currentIndexChanged.connect(onPieChange)
-    cBox.setMinimumWidth(140)
-
-    buttonAddPieMenu = QtGui.QToolButton()
-    buttonAddPieMenu.setIcon(QtGui.QIcon(resources.iconAdd))
-    buttonAddPieMenu.setToolTip(translate("PieMenuTab", "Add new pie menu"))
-    buttonAddPieMenu.setMinimumHeight(30)
-    buttonAddPieMenu.setMinimumWidth(30)
-    buttonAddPieMenu.clicked.connect(onButtonAddPieMenu)
-
-    buttonRemovePieMenu = QtGui.QToolButton()
-    buttonRemovePieMenu.setIcon(QtGui.QIcon(resources.iconRemove))
-    buttonRemovePieMenu.setToolTip(
-        translate("PieMenuTab", "Remove current pie menu"))
-    buttonRemovePieMenu.setMinimumHeight(30)
-    buttonRemovePieMenu.setMinimumWidth(30)
-    buttonRemovePieMenu.clicked.connect(onButtonRemovePieMenu)
-
-    buttonRenamePieMenu = QtGui.QToolButton()
-    buttonRenamePieMenu.setToolTip(
-        translate("PieMenuTab", "Rename current pie menu"))
-    buttonRenamePieMenu.setIcon(QtGui.QIcon(resources.iconRename))
-    buttonRenamePieMenu.setMinimumHeight(30)
-    buttonRenamePieMenu.setMinimumWidth(30)
-    buttonRenamePieMenu.clicked.connect(onButtonRenamePieMenu)
-
-    buttonCopyPieMenu = QtGui.QToolButton()
-    buttonCopyPieMenu.setToolTip(
-        translate("PieMenuTab", "Copy current pie menu"))
-    buttonCopyPieMenu.setIcon(QtGui.QIcon(resources.iconCopy))
-    buttonCopyPieMenu.setMinimumHeight(30)
-    buttonCopyPieMenu.setMinimumWidth(30)
-    buttonCopyPieMenu.clicked.connect(onButtonCopyPieMenu)
-
-    buttonExistingToolBar = QtGui.QPushButton(
-        translate("PieMenuTab", "Workbenches toolbars..."))
-    buttonExistingToolBar.setToolTip(
-        translate("PieMenuTab", "Add one of the existing workbenches toolbars"))
-    buttonExistingToolBar.setIcon(QtGui.QIcon(resources.iconRight))
-    buttonExistingToolBar.setMinimumHeight(30)
-    buttonExistingToolBar.setMinimumWidth(60)
-    buttonExistingToolBar.clicked.connect(onButtonToolBar)
-
-    layoutAddRemove = QtGui.QHBoxLayout()
-    layoutAddRemove.addWidget(buttonIconPieMenu)
-    layoutAddRemove.addWidget(cBox)
-    layoutAddRemove.addWidget(buttonAddPieMenu)
-    layoutAddRemove.addWidget(buttonRemovePieMenu)
-    layoutAddRemove.addWidget(buttonRenamePieMenu)
-    layoutAddRemove.addWidget(buttonCopyPieMenu)
-
-    piemenuBoxGroup = QGroupBox()
-    piemenuBoxGroup.setLayout(QtGui.QHBoxLayout())
-    piemenuBoxGroup.layout().addLayout(layoutAddRemove)
-    piemenuBoxGroup.layout().addWidget(buttonExistingToolBar)
-
-    pieMenuTab = QtGui.QWidget()
-    pieMenuTabLayout = QtGui.QVBoxLayout()
-    pieMenuTab.setLayout(pieMenuTabLayout)
-
-    checkboxDefaultPie = QCheckBox()
-    checkboxDefaultPie.setCheckable(True)
-    checkboxDefaultPie.stateChanged.connect(lambda state: onDefaultPie(state))
-
-    checkboxDefaultPie.setToolTip(translate(
-        "PieMenuTab",
-        "The PieMenu opened by the global shortcut when the workbench you are "
-        "in has no PieMenu of its own. Only one PieMenu can be the fallback."))
-
-    labelDefaultPie = QtGui.QLabel(
-        translate("PieMenuTab",
-                  "Use this PieMenu when no workbench matches"))
-    labelDefaultPie.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    layoutDefaultPieLeft = QtGui.QHBoxLayout()
-    layoutDefaultPieLeft.addWidget(checkboxDefaultPie)
-    layoutDefaultPieLeft.addWidget(labelDefaultPie)
-    layoutDefaultPieLeft.addStretch(1)
-    layoutDefaultPie = QtGui.QHBoxLayout()
-    layoutDefaultPie.addLayout(layoutDefaultPieLeft, 1)
-
-    labelWbForPieMenu = QtGui.QLabel(
-        translate("PieMenuTab", "Workbench associated to this PieMenu:"))
-    labelWbForPieMenu.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    comboWbForPieMenu = QtGui.QComboBox()
-    comboWbForPieMenu.setMinimumWidth(160)
-    comboWbForPieMenu.currentIndexChanged.connect(onWbForPieMenu)
-
-    layoutWbForPieMenuLeft = QtGui.QHBoxLayout()
-    layoutWbForPieMenuLeft.addWidget(labelWbForPieMenu)
-    layoutWbForPieMenuRight = QtGui.QHBoxLayout()
-    layoutWbForPieMenuRight.addWidget(comboWbForPieMenu)
-    layoutWbForPieMenu = QtGui.QHBoxLayout()
-    layoutWbForPieMenu.addLayout(layoutWbForPieMenuLeft, 1)
-    layoutWbForPieMenu.addLayout(layoutWbForPieMenuRight, 1)
-
-    piemenuSettingGroup = QGroupBox(translate("PieMenuTab", "Assignment"))
-    piemenuSettingGroup.setLayout(QtGui.QVBoxLayout())
-    # workbench first, then the fallback: the two controls are halves of one
-    # rule -- "this workbench opens this pie, and this pie is used when none
-    # matches" -- and only read that way in this order
-    piemenuSettingGroup.layout().addLayout(layoutWbForPieMenu)
-    piemenuSettingGroup.layout().addLayout(layoutDefaultPie)
-
-    ## group Shape ####
-    labelShape = QtGui.QLabel(translate("PieMenuTab", "Shape:"))
-    labelShape.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    comboShape = QtGui.QComboBox()
-    comboShape.setMinimumWidth(100)
-    comboShape.currentIndexChanged.connect(setShape)
-
-    layoutShapeLeft = QtGui.QHBoxLayout()
-    layoutShapeLeft.addWidget(labelShape)
-    layoutShapeRight = QtGui.QHBoxLayout()
-    layoutShapeRight.addWidget(comboShape)
-    layoutShape = QtGui.QHBoxLayout()
-    layoutShape.addLayout(layoutShapeLeft, 1)
-    layoutShape.addLayout(layoutShapeRight, 1)
-
-    labelRadius = QtGui.QLabel(translate("PieMenuTab", "Pie size:"))
-    labelRadius.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    spinRadius = QtGui.QSpinBox()
-    spinRadius.setMaximum(9999)
-    spinRadius.setMinimumWidth(160)
-    spinRadius.valueChanged.connect(onSpinRadius)
-
-    layoutRadiusLeft = QtGui.QHBoxLayout()
-    layoutRadiusLeft.addWidget(labelRadius)
-    layoutRadiusRight = QtGui.QHBoxLayout()
-    layoutRadiusRight.addWidget(spinRadius)
-    layoutRadius = QtGui.QHBoxLayout()
-    layoutRadius.addLayout(layoutRadiusLeft, 1)
-    layoutRadius.addLayout(layoutRadiusRight, 1)
-
-    labelButton = QtGui.QLabel(translate("PieMenuTab", "Button size:"))
-    labelButton.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    spinButton = QtGui.QSpinBox()
-    spinButton.setMaximum(120)
-    spinButton.setMinimum(16)
-    spinButton.setMinimumWidth(160)
-    spinButton.valueChanged.connect(onSpinButton)
-
-    layoutButtonLeft = QtGui.QHBoxLayout()
-    layoutButtonLeft.addWidget(labelButton)
-    layoutButtonRight = QtGui.QHBoxLayout()
-    layoutButtonRight.addWidget(spinButton)
-    layoutButton = QtGui.QHBoxLayout()
-    layoutButton.addLayout(layoutButtonLeft, 1)
-    layoutButton.addLayout(layoutButtonRight, 1)
-
-    labelIconSpacing = QtGui.QLabel(translate("PieMenuTab", "Icon spacing:"))
-    labelIconSpacing.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    spinIconSpacing = QtGui.QSpinBox()
-    spinIconSpacing.setMaximum(200)
-    spinIconSpacing.setMinimumWidth(0)
-    spinIconSpacing.valueChanged.connect(onIconSpacing)
-
-    layoutIconSpacingLeft = QtGui.QHBoxLayout()
-    layoutIconSpacingLeft.addWidget(labelIconSpacing)
-    layoutIconSpacingRight = QtGui.QHBoxLayout()
-    layoutIconSpacingRight.addWidget(spinIconSpacing)
-    layoutIconSpacing = QtGui.QHBoxLayout()
-    layoutIconSpacing.addLayout(layoutIconSpacingLeft, 1)
-    layoutIconSpacing.addLayout(layoutIconSpacingRight, 1)
-
-    labelNumColumn = QtGui.QLabel(
-        translate("PieMenuTab", "Number of columns:"))
-    labelNumColumn.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    spinNumColumn = QtGui.QSpinBox()
-    spinNumColumn.setMaximum(12)
-    spinNumColumn.setMinimumWidth(120)
-    spinNumColumn.valueChanged.connect(onNumColumn)
-
-    layoutColumnLeft = QtGui.QHBoxLayout()
-    layoutColumnLeft.addWidget(labelNumColumn)
-    layoutColumnRight = QtGui.QHBoxLayout()
-    layoutColumnRight.addWidget(spinNumColumn)
-    layoutColumn = QtGui.QHBoxLayout()
-    layoutColumn.addLayout(layoutColumnLeft, 1)
-    layoutColumn.addLayout(layoutColumnRight, 1)
-
-    labelCommandPerCircle = QtGui.QLabel(
-        translate("PieMenuTab", "Command for first circle:"))
-    labelCommandPerCircle.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    spinCommandPerCircle = QtGui.QSpinBox()
-    spinCommandPerCircle.setMaximum(20)
-    spinCommandPerCircle.setMinimum(2)
-    spinCommandPerCircle.setMinimumWidth(0)
-    spinCommandPerCircle.valueChanged.connect(onCommandPerCircle)
-
-    layoutCommandPerCircleLeft = QtGui.QHBoxLayout()
-    layoutCommandPerCircleLeft.addWidget(labelCommandPerCircle)
-    layoutCommandPerCircleRight = QtGui.QHBoxLayout()
-    layoutCommandPerCircleRight.addWidget(spinCommandPerCircle)
-    layoutCommandPerCircle = QtGui.QHBoxLayout()
-    layoutCommandPerCircle.addLayout(layoutCommandPerCircleLeft, 1)
-    layoutCommandPerCircle.addLayout(layoutCommandPerCircleRight, 1)
-
-    checkboxDisplayCommandName = QCheckBox()
-    checkboxDisplayCommandName.setCheckable(True)
-    checkboxDisplayCommandName.stateChanged.connect(
-        lambda state: onDisplayCommandName(state))
-
-    labeldisplayCommandName = QtGui.QLabel(
-        translate("PieMenuTab", "Show command names"))
-    labeldisplayCommandName.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    layoutDisplayCommandNameLeft = QtGui.QHBoxLayout()
-    layoutDisplayCommandNameLeft.addWidget(checkboxDisplayCommandName)
-    layoutDisplayCommandNameLeft.addWidget(labeldisplayCommandName)
-    layoutDisplayCommandNameLeft.addStretch(1)
-    layoutDisplayCommandName = QtGui.QHBoxLayout()
-    layoutDisplayCommandName.addLayout(layoutDisplayCommandNameLeft, 1)
-
-    checkboxDisplayPreselect = QCheckBox()
-    checkboxDisplayPreselect.setCheckable(True)
-    checkboxDisplayPreselect.stateChanged.connect(
-        lambda state: onDisplayPreselect(state))
-
-    labelDisplayPreselect = QtGui.QLabel(
-        translate("PieMenuTab", "Show preselect button"))
-    labelDisplayPreselect.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    layoutDisplayPreselectLeft = QtGui.QHBoxLayout()
-    layoutDisplayPreselectLeft.addWidget(checkboxDisplayPreselect)
-    layoutDisplayPreselectLeft.addWidget(labelDisplayPreselect)
-    layoutDisplayPreselectLeft.addStretch(1)
-    layoutDisplayPreselect = QtGui.QHBoxLayout()
-    layoutDisplayPreselect.addLayout(layoutDisplayPreselectLeft, 1)
-
-    shapeGroup = QGroupBox(translate("PieMenuTab", "Shape"))
-    shapeGroup.setLayout(QtGui.QVBoxLayout())
-    shapeGroup.layout().addLayout(layoutShape)
-    shapeGroup.layout().addLayout(layoutRadius)
-    shapeGroup.layout().addLayout(layoutButton)
-    shapeGroup.layout().addLayout(layoutIconSpacing)
-    shapeGroup.layout().addLayout(layoutColumn)
-    shapeGroup.layout().addLayout(layoutCommandPerCircle)
-    shapeGroup.layout().addLayout(layoutDisplayCommandName)
-    shapeGroup.layout().addLayout(layoutDisplayPreselect)
-
-    ### group Trigger Mode ####
-    radioButtonPress = QtGui.QRadioButton(
-        translate("PieMenuTab", "Press"))
-    radioButtonPress.toggled.connect(
-        lambda checked, data="Press": setTriggerMode(data))
-
-    radioButtonHover = QtGui.QRadioButton(
-        translate("PieMenuTab", "Hover"))
-    radioButtonHover.toggled.connect(
-        lambda checked, data="Hover":  setTriggerMode(data))
-
-    radioGroup = QtGui.QButtonGroup()
-    radioGroup.addButton(radioButtonPress)
-    radioGroup.addButton(radioButtonHover)
-
-    layoutActionHoverButton = QtGui.QVBoxLayout()
-    layoutActionHoverButton.addWidget(radioButtonPress)
-    layoutActionHoverButton.addWidget(radioButtonHover)
-
-    labelHoverDelay = QtGui.QLabel(
-        translate("PieMenuTab", "Hover delay (ms):"))
-    labelHoverDelay.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    spinHoverDelay = QtGui.QSpinBox()
-    spinHoverDelay.setMaximum(999)
-    spinHoverDelay.setMinimumWidth(90)
-    spinHoverDelay.valueChanged.connect(onSpinHoverDelay)
-
-    layoutTriggerButtonLeft = QtGui.QHBoxLayout()
-    layoutTriggerButtonLeft.addLayout(layoutActionHoverButton)
-    layoutTriggerButtonLeft.addStretch(1)
-    layoutTriggerButtonRight = QtGui.QHBoxLayout()
-    layoutTriggerButtonRight.addWidget(labelHoverDelay)
-    layoutTriggerButtonRight.addStretch(1)
-    layoutTriggerButtonRight.addWidget(spinHoverDelay)
-    layoutTriggerButton = QtGui.QHBoxLayout()
-    layoutTriggerButton.addLayout(layoutTriggerButtonLeft, 1)
-    layoutTriggerButton.addLayout(layoutTriggerButtonRight, 1)
-
-    triggerModeGroup = QGroupBox(translate("PieMenuTab", "Trigger mode"))
-    triggerModeGroup.setLayout(QtGui.QVBoxLayout())
-    triggerModeGroup.layout().addLayout(layoutTriggerButton)
-
-    ### group Tools Shortcuts ####
-    toolShortcutGroup = QGroupBox()
-    toolShortcutGroup.setCheckable(True)
-    toolShortcutGroup.toggled.connect(lambda state: onEnableShortcut(state))
-
-    checkboxDisplayShortcut = QCheckBox()
-    checkboxDisplayShortcut.setCheckable(True)
-    checkboxDisplayShortcut.stateChanged.connect(
-        lambda state: onDisplayShortcut(state))
-
-    labelDisplayShortcut = QtGui.QLabel(
-        translate("PieMenuTab", "Display tools shortcut"))
-    labelDisplayShortcut.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    labelShortcutSize = QtGui.QLabel(translate("PieMenuTab", "Font size:"))
-    labelShortcutSize.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    spinShortcutLabelSize = QtGui.QSpinBox()
-    spinShortcutLabelSize.setMinimum(6)
-    spinShortcutLabelSize.setMaximum(50)
-    spinShortcutLabelSize.setMinimumWidth(90)
-    spinShortcutLabelSize.valueChanged.connect(onSpinShortcutLabelSize)
-
-    layoutDisplayShortcutLeft = QtGui.QHBoxLayout()
-    layoutDisplayShortcutLeft.addWidget(checkboxDisplayShortcut)
-    layoutDisplayShortcutLeft.addWidget(labelDisplayShortcut)
-    layoutDisplayShortcutLeft.addStretch(1)
-    layoutDisplayShortcutRight = QtGui.QHBoxLayout()
-    layoutDisplayShortcutRight.addWidget(labelShortcutSize)
-    layoutDisplayShortcutRight.addWidget(spinShortcutLabelSize)
-    layoutDisplayShortcut = QtGui.QHBoxLayout()
-    layoutDisplayShortcut.addLayout(layoutDisplayShortcutLeft, 1)
-    layoutDisplayShortcut.addLayout(layoutDisplayShortcutRight, 1)
-
-    enableShortcut = getParameterGroup(
-        cBox.currentText(), "Bool", "EnableShorcut")
-    if enableShortcut == "":
-        enableShortcut = False
-
-    # keep this line here
-    buttonListWidget = QtGui.QTableWidget()
-    # Intercept Delete/Backspace/Up/Down before the QTableWidget consumes them.
-    # Keep a name reference so the QObject isn't garbage-collected.
-    buttonListEventFilter = ButtonListEventFilter(buttonListWidget)
-    buttonListWidget.installEventFilter(buttonListEventFilter)
-
-    toolShortcutGroup.setTitle(translate("PieMenuTab", "Tools shortcuts"))
-    toolShortcutGroup.setCheckable(True)
-    toolShortcutGroup.setChecked(enableShortcut)
-    toolShortcutGroup.setLayout(QtGui.QVBoxLayout())
-    toolShortcutGroup.layout().addLayout(layoutDisplayShortcut)
-
-    #### group Individual Shortcut ####
-    shortcutKey = getParameterGroup(
-        cBox.currentText(), "String", "ShortcutKey")
-
-    labelShortcut = QLabel()
-    labelShortcut.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-    labelShortcut.setText(
-        translate("PieMenuTab", "Current shortcut: ") + shortcutKey)
-
-    shortcutLineEdit = CustomLineEdit()
-    shortcutLineEdit.setText(shortcutKey)
-
-    assignShortcutButton = QtGui.QPushButton(
-        translate("PieMenuTab", "Assign"))
-    assignShortcutButton.clicked.connect(
-        lambda: updateShortcutKey(shortcutLineEdit.text()))
-
-    deleteShortcutButton = QtGui.QPushButton()
-    deleteShortcutButton.setMaximumWidth(40)
-    deleteShortcutButton.setIcon(QtGui.QIcon.fromTheme(resources.iconBackspace))
-    deleteShortcutButton.clicked.connect(lambda: updateShortcutKey(""))
-
-    layoutShortcut = QtGui.QHBoxLayout()
-    layoutShortcut.addWidget(labelShortcut)
-    layoutShortcut.addStretch(1)
-    layoutShortcut.addWidget(shortcutLineEdit)
-    layoutShortcut.addWidget(assignShortcutButton)
-    layoutShortcut.addWidget(deleteShortcutButton)
-
-    infoShortcut = QLabel()
-    infoShortcut.setText('')
-
-    layoutInfoShortcut = QtGui.QHBoxLayout()
-    layoutInfoShortcut.addWidget(infoShortcut)
-    layoutInfoShortcut.addStretch(1)
-
-    pieMenuTabLayout.insertWidget(0, piemenuSettingGroup)
-    pieMenuTabLayout.insertWidget(1, shapeGroup)
-    pieMenuTabLayout.insertWidget(2, triggerModeGroup)
-    pieMenuTabLayout.insertWidget(3, toolShortcutGroup)
-    pieMenuTabLayout.insertSpacing(4, 10)
-    pieMenuTabLayout.insertLayout(5, layoutShortcut)
-
-    #### Tool list container ####
-    searchLayout = QHBoxLayout()
-    searchLineEdit = QLineEdit()
-    searchLineEdit.setPlaceholderText(translate("ToolsTab", "Search"))
-    searchLineEdit.textChanged.connect(searchInToolList)
-
-    clearButton = QtGui.QToolButton()
-    clearButton.setToolTip(translate("ToolsTab", "Clear search"))
-    clearButton.setMaximumWidth(40)
-    clearButton.setIcon(QtGui.QIcon.fromTheme(resources.iconBackspace))
-    clearButton.clicked.connect(searchLineEdit.clear)
-
-    searchLayout.addWidget(searchLineEdit)
-    searchLayout.addWidget(clearButton)
-
-    toolListWidget = QtGui.QTableWidget()
-    toolListWidget.setColumnCount(3)
-    toolListWidget.sortItems(1, QtCore.Qt.AscendingOrder)
-    toolListWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-    toolListWidget.verticalHeader().setVisible(False)
-    toolListWidget.setHorizontalHeaderLabels(
-        ["", translate("ToolsTab", "Tools"), translate("ToolsTab", "Workbench")])
-
-    toolListWidget.horizontalHeader().setSectionResizeMode(
-        0, QtWidgets.QHeaderView.Fixed)
-    toolListWidget.setColumnWidth(0, 10)
-    toolListWidget.horizontalHeader().setSectionResizeMode(
-        1, QtWidgets.QHeaderView.Stretch)
-    toolListWidget.horizontalHeader().setSectionResizeMode(
-        2, QtWidgets.QHeaderView.Fixed)
-    toolListWidget.setColumnWidth(2, 120)
-    toolListWidget.horizontalHeader().setStretchLastSection(False)
-
-    toolListWidget.horizontalHeader().setSortIndicatorShown(True)
-    toolListWidget.horizontalHeader().setSortIndicator(1, QtCore.Qt.AscendingOrder)
-    toolListWidget.horizontalHeader().setSectionsClickable(True)
-    toolListWidget.horizontalHeader().setSectionsMovable(False)
-
-    toolListWidget.horizontalHeader().sectionClicked.connect(sortToolListByColumn)
-    toolListWidget.itemChanged.connect(onToolListWidget)
-
-    toolListLayout = QVBoxLayout()
-    toolListLayout.addLayout(searchLayout)
-    toolListLayout.addWidget(toolListWidget)
-
-    widgetContainer = QWidget()
-    widgetContainer.setLayout(toolListLayout)
-    widgetContainer.setMinimumHeight(380)
-
-    #### Tab ContextTab ####
-    contextTab = QtGui.QWidget()
-    contextTabLayout = QtGui.QVBoxLayout()
-    contextTab.setLayout(contextTabLayout)
-
-    vertexItem = QtGui.QTableWidgetItem()
-    vertexItem.setText(translate("ContextTab", "Vertex"))
-    vertexItem.setToolTip(
-        translate("ContextTab", "A vertex can be a point on a 2D or 3D object, a projected point, a point of origin, DatumPoint etc."))
-    vertexItem.setFlags(QtCore.Qt.ItemIsEnabled)
-
-    edgeItem = QtGui.QTableWidgetItem()
-    edgeItem.setText(translate("ContextTab", "Edge"))
-    edgeItem.setToolTip(
-        translate("ContextTab", "An edge can be an line, circle, etc. spline on a 2D or 3D object."))
-    edgeItem.setFlags(QtCore.Qt.ItemIsEnabled)
-
-    faceItem = QtGui.QTableWidgetItem()
-    faceItem.setText(translate("ContextTab", "Face"))
-    faceItem.setToolTip(
-        translate("ContextTab", "A face can be a face, a curve etc. of a 2D or 3D object."))
-    faceItem.setFlags(QtCore.Qt.ItemIsEnabled)
-
-    objectItem = QtGui.QTableWidgetItem()
-    objectItem.setText(translate("ContextTab", "Object"))
-    objectItem.setToolTip(
-        translate("ContextTab", "An object can be any element contained in the construction tree: body, part, feature, etc."))
-    objectItem.setFlags(QtCore.Qt.ItemIsEnabled)
+    # Preferences-dialog widgets. Bound here so the callbacks defined
+    # above resolve, and filled in by buildPreferencesDialog() the first
+    # time the dialog is opened rather than during FreeCAD's startup.
+    prefsDialogBuilt = False
+    tabs = window_icons = grid_layout = buttonIconPieMenu = cBox = buttonExistingToolBar = None
+    piemenuBoxGroup = checkboxDefaultPie = comboWbForPieMenu = comboShape = spinRadius = spinButton = None
+    labelIconSpacing = spinIconSpacing = labelNumColumn = spinNumColumn = labelCommandPerCircle = spinCommandPerCircle = None
+    checkboxDisplayCommandName = labeldisplayCommandName = checkboxDisplayPreselect = labelDisplayPreselect = radioButtonPress = radioButtonHover = None
+    spinHoverDelay = toolShortcutGroup = checkboxDisplayShortcut = labelShortcutSize = spinShortcutLabelSize = enableShortcut = None
+    buttonListWidget = shortcutKey = labelShortcut = shortcutLineEdit = infoShortcut = toolListWidget = None
+    vertexComboBox = edgeComboBox = faceComboBox = objectComboBox = axisComboBox = planeComboBox = None
+    vertexSpin = edgeSpin = faceSpin = objectSpin = axisSpin = planeSpin = None
+    addContextConditions = checkboxTriggerContext = comboContextWorkbench = listContextConditions = labelListContext = buttonBackToSettings = None
+    listToolBar = toolBarTab = buttonsLayout = showPreviewWidget = showPiemenu = vSplitter = None
+    comboBoxTheme = enableContext = checkboxGlobalKeyToggle = spinDelayRightClick = checkboxDisplaySpinBox = labelGlobalShortcut = None
+    globalShortcutLineEdit = None
+
+    def buildPreferencesDialog():
+        """ Build the preferences dialog.
+
+        Called the first time the dialog is opened. This used to run
+        unconditionally at import, so every FreeCAD start paid for ~200 Qt
+        widget constructions whether or not the user ever opened settings.
+        Deferring it is only safe now that no code on the hotkey path reads
+        one of these widgets.
+        """
+        nonlocal prefsDialogBuilt
+        nonlocal tabs, window_icons, grid_layout, buttonIconPieMenu, cBox
+        nonlocal buttonExistingToolBar, piemenuBoxGroup, checkboxDefaultPie, comboWbForPieMenu, comboShape
+        nonlocal spinRadius, spinButton, labelIconSpacing, spinIconSpacing, labelNumColumn
+        nonlocal spinNumColumn, labelCommandPerCircle, spinCommandPerCircle, checkboxDisplayCommandName, labeldisplayCommandName
+        nonlocal checkboxDisplayPreselect, labelDisplayPreselect, radioButtonPress, radioButtonHover, spinHoverDelay
+        nonlocal toolShortcutGroup, checkboxDisplayShortcut, labelShortcutSize, spinShortcutLabelSize, enableShortcut
+        nonlocal buttonListWidget, shortcutKey, labelShortcut, shortcutLineEdit, infoShortcut
+        nonlocal toolListWidget, vertexComboBox, edgeComboBox, faceComboBox, objectComboBox
+        nonlocal axisComboBox, planeComboBox, vertexSpin, edgeSpin, faceSpin
+        nonlocal objectSpin, axisSpin, planeSpin, addContextConditions, checkboxTriggerContext
+        nonlocal comboContextWorkbench, listContextConditions, labelListContext, buttonBackToSettings, listToolBar
+        nonlocal toolBarTab, buttonsLayout, showPreviewWidget, showPiemenu, vSplitter
+        nonlocal comboBoxTheme, enableContext, checkboxGlobalKeyToggle, spinDelayRightClick
+        nonlocal checkboxDisplaySpinBox, labelGlobalShortcut, globalShortcutLineEdit
+
+        # pieMenuDialog itself is a module global (the block below declares it
+        # global), so it cannot serve as the built-yet flag from in here.
+        if prefsDialogBuilt:
+            return
+        prefsDialogBuilt = True
+
+        #### MainWindow Preferences Dialog ####
+        #### group PieMenu ####
+        tabs = QtGui.QTabWidget()
+        tabToolBar = QtGui.QTabWidget()
+
+        ### Button set Icon ####
+        window_icons = QtGui.QWidget()
+
+        grid_layout = QtGui.QGridLayout()
+        grid_widget = QtGui.QWidget()
+        grid_widget.setLayout(grid_layout)
+        scroll_area = QtGui.QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(grid_widget)
+
+        buttonBrowse = QtGui.QPushButton(
+            translate("PieMenuTab", "Browse Icons Files..."))
+        buttonBrowse.clicked.connect(onButtonBrowseIcon)
+
+        cancel_window_icons_button = QtGui.QPushButton(
+            translate("PieMenuTab", "Cancel"))
+        cancel_window_icons_button.clicked.connect(window_icons_close)
+
+        buttonLayoutIcons = QtGui.QHBoxLayout()
+        buttonLayoutIcons.addWidget(buttonBrowse)
+        buttonLayoutIcons.addStretch(1)
+        buttonLayoutIcons.addWidget(cancel_window_icons_button)
+
+        main_layout = QtGui.QVBoxLayout()
+        main_layout.addWidget(scroll_area)
+        main_layout.addLayout(buttonLayoutIcons)
+
+        window_icons.setLayout(main_layout)
+
+        buttonIconPieMenu = QtGui.QToolButton()
+        buttonIconPieMenu.setToolTip(
+            translate("PieMenuTab", "Set icon to current PieMenu"))
+        buttonIconPieMenu.setMinimumHeight(30)
+        buttonIconPieMenu.setMinimumWidth(30)
+        buttonIconPieMenu.clicked.connect(onButtonIconPieMenu)
+
+        #### layout PieMenu Settings ####
+        cBox = QtGui.QComboBox()
+        cBox.setMinimumHeight(28)
+        cBox.currentIndexChanged.connect(onPieChange)
+        cBox.setMinimumWidth(140)
+
+        buttonAddPieMenu = QtGui.QToolButton()
+        buttonAddPieMenu.setIcon(QtGui.QIcon(resources.iconAdd))
+        buttonAddPieMenu.setToolTip(translate("PieMenuTab", "Add new pie menu"))
+        buttonAddPieMenu.setMinimumHeight(30)
+        buttonAddPieMenu.setMinimumWidth(30)
+        buttonAddPieMenu.clicked.connect(onButtonAddPieMenu)
+
+        buttonRemovePieMenu = QtGui.QToolButton()
+        buttonRemovePieMenu.setIcon(QtGui.QIcon(resources.iconRemove))
+        buttonRemovePieMenu.setToolTip(
+            translate("PieMenuTab", "Remove current pie menu"))
+        buttonRemovePieMenu.setMinimumHeight(30)
+        buttonRemovePieMenu.setMinimumWidth(30)
+        buttonRemovePieMenu.clicked.connect(onButtonRemovePieMenu)
+
+        buttonRenamePieMenu = QtGui.QToolButton()
+        buttonRenamePieMenu.setToolTip(
+            translate("PieMenuTab", "Rename current pie menu"))
+        buttonRenamePieMenu.setIcon(QtGui.QIcon(resources.iconRename))
+        buttonRenamePieMenu.setMinimumHeight(30)
+        buttonRenamePieMenu.setMinimumWidth(30)
+        buttonRenamePieMenu.clicked.connect(onButtonRenamePieMenu)
+
+        buttonCopyPieMenu = QtGui.QToolButton()
+        buttonCopyPieMenu.setToolTip(
+            translate("PieMenuTab", "Copy current pie menu"))
+        buttonCopyPieMenu.setIcon(QtGui.QIcon(resources.iconCopy))
+        buttonCopyPieMenu.setMinimumHeight(30)
+        buttonCopyPieMenu.setMinimumWidth(30)
+        buttonCopyPieMenu.clicked.connect(onButtonCopyPieMenu)
+
+        buttonExistingToolBar = QtGui.QPushButton(
+            translate("PieMenuTab", "Workbenches toolbars..."))
+        buttonExistingToolBar.setToolTip(
+            translate("PieMenuTab", "Add one of the existing workbenches toolbars"))
+        buttonExistingToolBar.setIcon(QtGui.QIcon(resources.iconRight))
+        buttonExistingToolBar.setMinimumHeight(30)
+        buttonExistingToolBar.setMinimumWidth(60)
+        buttonExistingToolBar.clicked.connect(onButtonToolBar)
+
+        layoutAddRemove = QtGui.QHBoxLayout()
+        layoutAddRemove.addWidget(buttonIconPieMenu)
+        layoutAddRemove.addWidget(cBox)
+        layoutAddRemove.addWidget(buttonAddPieMenu)
+        layoutAddRemove.addWidget(buttonRemovePieMenu)
+        layoutAddRemove.addWidget(buttonRenamePieMenu)
+        layoutAddRemove.addWidget(buttonCopyPieMenu)
+
+        piemenuBoxGroup = QGroupBox()
+        piemenuBoxGroup.setLayout(QtGui.QHBoxLayout())
+        piemenuBoxGroup.layout().addLayout(layoutAddRemove)
+        piemenuBoxGroup.layout().addWidget(buttonExistingToolBar)
+
+        pieMenuTab = QtGui.QWidget()
+        pieMenuTabLayout = QtGui.QVBoxLayout()
+        pieMenuTab.setLayout(pieMenuTabLayout)
+
+        checkboxDefaultPie = QCheckBox()
+        checkboxDefaultPie.setCheckable(True)
+        checkboxDefaultPie.stateChanged.connect(lambda state: onDefaultPie(state))
+
+        checkboxDefaultPie.setToolTip(translate(
+            "PieMenuTab",
+            "The PieMenu opened by the global shortcut when the workbench you are "
+            "in has no PieMenu of its own. Only one PieMenu can be the fallback."))
+
+        labelDefaultPie = QtGui.QLabel(
+            translate("PieMenuTab",
+                      "Use this PieMenu when no workbench matches"))
+        labelDefaultPie.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        layoutDefaultPieLeft = QtGui.QHBoxLayout()
+        layoutDefaultPieLeft.addWidget(checkboxDefaultPie)
+        layoutDefaultPieLeft.addWidget(labelDefaultPie)
+        layoutDefaultPieLeft.addStretch(1)
+        layoutDefaultPie = QtGui.QHBoxLayout()
+        layoutDefaultPie.addLayout(layoutDefaultPieLeft, 1)
+
+        labelWbForPieMenu = QtGui.QLabel(
+            translate("PieMenuTab", "Workbench associated to this PieMenu:"))
+        labelWbForPieMenu.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        comboWbForPieMenu = QtGui.QComboBox()
+        comboWbForPieMenu.setMinimumWidth(160)
+        comboWbForPieMenu.currentIndexChanged.connect(onWbForPieMenu)
+
+        layoutWbForPieMenuLeft = QtGui.QHBoxLayout()
+        layoutWbForPieMenuLeft.addWidget(labelWbForPieMenu)
+        layoutWbForPieMenuRight = QtGui.QHBoxLayout()
+        layoutWbForPieMenuRight.addWidget(comboWbForPieMenu)
+        layoutWbForPieMenu = QtGui.QHBoxLayout()
+        layoutWbForPieMenu.addLayout(layoutWbForPieMenuLeft, 1)
+        layoutWbForPieMenu.addLayout(layoutWbForPieMenuRight, 1)
+
+        piemenuSettingGroup = QGroupBox(translate("PieMenuTab", "Assignment"))
+        piemenuSettingGroup.setLayout(QtGui.QVBoxLayout())
+        # workbench first, then the fallback: the two controls are halves of one
+        # rule -- "this workbench opens this pie, and this pie is used when none
+        # matches" -- and only read that way in this order
+        piemenuSettingGroup.layout().addLayout(layoutWbForPieMenu)
+        piemenuSettingGroup.layout().addLayout(layoutDefaultPie)
+
+        ## group Shape ####
+        labelShape = QtGui.QLabel(translate("PieMenuTab", "Shape:"))
+        labelShape.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        comboShape = QtGui.QComboBox()
+        comboShape.setMinimumWidth(100)
+        comboShape.currentIndexChanged.connect(setShape)
+
+        layoutShapeLeft = QtGui.QHBoxLayout()
+        layoutShapeLeft.addWidget(labelShape)
+        layoutShapeRight = QtGui.QHBoxLayout()
+        layoutShapeRight.addWidget(comboShape)
+        layoutShape = QtGui.QHBoxLayout()
+        layoutShape.addLayout(layoutShapeLeft, 1)
+        layoutShape.addLayout(layoutShapeRight, 1)
+
+        labelRadius = QtGui.QLabel(translate("PieMenuTab", "Pie size:"))
+        labelRadius.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        spinRadius = QtGui.QSpinBox()
+        spinRadius.setMaximum(9999)
+        spinRadius.setMinimumWidth(160)
+        spinRadius.valueChanged.connect(onSpinRadius)
+
+        layoutRadiusLeft = QtGui.QHBoxLayout()
+        layoutRadiusLeft.addWidget(labelRadius)
+        layoutRadiusRight = QtGui.QHBoxLayout()
+        layoutRadiusRight.addWidget(spinRadius)
+        layoutRadius = QtGui.QHBoxLayout()
+        layoutRadius.addLayout(layoutRadiusLeft, 1)
+        layoutRadius.addLayout(layoutRadiusRight, 1)
+
+        labelButton = QtGui.QLabel(translate("PieMenuTab", "Button size:"))
+        labelButton.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        spinButton = QtGui.QSpinBox()
+        spinButton.setMaximum(120)
+        spinButton.setMinimum(16)
+        spinButton.setMinimumWidth(160)
+        spinButton.valueChanged.connect(onSpinButton)
+
+        layoutButtonLeft = QtGui.QHBoxLayout()
+        layoutButtonLeft.addWidget(labelButton)
+        layoutButtonRight = QtGui.QHBoxLayout()
+        layoutButtonRight.addWidget(spinButton)
+        layoutButton = QtGui.QHBoxLayout()
+        layoutButton.addLayout(layoutButtonLeft, 1)
+        layoutButton.addLayout(layoutButtonRight, 1)
+
+        labelIconSpacing = QtGui.QLabel(translate("PieMenuTab", "Icon spacing:"))
+        labelIconSpacing.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        spinIconSpacing = QtGui.QSpinBox()
+        spinIconSpacing.setMaximum(200)
+        spinIconSpacing.setMinimumWidth(0)
+        spinIconSpacing.valueChanged.connect(onIconSpacing)
+
+        layoutIconSpacingLeft = QtGui.QHBoxLayout()
+        layoutIconSpacingLeft.addWidget(labelIconSpacing)
+        layoutIconSpacingRight = QtGui.QHBoxLayout()
+        layoutIconSpacingRight.addWidget(spinIconSpacing)
+        layoutIconSpacing = QtGui.QHBoxLayout()
+        layoutIconSpacing.addLayout(layoutIconSpacingLeft, 1)
+        layoutIconSpacing.addLayout(layoutIconSpacingRight, 1)
+
+        labelNumColumn = QtGui.QLabel(
+            translate("PieMenuTab", "Number of columns:"))
+        labelNumColumn.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        spinNumColumn = QtGui.QSpinBox()
+        spinNumColumn.setMaximum(12)
+        spinNumColumn.setMinimumWidth(120)
+        spinNumColumn.valueChanged.connect(onNumColumn)
+
+        layoutColumnLeft = QtGui.QHBoxLayout()
+        layoutColumnLeft.addWidget(labelNumColumn)
+        layoutColumnRight = QtGui.QHBoxLayout()
+        layoutColumnRight.addWidget(spinNumColumn)
+        layoutColumn = QtGui.QHBoxLayout()
+        layoutColumn.addLayout(layoutColumnLeft, 1)
+        layoutColumn.addLayout(layoutColumnRight, 1)
+
+        labelCommandPerCircle = QtGui.QLabel(
+            translate("PieMenuTab", "Command for first circle:"))
+        labelCommandPerCircle.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        spinCommandPerCircle = QtGui.QSpinBox()
+        spinCommandPerCircle.setMaximum(20)
+        spinCommandPerCircle.setMinimum(2)
+        spinCommandPerCircle.setMinimumWidth(0)
+        spinCommandPerCircle.valueChanged.connect(onCommandPerCircle)
+
+        layoutCommandPerCircleLeft = QtGui.QHBoxLayout()
+        layoutCommandPerCircleLeft.addWidget(labelCommandPerCircle)
+        layoutCommandPerCircleRight = QtGui.QHBoxLayout()
+        layoutCommandPerCircleRight.addWidget(spinCommandPerCircle)
+        layoutCommandPerCircle = QtGui.QHBoxLayout()
+        layoutCommandPerCircle.addLayout(layoutCommandPerCircleLeft, 1)
+        layoutCommandPerCircle.addLayout(layoutCommandPerCircleRight, 1)
+
+        checkboxDisplayCommandName = QCheckBox()
+        checkboxDisplayCommandName.setCheckable(True)
+        checkboxDisplayCommandName.stateChanged.connect(
+            lambda state: onDisplayCommandName(state))
+
+        labeldisplayCommandName = QtGui.QLabel(
+            translate("PieMenuTab", "Show command names"))
+        labeldisplayCommandName.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        layoutDisplayCommandNameLeft = QtGui.QHBoxLayout()
+        layoutDisplayCommandNameLeft.addWidget(checkboxDisplayCommandName)
+        layoutDisplayCommandNameLeft.addWidget(labeldisplayCommandName)
+        layoutDisplayCommandNameLeft.addStretch(1)
+        layoutDisplayCommandName = QtGui.QHBoxLayout()
+        layoutDisplayCommandName.addLayout(layoutDisplayCommandNameLeft, 1)
+
+        checkboxDisplayPreselect = QCheckBox()
+        checkboxDisplayPreselect.setCheckable(True)
+        checkboxDisplayPreselect.stateChanged.connect(
+            lambda state: onDisplayPreselect(state))
+
+        labelDisplayPreselect = QtGui.QLabel(
+            translate("PieMenuTab", "Show preselect button"))
+        labelDisplayPreselect.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        layoutDisplayPreselectLeft = QtGui.QHBoxLayout()
+        layoutDisplayPreselectLeft.addWidget(checkboxDisplayPreselect)
+        layoutDisplayPreselectLeft.addWidget(labelDisplayPreselect)
+        layoutDisplayPreselectLeft.addStretch(1)
+        layoutDisplayPreselect = QtGui.QHBoxLayout()
+        layoutDisplayPreselect.addLayout(layoutDisplayPreselectLeft, 1)
+
+        shapeGroup = QGroupBox(translate("PieMenuTab", "Shape"))
+        shapeGroup.setLayout(QtGui.QVBoxLayout())
+        shapeGroup.layout().addLayout(layoutShape)
+        shapeGroup.layout().addLayout(layoutRadius)
+        shapeGroup.layout().addLayout(layoutButton)
+        shapeGroup.layout().addLayout(layoutIconSpacing)
+        shapeGroup.layout().addLayout(layoutColumn)
+        shapeGroup.layout().addLayout(layoutCommandPerCircle)
+        shapeGroup.layout().addLayout(layoutDisplayCommandName)
+        shapeGroup.layout().addLayout(layoutDisplayPreselect)
+
+        ### group Trigger Mode ####
+        radioButtonPress = QtGui.QRadioButton(
+            translate("PieMenuTab", "Press"))
+        radioButtonPress.toggled.connect(
+            lambda checked, data="Press": setTriggerMode(data))
+
+        radioButtonHover = QtGui.QRadioButton(
+            translate("PieMenuTab", "Hover"))
+        radioButtonHover.toggled.connect(
+            lambda checked, data="Hover":  setTriggerMode(data))
+
+        radioGroup = QtGui.QButtonGroup()
+        radioGroup.addButton(radioButtonPress)
+        radioGroup.addButton(radioButtonHover)
+
+        layoutActionHoverButton = QtGui.QVBoxLayout()
+        layoutActionHoverButton.addWidget(radioButtonPress)
+        layoutActionHoverButton.addWidget(radioButtonHover)
+
+        labelHoverDelay = QtGui.QLabel(
+            translate("PieMenuTab", "Hover delay (ms):"))
+        labelHoverDelay.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        spinHoverDelay = QtGui.QSpinBox()
+        spinHoverDelay.setMaximum(999)
+        spinHoverDelay.setMinimumWidth(90)
+        spinHoverDelay.valueChanged.connect(onSpinHoverDelay)
+
+        layoutTriggerButtonLeft = QtGui.QHBoxLayout()
+        layoutTriggerButtonLeft.addLayout(layoutActionHoverButton)
+        layoutTriggerButtonLeft.addStretch(1)
+        layoutTriggerButtonRight = QtGui.QHBoxLayout()
+        layoutTriggerButtonRight.addWidget(labelHoverDelay)
+        layoutTriggerButtonRight.addStretch(1)
+        layoutTriggerButtonRight.addWidget(spinHoverDelay)
+        layoutTriggerButton = QtGui.QHBoxLayout()
+        layoutTriggerButton.addLayout(layoutTriggerButtonLeft, 1)
+        layoutTriggerButton.addLayout(layoutTriggerButtonRight, 1)
+
+        triggerModeGroup = QGroupBox(translate("PieMenuTab", "Trigger mode"))
+        triggerModeGroup.setLayout(QtGui.QVBoxLayout())
+        triggerModeGroup.layout().addLayout(layoutTriggerButton)
+
+        ### group Tools Shortcuts ####
+        toolShortcutGroup = QGroupBox()
+        toolShortcutGroup.setCheckable(True)
+        toolShortcutGroup.toggled.connect(lambda state: onEnableShortcut(state))
+
+        checkboxDisplayShortcut = QCheckBox()
+        checkboxDisplayShortcut.setCheckable(True)
+        checkboxDisplayShortcut.stateChanged.connect(
+            lambda state: onDisplayShortcut(state))
+
+        labelDisplayShortcut = QtGui.QLabel(
+            translate("PieMenuTab", "Display tools shortcut"))
+        labelDisplayShortcut.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        labelShortcutSize = QtGui.QLabel(translate("PieMenuTab", "Font size:"))
+        labelShortcutSize.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        spinShortcutLabelSize = QtGui.QSpinBox()
+        spinShortcutLabelSize.setMinimum(6)
+        spinShortcutLabelSize.setMaximum(50)
+        spinShortcutLabelSize.setMinimumWidth(90)
+        spinShortcutLabelSize.valueChanged.connect(onSpinShortcutLabelSize)
+
+        layoutDisplayShortcutLeft = QtGui.QHBoxLayout()
+        layoutDisplayShortcutLeft.addWidget(checkboxDisplayShortcut)
+        layoutDisplayShortcutLeft.addWidget(labelDisplayShortcut)
+        layoutDisplayShortcutLeft.addStretch(1)
+        layoutDisplayShortcutRight = QtGui.QHBoxLayout()
+        layoutDisplayShortcutRight.addWidget(labelShortcutSize)
+        layoutDisplayShortcutRight.addWidget(spinShortcutLabelSize)
+        layoutDisplayShortcut = QtGui.QHBoxLayout()
+        layoutDisplayShortcut.addLayout(layoutDisplayShortcutLeft, 1)
+        layoutDisplayShortcut.addLayout(layoutDisplayShortcutRight, 1)
+
+        enableShortcut = getParameterGroup(
+            cBox.currentText(), "Bool", "EnableShorcut")
+        if enableShortcut == "":
+            enableShortcut = False
+
+        # keep this line here
+        buttonListWidget = QtGui.QTableWidget()
+        # Intercept Delete/Backspace/Up/Down before the QTableWidget consumes them.
+        # Keep a name reference so the QObject isn't garbage-collected.
+        buttonListEventFilter = ButtonListEventFilter(buttonListWidget)
+        buttonListWidget.installEventFilter(buttonListEventFilter)
+
+        toolShortcutGroup.setTitle(translate("PieMenuTab", "Tools shortcuts"))
+        toolShortcutGroup.setCheckable(True)
+        toolShortcutGroup.setChecked(enableShortcut)
+        toolShortcutGroup.setLayout(QtGui.QVBoxLayout())
+        toolShortcutGroup.layout().addLayout(layoutDisplayShortcut)
+
+        #### group Individual Shortcut ####
+        shortcutKey = getParameterGroup(
+            cBox.currentText(), "String", "ShortcutKey")
+
+        labelShortcut = QLabel()
+        labelShortcut.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        labelShortcut.setText(
+            translate("PieMenuTab", "Current shortcut: ") + shortcutKey)
+
+        shortcutLineEdit = CustomLineEdit()
+        shortcutLineEdit.setText(shortcutKey)
+
+        assignShortcutButton = QtGui.QPushButton(
+            translate("PieMenuTab", "Assign"))
+        assignShortcutButton.clicked.connect(
+            lambda: updateShortcutKey(shortcutLineEdit.text()))
+
+        deleteShortcutButton = QtGui.QPushButton()
+        deleteShortcutButton.setMaximumWidth(40)
+        deleteShortcutButton.setIcon(QtGui.QIcon.fromTheme(resources.iconBackspace))
+        deleteShortcutButton.clicked.connect(lambda: updateShortcutKey(""))
+
+        layoutShortcut = QtGui.QHBoxLayout()
+        layoutShortcut.addWidget(labelShortcut)
+        layoutShortcut.addStretch(1)
+        layoutShortcut.addWidget(shortcutLineEdit)
+        layoutShortcut.addWidget(assignShortcutButton)
+        layoutShortcut.addWidget(deleteShortcutButton)
+
+        infoShortcut = QLabel()
+        infoShortcut.setText('')
+
+        layoutInfoShortcut = QtGui.QHBoxLayout()
+        layoutInfoShortcut.addWidget(infoShortcut)
+        layoutInfoShortcut.addStretch(1)
+
+        pieMenuTabLayout.insertWidget(0, piemenuSettingGroup)
+        pieMenuTabLayout.insertWidget(1, shapeGroup)
+        pieMenuTabLayout.insertWidget(2, triggerModeGroup)
+        pieMenuTabLayout.insertWidget(3, toolShortcutGroup)
+        pieMenuTabLayout.insertSpacing(4, 10)
+        pieMenuTabLayout.insertLayout(5, layoutShortcut)
+
+        #### Tool list container ####
+        searchLayout = QHBoxLayout()
+        searchLineEdit = QLineEdit()
+        searchLineEdit.setPlaceholderText(translate("ToolsTab", "Search"))
+        searchLineEdit.textChanged.connect(searchInToolList)
+
+        clearButton = QtGui.QToolButton()
+        clearButton.setToolTip(translate("ToolsTab", "Clear search"))
+        clearButton.setMaximumWidth(40)
+        clearButton.setIcon(QtGui.QIcon.fromTheme(resources.iconBackspace))
+        clearButton.clicked.connect(searchLineEdit.clear)
+
+        searchLayout.addWidget(searchLineEdit)
+        searchLayout.addWidget(clearButton)
+
+        toolListWidget = QtGui.QTableWidget()
+        toolListWidget.setColumnCount(3)
+        toolListWidget.sortItems(1, QtCore.Qt.AscendingOrder)
+        toolListWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        toolListWidget.verticalHeader().setVisible(False)
+        toolListWidget.setHorizontalHeaderLabels(
+            ["", translate("ToolsTab", "Tools"), translate("ToolsTab", "Workbench")])
+
+        toolListWidget.horizontalHeader().setSectionResizeMode(
+            0, QtWidgets.QHeaderView.Fixed)
+        toolListWidget.setColumnWidth(0, 10)
+        toolListWidget.horizontalHeader().setSectionResizeMode(
+            1, QtWidgets.QHeaderView.Stretch)
+        toolListWidget.horizontalHeader().setSectionResizeMode(
+            2, QtWidgets.QHeaderView.Fixed)
+        toolListWidget.setColumnWidth(2, 120)
+        toolListWidget.horizontalHeader().setStretchLastSection(False)
+
+        toolListWidget.horizontalHeader().setSortIndicatorShown(True)
+        toolListWidget.horizontalHeader().setSortIndicator(1, QtCore.Qt.AscendingOrder)
+        toolListWidget.horizontalHeader().setSectionsClickable(True)
+        toolListWidget.horizontalHeader().setSectionsMovable(False)
+
+        toolListWidget.horizontalHeader().sectionClicked.connect(sortToolListByColumn)
+        toolListWidget.itemChanged.connect(onToolListWidget)
+
+        toolListLayout = QVBoxLayout()
+        toolListLayout.addLayout(searchLayout)
+        toolListLayout.addWidget(toolListWidget)
+
+        widgetContainer = QWidget()
+        widgetContainer.setLayout(toolListLayout)
+        widgetContainer.setMinimumHeight(380)
+
+        #### Tab ContextTab ####
+        contextTab = QtGui.QWidget()
+        contextTabLayout = QtGui.QVBoxLayout()
+        contextTab.setLayout(contextTabLayout)
+
+        vertexItem = QtGui.QTableWidgetItem()
+        vertexItem.setText(translate("ContextTab", "Vertex"))
+        vertexItem.setToolTip(
+            translate("ContextTab", "A vertex can be a point on a 2D or 3D object, a projected point, a point of origin, DatumPoint etc."))
+        vertexItem.setFlags(QtCore.Qt.ItemIsEnabled)
+
+        edgeItem = QtGui.QTableWidgetItem()
+        edgeItem.setText(translate("ContextTab", "Edge"))
+        edgeItem.setToolTip(
+            translate("ContextTab", "An edge can be an line, circle, etc. spline on a 2D or 3D object."))
+        edgeItem.setFlags(QtCore.Qt.ItemIsEnabled)
+
+        faceItem = QtGui.QTableWidgetItem()
+        faceItem.setText(translate("ContextTab", "Face"))
+        faceItem.setToolTip(
+            translate("ContextTab", "A face can be a face, a curve etc. of a 2D or 3D object."))
+        faceItem.setFlags(QtCore.Qt.ItemIsEnabled)
+
+        objectItem = QtGui.QTableWidgetItem()
+        objectItem.setText(translate("ContextTab", "Object"))
+        objectItem.setToolTip(
+            translate("ContextTab", "An object can be any element contained in the construction tree: body, part, feature, etc."))
+        objectItem.setFlags(QtCore.Qt.ItemIsEnabled)
     
-    axisItem = QtGui.QTableWidgetItem()
-    axisItem.setText(translate("ContextTab", "Axis"))
-    axisItem.setToolTip(
-        translate("ContextTab", "An axis can be X, Y, Z axis, H or V axis in Sketcher or DatumLine"))
-    axisItem.setFlags(QtCore.Qt.ItemIsEnabled)
+        axisItem = QtGui.QTableWidgetItem()
+        axisItem.setText(translate("ContextTab", "Axis"))
+        axisItem.setToolTip(
+            translate("ContextTab", "An axis can be X, Y, Z axis, H or V axis in Sketcher or DatumLine"))
+        axisItem.setFlags(QtCore.Qt.ItemIsEnabled)
     
-    planeItem = QtGui.QTableWidgetItem()
-    planeItem.setText(translate("ContextTab", "Plane"))
-    planeItem.setToolTip(
-        translate("ContextTab", "An plane can be XY, XZ or YZ plane or DatumPlane"))
-    planeItem.setFlags(QtCore.Qt.ItemIsEnabled)
+        planeItem = QtGui.QTableWidgetItem()
+        planeItem.setText(translate("ContextTab", "Plane"))
+        planeItem.setToolTip(
+            translate("ContextTab", "An plane can be XY, XZ or YZ plane or DatumPlane"))
+        planeItem.setFlags(QtCore.Qt.ItemIsEnabled)
 
-    vertexComboBox = comboBox("VertexSign")
-    edgeComboBox = comboBox("EdgeSign")
-    faceComboBox = comboBox("FaceSign")
-    objectComboBox = comboBox("ObjectSign")
-    axisComboBox = comboBox("AxisSign")
-    planeComboBox = comboBox("PlaneSign")
+        vertexComboBox = comboBox("VertexSign")
+        edgeComboBox = comboBox("EdgeSign")
+        faceComboBox = comboBox("FaceSign")
+        objectComboBox = comboBox("ObjectSign")
+        axisComboBox = comboBox("AxisSign")
+        planeComboBox = comboBox("PlaneSign")
 
-    vertexSpin = spinBox("VertexValue")
-    edgeSpin = spinBox("EdgeValue")
-    faceSpin = spinBox("FaceValue")
-    objectSpin = spinBox("ObjectValue")
-    axisSpin = spinBox("AxisValue")
-    planeSpin = spinBox("PlaneValue")
+        vertexSpin = spinBox("VertexValue")
+        edgeSpin = spinBox("EdgeValue")
+        faceSpin = spinBox("FaceValue")
+        objectSpin = spinBox("ObjectValue")
+        axisSpin = spinBox("AxisValue")
+        planeSpin = spinBox("PlaneValue")
 
-    labelContextTable = QLabel(
-        translate("ContextTab", "Modify or add context selection conditions:"))
+        labelContextTable = QLabel(
+            translate("ContextTab", "Modify or add context selection conditions:"))
 
-    contextTable = QtGui.QTableWidget(6, 3)
-    # contextTable.setMaximumHeight(160)
-    # contextTable.setFrameStyle(QtGui.QFrame.NoFrame)
-    contextTable.verticalHeader().setVisible(False)
-    contextTable.horizontalHeader().setVisible(False)
+        contextTable = QtGui.QTableWidget(6, 3)
+        # contextTable.setMaximumHeight(160)
+        # contextTable.setFrameStyle(QtGui.QFrame.NoFrame)
+        contextTable.verticalHeader().setVisible(False)
+        contextTable.horizontalHeader().setVisible(False)
 
-    try:
-        contextTable.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
-        # contextTable.verticalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
-    except AttributeError:
-
-        contextTable.horizontalHeader().setSectionResizeMode(QtGui.QHeaderView.Stretch)
-        # contextTable.verticalHeader().setSectionResizeMode(QtGui.QHeaderView.Stretch)
-
-
-    contextTable.setItem(0, 0, vertexItem)
-    contextTable.setCellWidget(0, 1, vertexComboBox)
-    contextTable.setCellWidget(0, 2, vertexSpin)
-
-    contextTable.setItem(1, 0, edgeItem)
-    contextTable.setCellWidget(1, 1, edgeComboBox)
-    contextTable.setCellWidget(1, 2, edgeSpin)
-
-    contextTable.setItem(2, 0, faceItem)
-    contextTable.setCellWidget(2, 1, faceComboBox)
-    contextTable.setCellWidget(2, 2, faceSpin)
-
-    contextTable.setItem(3, 0, objectItem)
-    contextTable.setCellWidget(3, 1, objectComboBox)
-    contextTable.setCellWidget(3, 2, objectSpin)
-    
-    contextTable.setItem(4, 0, axisItem)
-    contextTable.setCellWidget(4, 1, axisComboBox)
-    contextTable.setCellWidget(4, 2, axisSpin)
-
-    contextTable.setItem(5, 0, planeItem)
-    contextTable.setCellWidget(5, 1, planeComboBox)
-    contextTable.setCellWidget(5, 2, planeSpin)
-
-    resetContextButton = QtGui.QToolButton()
-    resetContextButton.setIcon(QtGui.QIcon(resources.iconReset))
-    resetContextButton.setToolTip(translate("ContextTab", "Reset to defaults"))
-    resetContextButton.setMinimumHeight(30)
-    resetContextButton.setMinimumWidth(30)
-    resetContextButton.clicked.connect(onResetContextTable)
-
-    addContextConditions = QtGui.QToolButton()
-    addContextConditions.setIcon(QtGui.QIcon(resources.iconAdd))
-    addContextConditions.setToolTip(translate("ContextTab", "Add a new rule"))
-    addContextConditions.setMinimumHeight(30)
-    addContextConditions.setMinimumWidth(30)
-    addContextConditions.clicked.connect(onAddContextConditions)
-
-    resetLayout = QtGui.QHBoxLayout()
-    resetLayout.addStretch(1)
-    resetLayout.addWidget(addContextConditions)
-    resetLayout.addWidget(resetContextButton)
-
-    checkboxTriggerContext = QCheckBox()
-    checkboxTriggerContext.setCheckable(True)
-    checkboxTriggerContext.stateChanged.connect(
-        lambda state: onTriggerContext(state))
-
-    labelTriggerContext = QtGui.QLabel(
-        translate("ContextTab", "Immediate triggering when conditions are met"))
-    labelTriggerContext.setToolTip(translate(
-        "ContextTab", "The PieMenu will open immediately once the contextual selection conditions are met."))
-    labelTriggerContext.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-
-    triggerContextLayout = QtGui.QHBoxLayout()
-    triggerContextLayout.addWidget(checkboxTriggerContext)
-    triggerContextLayout.addWidget(labelTriggerContext)
-    triggerContextLayout.addStretch(1)
-
-    settingContextGroup = QGroupBox(translate("GlobalSettingsTab", "Context"))
-
-    labelContextWorkbench = QtGui.QLabel(translate(
-        "ContextTab", "Set workbench for these contextual selection conditions"))
-
-    comboContextWorkbench = QtGui.QComboBox()
-    comboContextWorkbench.setMinimumWidth(160)
-    comboContextWorkbench.currentIndexChanged.connect(setContextWorkbench)
-
-    contextWorkbenchLayout = QtGui.QHBoxLayout()
-    contextWorkbenchLayout.addWidget(labelContextWorkbench)
-    contextWorkbenchLayout.addStretch(1)
-    contextWorkbenchLayout.addWidget(comboContextWorkbench)
-
-    listContextConditions = QtGui.QTableWidget()
-    listContextConditions.setColumnCount(3)
-    listContextConditions.verticalHeader().setVisible(False)
-    listContextConditions.setFrameStyle(QtGui.QFrame.NoFrame)
-    listContextConditions.itemSelectionChanged.connect(onRowSelected)
-
-    listContextConditions.setColumnWidth(0, 70)
-    listContextConditions.setColumnWidth(1, 290)
-    listContextConditions.setColumnWidth(2, 15)
-
-    listContextConditions.horizontalHeader().setSectionResizeMode(
-        0, QtGui.QHeaderView.ResizeToContents)
-    listContextConditions.horizontalHeader().setSectionResizeMode(1,
-                                                                  QtGui.QHeaderView.Stretch)
-    listContextConditions.horizontalHeader().setSectionResizeMode(2,
-                                                                  QtGui.QHeaderView.Fixed)
-
-    listContextConditions.horizontalHeader().setSectionsClickable(True)
-    listContextConditions.horizontalHeader().setSectionsMovable(False)
-    listContextConditions.horizontalHeader().setVisible(False)
-
-    listContextConditions.setSizePolicy(
-        QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Maximum)
-    listContextConditions.setMaximumHeight(140)
-
-    labelListContext = QLabel()
-
-    layoutLabelContext = QtGui.QHBoxLayout()
-    layoutLabelContext.addWidget(labelListContext)
-    layoutLabelContext.addStretch(1)
-
-    layoutAddContextConditions = QtGui.QVBoxLayout()
-    layoutAddContextConditions.addLayout(layoutLabelContext)
-    layoutAddContextConditions.addWidget(listContextConditions)
-
-    settingContextGroup.setLayout(QtGui.QVBoxLayout())
-    settingContextGroup.layout().addLayout(contextWorkbenchLayout)
-    settingContextGroup.layout().addLayout(layoutAddContextConditions)
-    settingContextGroup.layout().addWidget(labelContextTable)
-    settingContextGroup.layout().addWidget(contextTable)
-    settingContextGroup.layout().addLayout(resetLayout)
-    settingContextGroup.layout().addLayout(triggerContextLayout)
-
-    contextTabLayout.insertWidget(0, settingContextGroup)
-    contextTabLayout.addStretch(1)
-
-    #### Tab ToolBar ####
-    buttonBackToSettings = QtGui.QPushButton(
-        translate("ToolBarTab", "Return to settings..."))
-    buttonBackToSettings.setToolTip(
-        translate("ToolBarTab", "Return to general settings"))
-    buttonBackToSettings.setIcon(QtGui.QIcon(resources.iconLeft))
-    buttonBackToSettings.setMinimumHeight(30)
-    buttonBackToSettings.setMinimumWidth(60)
-    buttonBackToSettings.clicked.connect(onBackToSettings)
-    buttonBackToSettings.setVisible(False)
-
-    listToolBar = QtGui.QListWidget()
-    listToolBar.setSortingEnabled(True)
-    listToolBar.sortItems(QtCore.Qt.AscendingOrder)
-    listToolBar.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-    listToolBar.setMinimumSize(QSize(385, 460))
-    listToolBar.itemSelectionChanged.connect(showListToolBar)
-
-    listToolBarLayout = QtGui.QVBoxLayout()
-    listToolBarLayout.addWidget(listToolBar)
-    labelAddToolBar = QLabel(
-        translate("ToolBarTab", "Add the selected toolbar as a new PieMenu"))
-
-    buttonAddToolBar = QtGui.QToolButton()
-    buttonAddToolBar.setToolTip(
-        translate("ToolBarTab", "Add selected ToolBar as PieMenu"))
-    buttonAddToolBar.setIcon(QtGui.QIcon(resources.iconAdd))
-    buttonAddToolBar.setMinimumHeight(30)
-    buttonAddToolBar.setMinimumWidth(30)
-    buttonAddToolBar.clicked.connect(onAddToolBar)
-
-    labelAddToolBarLayout = QtGui.QHBoxLayout()
-    labelAddToolBarLayout.addWidget(labelAddToolBar)
-    labelAddToolBarLayout.addStretch(1)
-    labelAddToolBarLayout.addWidget(buttonAddToolBar)
-
-    addToolBarGroup = QGroupBox(translate("ToolBarTab", "ToolBars "))
-    addToolBarGroup.setLayout(QtGui.QVBoxLayout())
-    addToolBarGroup.layout().addLayout(listToolBarLayout)
-    addToolBarGroup.layout().addStretch(1)
-    addToolBarGroup.layout().addLayout(labelAddToolBarLayout)
-
-    toolBarTabLayout = QtGui.QVBoxLayout()
-    toolBarTabLayout.addWidget(addToolBarGroup)
-
-    toolBarTab = QtGui.QWidget()
-    toolBarTab.setLayout(toolBarTabLayout)
-
-    #### Tab Global Settings ####
-    settingsTab = QtGui.QWidget()
-    settingsTabLayout = QtGui.QVBoxLayout()
-    settingsTab.setLayout(settingsTabLayout)
-
-    tabs.addTab(pieMenuTab, translate("PieMenuTab", "PieMenu"))
-    tabs.addTab(widgetContainer, translate("ToolsTab", "Tools"))
-    tabs.addTab(contextTab, translate("ContextTab", "Context"))
-    tabs.addTab(settingsTab, translate("GlobalSettingsTab", "Global settings"))
-
-    tabToolBar.addTab(toolBarTab, translate("ToolBarsTab", "ToolBars"))
-
-    #### buttons actions list ####
-    buttonAddSeparator = QtGui.QToolButton()
-    buttonAddSeparator.setIcon(QtGui.QIcon(resources.iconAddSeparator))
-    buttonAddSeparator.setToolTip(translate("Commands", "Add separator"))
-    buttonAddSeparator.setMinimumHeight(30)
-    buttonAddSeparator.setMinimumWidth(30)
-    buttonAddSeparator.clicked.connect(onButtonAddSeparator)
-
-    buttonRemoveCommand = QtGui.QToolButton()
-    buttonRemoveCommand.setIcon(QtGui.QIcon(resources.iconRemoveCommand))
-    buttonRemoveCommand.setToolTip(
-        translate("Commands", "Remove selected command"))
-    buttonRemoveCommand.setMinimumHeight(30)
-    buttonRemoveCommand.setMinimumWidth(30)
-    buttonRemoveCommand.clicked.connect(onButtonRemoveCommand)
-
-    buttonUp = QtGui.QToolButton()
-    buttonUp.setIcon(QtGui.QIcon(resources.iconUp))
-    buttonUp.setToolTip(translate("Commands", "Move selected command up"))
-    buttonUp.setMinimumHeight(30)
-    buttonUp.setMinimumWidth(30)
-    buttonUp.clicked.connect(onButtonUp)
-
-    buttonDown = QtGui.QToolButton()
-    buttonDown.setIcon(QtGui.QIcon(resources.iconDown))
-    buttonDown.setToolTip(translate("Commands", "Move selected command down"))
-    buttonDown.setMinimumHeight(30)
-    buttonDown.setMinimumWidth(30)
-    buttonDown.clicked.connect(onButtonDown)
-
-    buttonsLayout = QtGui.QHBoxLayout()
-    buttonsLayout.addStretch(1)
-    buttonsLayout.addWidget(buttonAddSeparator)
-    buttonsLayout.addWidget(buttonRemoveCommand)
-    buttonsLayout.addWidget(buttonDown)
-    buttonsLayout.addWidget(buttonUp)
-
-    piemenuWidget = QtGui.QWidget()
-    piemenuLayout = QtGui.QHBoxLayout()
-    piemenuLayout.addWidget(piemenuBoxGroup)
-    piemenuLayout.addWidget(buttonBackToSettings)
-    piemenuLayout.addStretch(1)
-    piemenuWidget.setLayout(piemenuLayout)
-
-    buttonListWidget.setColumnCount(2)
-    buttonListWidget.setHorizontalHeaderLabels(
-        [translate("PieMenuTab", "Shortcut"), translate("PieMenuTab", "Action")])
-    buttonListWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
-    buttonListWidget.verticalHeader().setVisible(False)
-    buttonListWidget.horizontalHeaderItem(0).setTextAlignment(
-        QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
-    buttonListWidget.horizontalHeaderItem(1).setTextAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-    buttonListWidget.horizontalHeader().setSectionResizeMode(
-        QtGui.QHeaderView.Interactive)
-    buttonListWidget.setColumnWidth(0, 60)
-    buttonListWidget.horizontalHeader().setMinimumSectionSize(60)
-    buttonListWidget.horizontalHeader().setStretchLastSection(True)
-
-    buttonListWidget.setSelectionMode(
-        QtGui.QAbstractItemView.ExtendedSelection)
-
-    # Drag-to-reorder. onToolListDrop fully replaces Qt's InternalMove handling,
-    # which would move single cells and split the Shortcut/Action pair.
-    buttonListWidget.setDragDropMode(QtGui.QAbstractItemView.InternalMove)
-    buttonListWidget.setDragDropOverwriteMode(False)
-    buttonListWidget.setDefaultDropAction(QtCore.Qt.MoveAction)
-    buttonListWidget.dropEvent = onToolListDrop
-    pieButtons = QtGui.QWidget()
-    pieButtonsLayout = QtGui.QVBoxLayout()
-    pieButtons.setLayout(pieButtonsLayout)
-    pieButtonsLayout.setContentsMargins(0, 0, 0, 0)
-    pieButtonsLayout.addWidget(buttonListWidget)
-    pieButtonsLayout.insertLayout(1, buttonsLayout)
-
-    showPreviewWidget = QtGui.QTableWidget()
-    showPreviewWidget.setColumnCount(1)
-    showPreviewWidget.setHorizontalHeaderLabels(
-        [translate("PieMenuTab", "Preview")])
-    showPreviewWidget.setHorizontalScrollBarPolicy(
-        QtCore.Qt.ScrollBarAlwaysOff)
-    showPreviewWidget.verticalHeader().setVisible(False)
-    showPreviewWidget.horizontalHeader().setSectionResizeMode(
-        QtGui.QHeaderView.Interactive)
-    showPreviewWidget.horizontalHeader().setMinimumSectionSize(100)
-    showPreviewWidget.horizontalHeader().setStretchLastSection(True)
-
-    showPiemenu = QtGui.QWidget()
-    showPiemenuLayout = QtGui.QVBoxLayout()
-    showPiemenu.setLayout(showPiemenuLayout)
-    showPiemenuLayout.setContentsMargins(0, 0, 0, 0)
-    showPiemenuLayout.addWidget(showPreviewWidget)
-
-    def onShowPiemenuResize(event):
-        """ Keep the preview pie centred when the preview pane is resized """
-        QtGui.QWidget.resizeEvent(showPiemenu, event)
         try:
-            PieMenuInstance.repositionPreview()
-        except NameError:
-            # bootstrap has not created the instance yet
-            pass
+            contextTable.horizontalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+            # contextTable.verticalHeader().setResizeMode(QtGui.QHeaderView.Stretch)
+        except AttributeError:
 
-    showPiemenu.resizeEvent = onShowPiemenuResize
+            contextTable.horizontalHeader().setSectionResizeMode(QtGui.QHeaderView.Stretch)
+            # contextTable.verticalHeader().setSectionResizeMode(QtGui.QHeaderView.Stretch)
 
-    #### Main Layout####
-    vSplitter = QtGui.QSplitter()
-    vSplitter.insertWidget(0, tabs)
-    vSplitter.insertWidget(1, toolBarTab)
-    vSplitter.insertWidget(2, pieButtons)
-    vSplitter.insertWidget(3, showPiemenu)
 
-    preferencesWidget = QtGui.QWidget()
-    preferencesLayout = QtGui.QVBoxLayout()
-    preferencesLayout.setContentsMargins(0, 0, 0, 0)
-    preferencesWidget.setLayout(preferencesLayout)
-    preferencesLayout.addWidget(piemenuWidget)
-    preferencesLayout.addWidget(vSplitter)
+        contextTable.setItem(0, 0, vertexItem)
+        contextTable.setCellWidget(0, 1, vertexComboBox)
+        contextTable.setCellWidget(0, 2, vertexSpin)
 
-    info_button = QtGui.QPushButton()
-    info_button.setToolTip(translate("MainWindow", "About"))
-    info_button.setMaximumWidth(80)
-    info_button.setIcon(QtGui.QIcon.fromTheme(resources.iconInfo))
-    info_button.clicked.connect(infoPopup)
+        contextTable.setItem(1, 0, edgeItem)
+        contextTable.setCellWidget(1, 1, edgeComboBox)
+        contextTable.setCellWidget(1, 2, edgeSpin)
 
-    doc_button = QtGui.QPushButton(translate("MainWindow", "Documentation"))
-    doc_button.setToolTip(translate("MainWindow", "Documentation"))
-    doc_button.setIcon(QtGui.QIcon.fromTheme(resources.iconDocumentation))
-    doc_button.clicked.connect(documentationLink)
+        contextTable.setItem(2, 0, faceItem)
+        contextTable.setCellWidget(2, 1, faceComboBox)
+        contextTable.setCellWidget(2, 2, faceSpin)
 
-    close_button = QtGui.QPushButton(translate("MainWindow", "Close"))
-    close_button.setMaximumWidth(120)
+        contextTable.setItem(3, 0, objectItem)
+        contextTable.setCellWidget(3, 1, objectComboBox)
+        contextTable.setCellWidget(3, 2, objectSpin)
+    
+        contextTable.setItem(4, 0, axisItem)
+        contextTable.setCellWidget(4, 1, axisComboBox)
+        contextTable.setCellWidget(4, 2, axisSpin)
 
-    button_row_layout = QtGui.QHBoxLayout()
-    button_row_layout.addWidget(info_button)
-    button_row_layout.addStretch(1)
-    button_row_layout.addWidget(
-        close_button, 0, alignment=QtCore.Qt.AlignCenter)
-    button_row_layout.addStretch(1)
-    button_row_layout.addWidget(doc_button, 0, alignment=QtCore.Qt.AlignRight)
+        contextTable.setItem(5, 0, planeItem)
+        contextTable.setCellWidget(5, 1, planeComboBox)
+        contextTable.setCellWidget(5, 2, planeSpin)
 
-    button_layout = QtGui.QVBoxLayout()
-    button_layout.addLayout(layoutInfoShortcut)
-    button_layout.addLayout(button_row_layout)
+        resetContextButton = QtGui.QToolButton()
+        resetContextButton.setIcon(QtGui.QIcon(resources.iconReset))
+        resetContextButton.setToolTip(translate("ContextTab", "Reset to defaults"))
+        resetContextButton.setMinimumHeight(30)
+        resetContextButton.setMinimumWidth(30)
+        resetContextButton.clicked.connect(onResetContextTable)
 
-    global pieMenuDialog
-    pieMenuDialog = PieMenuDialog()
+        addContextConditions = QtGui.QToolButton()
+        addContextConditions.setIcon(QtGui.QIcon(resources.iconAdd))
+        addContextConditions.setToolTip(translate("ContextTab", "Add a new rule"))
+        addContextConditions.setMinimumHeight(30)
+        addContextConditions.setMinimumWidth(30)
+        addContextConditions.clicked.connect(onAddContextConditions)
 
-    pieMenuDialogLayout = QtGui.QVBoxLayout()
-    pieMenuDialog.setLayout(pieMenuDialogLayout)
-    pieMenuDialogLayout.addWidget(preferencesWidget)
-    pieMenuDialogLayout.addLayout(button_layout)
+        resetLayout = QtGui.QHBoxLayout()
+        resetLayout.addStretch(1)
+        resetLayout.addWidget(addContextConditions)
+        resetLayout.addWidget(resetContextButton)
 
-    close_button.clicked.connect(pieMenuDialog.close)
+        checkboxTriggerContext = QCheckBox()
+        checkboxTriggerContext.setCheckable(True)
+        checkboxTriggerContext.stateChanged.connect(
+            lambda state: onTriggerContext(state))
 
-    #### Global Settings ####
-    labelTheme = QLabel(translate("GlobalSettingsTab", "Theme style:"))
-    labelTheme.setMinimumWidth(160)
-    labelTheme.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        labelTriggerContext = QtGui.QLabel(
+            translate("ContextTab", "Immediate triggering when conditions are met"))
+        labelTriggerContext.setToolTip(translate(
+            "ContextTab", "The PieMenu will open immediately once the contextual selection conditions are met."))
+        labelTriggerContext.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
 
-    comboBoxTheme = QtGui.QComboBox()
-    comboBoxTheme.setMinimumWidth(120)
-    comboBoxTheme.currentIndexChanged.connect(setTheme)
+        triggerContextLayout = QtGui.QHBoxLayout()
+        triggerContextLayout.addWidget(checkboxTriggerContext)
+        triggerContextLayout.addWidget(labelTriggerContext)
+        triggerContextLayout.addStretch(1)
 
-    getTheme()
+        settingContextGroup = QGroupBox(translate("GlobalSettingsTab", "Context"))
 
-    layoutThemeLeft = QtGui.QHBoxLayout()
-    layoutThemeLeft.addWidget(labelTheme)
-    layoutThemeRight = QtGui.QHBoxLayout()
-    layoutThemeRight.addWidget(comboBoxTheme)
-    layoutTheme = QtGui.QHBoxLayout()
-    layoutTheme.addLayout(layoutThemeLeft, 1)
-    layoutTheme.addLayout(layoutThemeRight, 1)
+        labelContextWorkbench = QtGui.QLabel(translate(
+            "ContextTab", "Set workbench for these contextual selection conditions"))
 
-    checkboxQuickMenu = QCheckBox()
-    checkboxQuickMenu.setCheckable(True)
-    checkboxQuickMenu.setChecked(config.get_params()["main"].GetBool("ShowQuickMenu"))
+        comboContextWorkbench = QtGui.QComboBox()
+        comboContextWorkbench.setMinimumWidth(160)
+        comboContextWorkbench.currentIndexChanged.connect(setContextWorkbench)
 
-    checkboxQuickMenu.stateChanged.connect(
-        lambda state: onShowQuickMenu(state))
+        contextWorkbenchLayout = QtGui.QHBoxLayout()
+        contextWorkbenchLayout.addWidget(labelContextWorkbench)
+        contextWorkbenchLayout.addStretch(1)
+        contextWorkbenchLayout.addWidget(comboContextWorkbench)
 
-    labelShowQuickMenu = QLabel(
-        translate("GlobalSettingsTab", "Show QuickMenu"))
-    labelShowQuickMenu.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        listContextConditions = QtGui.QTableWidget()
+        listContextConditions.setColumnCount(3)
+        listContextConditions.verticalHeader().setVisible(False)
+        listContextConditions.setFrameStyle(QtGui.QFrame.NoFrame)
+        listContextConditions.itemSelectionChanged.connect(onRowSelected)
 
-    layoutShowQuickMenuLeft = QtGui.QHBoxLayout()
-    layoutShowQuickMenuLeft.addWidget(checkboxQuickMenu)
-    layoutShowQuickMenuLeft.addWidget(labelShowQuickMenu)
-    layoutShowQuickMenuLeft.addStretch(1)
-    layoutShowQuickMenu = QtGui.QHBoxLayout()
-    layoutShowQuickMenu.addLayout(layoutShowQuickMenuLeft, 1)
+        listContextConditions.setColumnWidth(0, 70)
+        listContextConditions.setColumnWidth(1, 290)
+        listContextConditions.setColumnWidth(2, 15)
 
-    checkboxGlobalContext = QCheckBox()
-    checkboxGlobalContext.setCheckable(True)
-    enableContext = config.get_params()["main"].GetBool("EnableContext")
-    checkboxGlobalContext.setChecked(enableContext)
-    checkboxGlobalContext.stateChanged.connect(lambda state: onContext(state))
+        listContextConditions.horizontalHeader().setSectionResizeMode(
+            0, QtGui.QHeaderView.ResizeToContents)
+        listContextConditions.horizontalHeader().setSectionResizeMode(1,
+                                                                      QtGui.QHeaderView.Stretch)
+        listContextConditions.horizontalHeader().setSectionResizeMode(2,
+                                                                      QtGui.QHeaderView.Fixed)
 
-    labelGlobalContext = QLabel(
-        translate("GlobalSettingsTab", "Global context"))
-    labelGlobalContext.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        listContextConditions.horizontalHeader().setSectionsClickable(True)
+        listContextConditions.horizontalHeader().setSectionsMovable(False)
+        listContextConditions.horizontalHeader().setVisible(False)
 
-    layoutGlobalContextLeft = QtGui.QHBoxLayout()
-    layoutGlobalContextLeft.addWidget(checkboxGlobalContext)
-    layoutGlobalContextLeft.addWidget(labelGlobalContext)
-    layoutGlobalContextLeft.addStretch(1)
-    layoutGlobalContext = QtGui.QHBoxLayout()
-    layoutGlobalContext.addLayout(layoutGlobalContextLeft, 1)
+        listContextConditions.setSizePolicy(
+            QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Maximum)
+        listContextConditions.setMaximumHeight(140)
 
-    checkboxGlobalKeyToggle = QCheckBox()
-    checkboxGlobalKeyToggle.setCheckable(True)
+        labelListContext = QLabel()
 
-    checkboxGlobalKeyToggle.setChecked(
-        getParameterGlobal("Bool", "GlobalKeyToggle"))
-    checkboxGlobalKeyToggle.stateChanged.connect(setGlobalKeyToggle)
+        layoutLabelContext = QtGui.QHBoxLayout()
+        layoutLabelContext.addWidget(labelListContext)
+        layoutLabelContext.addStretch(1)
 
-    labelGlobalKeyToggle = QLabel(
-        translate("GlobalSettingsTab", "Shortcuts behavior: Toggle show/hide PieMenu"))
-    labelGlobalKeyToggle.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-    layoutGlobalToggle = QtGui.QHBoxLayout()
-    layoutGlobalToggle.addWidget(checkboxGlobalKeyToggle)
-    layoutGlobalToggle.addWidget(labelGlobalKeyToggle)
-    layoutGlobalToggle.addStretch(1)
+        layoutAddContextConditions = QtGui.QVBoxLayout()
+        layoutAddContextConditions.addLayout(layoutLabelContext)
+        layoutAddContextConditions.addWidget(listContextConditions)
 
-    checkboxRightClick = QCheckBox()
-    checkboxRightClick.setCheckable(True)
+        settingContextGroup.setLayout(QtGui.QVBoxLayout())
+        settingContextGroup.layout().addLayout(contextWorkbenchLayout)
+        settingContextGroup.layout().addLayout(layoutAddContextConditions)
+        settingContextGroup.layout().addWidget(labelContextTable)
+        settingContextGroup.layout().addWidget(contextTable)
+        settingContextGroup.layout().addLayout(resetLayout)
+        settingContextGroup.layout().addLayout(triggerContextLayout)
 
-    checkboxRightClick.setChecked(
-        getParameterGlobal("Bool", "RightClickTrigger"))
-    checkboxRightClick.stateChanged.connect(
-        lambda state: onRightClickTrigger(state))
+        contextTabLayout.insertWidget(0, settingContextGroup)
+        contextTabLayout.addStretch(1)
 
-    labelDelayRightClick = QLabel(
-        translate("GlobalSettingsTab", "Delay (ms):"))
+        #### Tab ToolBar ####
+        buttonBackToSettings = QtGui.QPushButton(
+            translate("ToolBarTab", "Return to settings..."))
+        buttonBackToSettings.setToolTip(
+            translate("ToolBarTab", "Return to general settings"))
+        buttonBackToSettings.setIcon(QtGui.QIcon(resources.iconLeft))
+        buttonBackToSettings.setMinimumHeight(30)
+        buttonBackToSettings.setMinimumWidth(60)
+        buttonBackToSettings.clicked.connect(onBackToSettings)
+        buttonBackToSettings.setVisible(False)
 
-    spinDelayRightClick = QtGui.QSpinBox()
-    spinDelayRightClick.setMaximum(1000)
-    spinDelayRightClick.setMinimum(50)
-    spinDelayRightClick.setValue(getParameterGlobal("Int", "DelayRightClick"))
-    spinDelayRightClick.valueChanged.connect(onSpinDelayRightClick)
+        listToolBar = QtGui.QListWidget()
+        listToolBar.setSortingEnabled(True)
+        listToolBar.sortItems(QtCore.Qt.AscendingOrder)
+        listToolBar.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        listToolBar.setMinimumSize(QSize(385, 460))
+        listToolBar.itemSelectionChanged.connect(showListToolBar)
 
-    labelRightClick = QLabel(
-        translate("GlobalSettingsTab", "Long right-click to open default PieMenu"))
-    labelRightClick.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-    layoutRightClick = QtGui.QHBoxLayout()
-    layoutRightClick.addWidget(checkboxRightClick)
-    layoutRightClick.addWidget(labelRightClick)
-    layoutRightClick.addStretch(1)
-    layoutRightClick.addWidget(labelDelayRightClick)
-    layoutRightClick.addWidget(spinDelayRightClick)
+        listToolBarLayout = QtGui.QVBoxLayout()
+        listToolBarLayout.addWidget(listToolBar)
+        labelAddToolBar = QLabel(
+            translate("ToolBarTab", "Add the selected toolbar as a new PieMenu"))
 
-    checkboxDisplaySpinBox = QCheckBox()
-    checkboxDisplaySpinBox.setCheckable(True)
-    checkboxDisplaySpinBox.setChecked(config.get_params()["main"].GetBool("DisplaySpinBox"))
+        buttonAddToolBar = QtGui.QToolButton()
+        buttonAddToolBar.setToolTip(
+            translate("ToolBarTab", "Add selected ToolBar as PieMenu"))
+        buttonAddToolBar.setIcon(QtGui.QIcon(resources.iconAdd))
+        buttonAddToolBar.setMinimumHeight(30)
+        buttonAddToolBar.setMinimumWidth(30)
+        buttonAddToolBar.clicked.connect(onAddToolBar)
 
-    checkboxDisplaySpinBox.stateChanged.connect(
-        lambda state: onDisplaySpinBox(state))
+        labelAddToolBarLayout = QtGui.QHBoxLayout()
+        labelAddToolBarLayout.addWidget(labelAddToolBar)
+        labelAddToolBarLayout.addStretch(1)
+        labelAddToolBarLayout.addWidget(buttonAddToolBar)
 
-    labelSpinBox = QLabel(
-        translate("GlobalSettingsTab", "Direct SpinBox display"))
-    labelSpinBox.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-    layoutSpinBox = QtGui.QHBoxLayout()
-    layoutSpinBox.addWidget(checkboxDisplaySpinBox)
-    layoutSpinBox.addWidget(labelSpinBox)
-    layoutSpinBox.addStretch(1)
+        addToolBarGroup = QGroupBox(translate("ToolBarTab", "ToolBars "))
+        addToolBarGroup.setLayout(QtGui.QVBoxLayout())
+        addToolBarGroup.layout().addLayout(listToolBarLayout)
+        addToolBarGroup.layout().addStretch(1)
+        addToolBarGroup.layout().addLayout(labelAddToolBarLayout)
 
-    buttonParamExport = QtGui.QPushButton(
-        translate("GlobalSettingsTab", "Export"))
-    buttonParamExport.clicked.connect(onParamExport)
+        toolBarTabLayout = QtGui.QVBoxLayout()
+        toolBarTabLayout.addWidget(addToolBarGroup)
 
-    buttonParamImport = QtGui.QPushButton(
-        translate("GlobalSettingsTab", "Import"))
-    buttonParamImport.clicked.connect(onParamImport)
+        toolBarTab = QtGui.QWidget()
+        toolBarTab.setLayout(toolBarTabLayout)
 
-    labelParamExport = QLabel(
-        translate("GlobalSettingsTab", "Export PieMenu settings"))
-    labelParamExport.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-    layoutParamExport = QtGui.QHBoxLayout()
-    layoutParamExport.addWidget(labelParamExport)
-    layoutParamExport.addStretch(1)
-    layoutParamExport.addWidget(buttonParamExport)
+        #### Tab Global Settings ####
+        settingsTab = QtGui.QWidget()
+        settingsTabLayout = QtGui.QVBoxLayout()
+        settingsTab.setLayout(settingsTabLayout)
 
-    labelParamImport = QLabel(
-        translate("GlobalSettingsTab", "Import PieMenu settings"))
-    labelParamImport.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
-    layoutParamImport = QtGui.QHBoxLayout()
-    layoutParamImport.addWidget(labelParamImport)
-    layoutParamImport.addStretch(1)
-    layoutParamImport.addWidget(buttonParamImport)
+        tabs.addTab(pieMenuTab, translate("PieMenuTab", "PieMenu"))
+        tabs.addTab(widgetContainer, translate("ToolsTab", "Tools"))
+        tabs.addTab(contextTab, translate("ContextTab", "Context"))
+        tabs.addTab(settingsTab, translate("GlobalSettingsTab", "Global settings"))
 
-    exportGroup = QGroupBox(translate("GlobalSettingsTab", "Backup settings"))
-    exportGroup.setLayout(QtGui.QVBoxLayout())
-    exportGroup.layout().addLayout(layoutParamExport)
-    exportGroup.layout().addLayout(layoutParamImport)
+        tabToolBar.addTab(toolBarTab, translate("ToolBarsTab", "ToolBars"))
 
-    state.app_state.global_shortcut_key = config.get_params()["main"].GetString("GlobalShortcutKey")
+        #### buttons actions list ####
+        buttonAddSeparator = QtGui.QToolButton()
+        buttonAddSeparator.setIcon(QtGui.QIcon(resources.iconAddSeparator))
+        buttonAddSeparator.setToolTip(translate("Commands", "Add separator"))
+        buttonAddSeparator.setMinimumHeight(30)
+        buttonAddSeparator.setMinimumWidth(30)
+        buttonAddSeparator.clicked.connect(onButtonAddSeparator)
 
-    labelGlobalShortcut = QLabel()
-    labelGlobalShortcut.setAlignment(
-        QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        buttonRemoveCommand = QtGui.QToolButton()
+        buttonRemoveCommand.setIcon(QtGui.QIcon(resources.iconRemoveCommand))
+        buttonRemoveCommand.setToolTip(
+            translate("Commands", "Remove selected command"))
+        buttonRemoveCommand.setMinimumHeight(30)
+        buttonRemoveCommand.setMinimumWidth(30)
+        buttonRemoveCommand.clicked.connect(onButtonRemoveCommand)
 
-    globalShortcutLineEdit = CustomLineEdit()
-    globalShortcutLineEdit.setText(state.app_state.global_shortcut_key)
-    globalShortcutLineEdit.setToolTip(
-        translate("GlobalSettingsTab", "For TAB press CTRL+TAB"))
+        buttonUp = QtGui.QToolButton()
+        buttonUp.setIcon(QtGui.QIcon(resources.iconUp))
+        buttonUp.setToolTip(translate("Commands", "Move selected command up"))
+        buttonUp.setMinimumHeight(30)
+        buttonUp.setMinimumWidth(30)
+        buttonUp.clicked.connect(onButtonUp)
 
-    assignGlobalShortcutButton = QtGui.QPushButton(
-        translate("GlobalSettingsTab", "Assign"))
-    assignGlobalShortcutButton.clicked.connect(
-        lambda: updateGlobalShortcutKey(globalShortcutLineEdit.text()))
+        buttonDown = QtGui.QToolButton()
+        buttonDown.setIcon(QtGui.QIcon(resources.iconDown))
+        buttonDown.setToolTip(translate("Commands", "Move selected command down"))
+        buttonDown.setMinimumHeight(30)
+        buttonDown.setMinimumWidth(30)
+        buttonDown.clicked.connect(onButtonDown)
 
-    deleteGlobalShortcutButton = QtGui.QPushButton()
-    deleteGlobalShortcutButton.setMaximumWidth(40)
-    deleteGlobalShortcutButton.setIcon(QtGui.QIcon.fromTheme(resources.iconBackspace))
-    deleteGlobalShortcutButton.clicked.connect(
-        lambda: updateGlobalShortcutKey(""))
+        buttonsLayout = QtGui.QHBoxLayout()
+        buttonsLayout.addStretch(1)
+        buttonsLayout.addWidget(buttonAddSeparator)
+        buttonsLayout.addWidget(buttonRemoveCommand)
+        buttonsLayout.addWidget(buttonDown)
+        buttonsLayout.addWidget(buttonUp)
 
-    layoutGlobalShortcut = QtGui.QHBoxLayout()
-    layoutGlobalShortcut.addWidget(labelGlobalShortcut)
-    layoutGlobalShortcut.addStretch(1)
-    layoutGlobalShortcut.addWidget(globalShortcutLineEdit)
-    layoutGlobalShortcut.addWidget(assignGlobalShortcutButton)
-    layoutGlobalShortcut.addWidget(deleteGlobalShortcutButton)
+        piemenuWidget = QtGui.QWidget()
+        piemenuLayout = QtGui.QHBoxLayout()
+        piemenuLayout.addWidget(piemenuBoxGroup)
+        piemenuLayout.addWidget(buttonBackToSettings)
+        piemenuLayout.addStretch(1)
+        piemenuWidget.setLayout(piemenuLayout)
 
-    appearanceGroup = QGroupBox(
-        translate("GlobalSettingsTab", "Appearance"))
-    appearanceGroup.setLayout(QtGui.QVBoxLayout())
-    appearanceGroup.layout().addLayout(layoutTheme)
+        buttonListWidget.setColumnCount(2)
+        buttonListWidget.setHorizontalHeaderLabels(
+            [translate("PieMenuTab", "Shortcut"), translate("PieMenuTab", "Action")])
+        buttonListWidget.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        buttonListWidget.verticalHeader().setVisible(False)
+        buttonListWidget.horizontalHeaderItem(0).setTextAlignment(
+            QtCore.Qt.AlignCenter | QtCore.Qt.AlignVCenter)
+        buttonListWidget.horizontalHeaderItem(1).setTextAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        buttonListWidget.horizontalHeader().setSectionResizeMode(
+            QtGui.QHeaderView.Interactive)
+        buttonListWidget.setColumnWidth(0, 60)
+        buttonListWidget.horizontalHeader().setMinimumSectionSize(60)
+        buttonListWidget.horizontalHeader().setStretchLastSection(True)
 
-    # Every way of opening a pie, together. These were previously split three
-    # ways: the toggle in the "Global settings" group, long right-click in a
-    # group called "Experimental", and the global shortcut loose at the bottom
-    # of the tab below a stretch.
-    triggersGroup = QGroupBox(
-        translate("GlobalSettingsTab", "Triggers"))
-    triggersGroup.setLayout(QtGui.QVBoxLayout())
-    triggersGroup.layout().addLayout(layoutGlobalShortcut)
-    triggersGroup.layout().addLayout(layoutGlobalToggle)
-    triggersGroup.layout().addLayout(layoutRightClick)
+        buttonListWidget.setSelectionMode(
+            QtGui.QAbstractItemView.ExtendedSelection)
 
-    behaviourGroup = QGroupBox(
-        translate("GlobalSettingsTab", "Behaviour"))
-    behaviourGroup.setLayout(QtGui.QVBoxLayout())
-    behaviourGroup.layout().addLayout(layoutShowQuickMenu)
-    behaviourGroup.layout().addLayout(layoutGlobalContext)
-    behaviourGroup.layout().addLayout(layoutSpinBox)
+        # Drag-to-reorder. onToolListDrop fully replaces Qt's InternalMove handling,
+        # which would move single cells and split the Shortcut/Action pair.
+        buttonListWidget.setDragDropMode(QtGui.QAbstractItemView.InternalMove)
+        buttonListWidget.setDragDropOverwriteMode(False)
+        buttonListWidget.setDefaultDropAction(QtCore.Qt.MoveAction)
+        buttonListWidget.dropEvent = onToolListDrop
+        pieButtons = QtGui.QWidget()
+        pieButtonsLayout = QtGui.QVBoxLayout()
+        pieButtons.setLayout(pieButtonsLayout)
+        pieButtonsLayout.setContentsMargins(0, 0, 0, 0)
+        pieButtonsLayout.addWidget(buttonListWidget)
+        pieButtonsLayout.insertLayout(1, buttonsLayout)
 
-    settingsTabLayout.addWidget(appearanceGroup)
-    settingsTabLayout.addWidget(triggersGroup)
-    settingsTabLayout.addWidget(behaviourGroup)
-    settingsTabLayout.addWidget(exportGroup)
-    settingsTabLayout.addStretch(1)
+        showPreviewWidget = QtGui.QTableWidget()
+        showPreviewWidget.setColumnCount(1)
+        showPreviewWidget.setHorizontalHeaderLabels(
+            [translate("PieMenuTab", "Preview")])
+        showPreviewWidget.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOff)
+        showPreviewWidget.verticalHeader().setVisible(False)
+        showPreviewWidget.horizontalHeader().setSectionResizeMode(
+            QtGui.QHeaderView.Interactive)
+        showPreviewWidget.horizontalHeader().setMinimumSectionSize(100)
+        showPreviewWidget.horizontalHeader().setStretchLastSection(True)
+
+        showPiemenu = QtGui.QWidget()
+        showPiemenuLayout = QtGui.QVBoxLayout()
+        showPiemenu.setLayout(showPiemenuLayout)
+        showPiemenuLayout.setContentsMargins(0, 0, 0, 0)
+        showPiemenuLayout.addWidget(showPreviewWidget)
+
+        def onShowPiemenuResize(event):
+            """ Keep the preview pie centred when the preview pane is resized """
+            QtGui.QWidget.resizeEvent(showPiemenu, event)
+            try:
+                PieMenuInstance.repositionPreview()
+            except NameError:
+                # bootstrap has not created the instance yet
+                pass
+
+        showPiemenu.resizeEvent = onShowPiemenuResize
+
+        #### Main Layout####
+        vSplitter = QtGui.QSplitter()
+        vSplitter.insertWidget(0, tabs)
+        vSplitter.insertWidget(1, toolBarTab)
+        vSplitter.insertWidget(2, pieButtons)
+        vSplitter.insertWidget(3, showPiemenu)
+
+        preferencesWidget = QtGui.QWidget()
+        preferencesLayout = QtGui.QVBoxLayout()
+        preferencesLayout.setContentsMargins(0, 0, 0, 0)
+        preferencesWidget.setLayout(preferencesLayout)
+        preferencesLayout.addWidget(piemenuWidget)
+        preferencesLayout.addWidget(vSplitter)
+
+        info_button = QtGui.QPushButton()
+        info_button.setToolTip(translate("MainWindow", "About"))
+        info_button.setMaximumWidth(80)
+        info_button.setIcon(QtGui.QIcon.fromTheme(resources.iconInfo))
+        info_button.clicked.connect(infoPopup)
+
+        doc_button = QtGui.QPushButton(translate("MainWindow", "Documentation"))
+        doc_button.setToolTip(translate("MainWindow", "Documentation"))
+        doc_button.setIcon(QtGui.QIcon.fromTheme(resources.iconDocumentation))
+        doc_button.clicked.connect(documentationLink)
+
+        close_button = QtGui.QPushButton(translate("MainWindow", "Close"))
+        close_button.setMaximumWidth(120)
+
+        button_row_layout = QtGui.QHBoxLayout()
+        button_row_layout.addWidget(info_button)
+        button_row_layout.addStretch(1)
+        button_row_layout.addWidget(
+            close_button, 0, alignment=QtCore.Qt.AlignCenter)
+        button_row_layout.addStretch(1)
+        button_row_layout.addWidget(doc_button, 0, alignment=QtCore.Qt.AlignRight)
+
+        button_layout = QtGui.QVBoxLayout()
+        button_layout.addLayout(layoutInfoShortcut)
+        button_layout.addLayout(button_row_layout)
+
+        global pieMenuDialog
+        pieMenuDialog = PieMenuDialog()
+
+        pieMenuDialogLayout = QtGui.QVBoxLayout()
+        pieMenuDialog.setLayout(pieMenuDialogLayout)
+        pieMenuDialogLayout.addWidget(preferencesWidget)
+        pieMenuDialogLayout.addLayout(button_layout)
+
+        close_button.clicked.connect(pieMenuDialog.close)
+
+        #### Global Settings ####
+        labelTheme = QLabel(translate("GlobalSettingsTab", "Theme style:"))
+        labelTheme.setMinimumWidth(160)
+        labelTheme.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        comboBoxTheme = QtGui.QComboBox()
+        comboBoxTheme.setMinimumWidth(120)
+        comboBoxTheme.currentIndexChanged.connect(setTheme)
+
+        getTheme()
+
+        layoutThemeLeft = QtGui.QHBoxLayout()
+        layoutThemeLeft.addWidget(labelTheme)
+        layoutThemeRight = QtGui.QHBoxLayout()
+        layoutThemeRight.addWidget(comboBoxTheme)
+        layoutTheme = QtGui.QHBoxLayout()
+        layoutTheme.addLayout(layoutThemeLeft, 1)
+        layoutTheme.addLayout(layoutThemeRight, 1)
+
+        checkboxQuickMenu = QCheckBox()
+        checkboxQuickMenu.setCheckable(True)
+        checkboxQuickMenu.setChecked(config.get_params()["main"].GetBool("ShowQuickMenu"))
+
+        checkboxQuickMenu.stateChanged.connect(
+            lambda state: onShowQuickMenu(state))
+
+        labelShowQuickMenu = QLabel(
+            translate("GlobalSettingsTab", "Show QuickMenu"))
+        labelShowQuickMenu.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        layoutShowQuickMenuLeft = QtGui.QHBoxLayout()
+        layoutShowQuickMenuLeft.addWidget(checkboxQuickMenu)
+        layoutShowQuickMenuLeft.addWidget(labelShowQuickMenu)
+        layoutShowQuickMenuLeft.addStretch(1)
+        layoutShowQuickMenu = QtGui.QHBoxLayout()
+        layoutShowQuickMenu.addLayout(layoutShowQuickMenuLeft, 1)
+
+        checkboxGlobalContext = QCheckBox()
+        checkboxGlobalContext.setCheckable(True)
+        enableContext = config.get_params()["main"].GetBool("EnableContext")
+        checkboxGlobalContext.setChecked(enableContext)
+        checkboxGlobalContext.stateChanged.connect(lambda state: onContext(state))
+
+        labelGlobalContext = QLabel(
+            translate("GlobalSettingsTab", "Global context"))
+        labelGlobalContext.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        layoutGlobalContextLeft = QtGui.QHBoxLayout()
+        layoutGlobalContextLeft.addWidget(checkboxGlobalContext)
+        layoutGlobalContextLeft.addWidget(labelGlobalContext)
+        layoutGlobalContextLeft.addStretch(1)
+        layoutGlobalContext = QtGui.QHBoxLayout()
+        layoutGlobalContext.addLayout(layoutGlobalContextLeft, 1)
+
+        checkboxGlobalKeyToggle = QCheckBox()
+        checkboxGlobalKeyToggle.setCheckable(True)
+
+        checkboxGlobalKeyToggle.setChecked(
+            getParameterGlobal("Bool", "GlobalKeyToggle"))
+        checkboxGlobalKeyToggle.stateChanged.connect(setGlobalKeyToggle)
+
+        labelGlobalKeyToggle = QLabel(
+            translate("GlobalSettingsTab", "Shortcuts behavior: Toggle show/hide PieMenu"))
+        labelGlobalKeyToggle.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        layoutGlobalToggle = QtGui.QHBoxLayout()
+        layoutGlobalToggle.addWidget(checkboxGlobalKeyToggle)
+        layoutGlobalToggle.addWidget(labelGlobalKeyToggle)
+        layoutGlobalToggle.addStretch(1)
+
+        checkboxRightClick = QCheckBox()
+        checkboxRightClick.setCheckable(True)
+
+        checkboxRightClick.setChecked(
+            getParameterGlobal("Bool", "RightClickTrigger"))
+        checkboxRightClick.stateChanged.connect(
+            lambda state: onRightClickTrigger(state))
+
+        labelDelayRightClick = QLabel(
+            translate("GlobalSettingsTab", "Delay (ms):"))
+
+        spinDelayRightClick = QtGui.QSpinBox()
+        spinDelayRightClick.setMaximum(1000)
+        spinDelayRightClick.setMinimum(50)
+        spinDelayRightClick.setValue(getParameterGlobal("Int", "DelayRightClick"))
+        spinDelayRightClick.valueChanged.connect(onSpinDelayRightClick)
+
+        labelRightClick = QLabel(
+            translate("GlobalSettingsTab", "Long right-click to open default PieMenu"))
+        labelRightClick.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        layoutRightClick = QtGui.QHBoxLayout()
+        layoutRightClick.addWidget(checkboxRightClick)
+        layoutRightClick.addWidget(labelRightClick)
+        layoutRightClick.addStretch(1)
+        layoutRightClick.addWidget(labelDelayRightClick)
+        layoutRightClick.addWidget(spinDelayRightClick)
+
+        checkboxDisplaySpinBox = QCheckBox()
+        checkboxDisplaySpinBox.setCheckable(True)
+        checkboxDisplaySpinBox.setChecked(config.get_params()["main"].GetBool("DisplaySpinBox"))
+
+        checkboxDisplaySpinBox.stateChanged.connect(
+            lambda state: onDisplaySpinBox(state))
+
+        labelSpinBox = QLabel(
+            translate("GlobalSettingsTab", "Direct SpinBox display"))
+        labelSpinBox.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        layoutSpinBox = QtGui.QHBoxLayout()
+        layoutSpinBox.addWidget(checkboxDisplaySpinBox)
+        layoutSpinBox.addWidget(labelSpinBox)
+        layoutSpinBox.addStretch(1)
+
+        buttonParamExport = QtGui.QPushButton(
+            translate("GlobalSettingsTab", "Export"))
+        buttonParamExport.clicked.connect(onParamExport)
+
+        buttonParamImport = QtGui.QPushButton(
+            translate("GlobalSettingsTab", "Import"))
+        buttonParamImport.clicked.connect(onParamImport)
+
+        labelParamExport = QLabel(
+            translate("GlobalSettingsTab", "Export PieMenu settings"))
+        labelParamExport.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        layoutParamExport = QtGui.QHBoxLayout()
+        layoutParamExport.addWidget(labelParamExport)
+        layoutParamExport.addStretch(1)
+        layoutParamExport.addWidget(buttonParamExport)
+
+        labelParamImport = QLabel(
+            translate("GlobalSettingsTab", "Import PieMenu settings"))
+        labelParamImport.setAlignment(QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+        layoutParamImport = QtGui.QHBoxLayout()
+        layoutParamImport.addWidget(labelParamImport)
+        layoutParamImport.addStretch(1)
+        layoutParamImport.addWidget(buttonParamImport)
+
+        exportGroup = QGroupBox(translate("GlobalSettingsTab", "Backup settings"))
+        exportGroup.setLayout(QtGui.QVBoxLayout())
+        exportGroup.layout().addLayout(layoutParamExport)
+        exportGroup.layout().addLayout(layoutParamImport)
+
+        state.app_state.global_shortcut_key = config.get_params()["main"].GetString("GlobalShortcutKey")
+
+        labelGlobalShortcut = QLabel()
+        labelGlobalShortcut.setAlignment(
+            QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter)
+
+        globalShortcutLineEdit = CustomLineEdit()
+        globalShortcutLineEdit.setText(state.app_state.global_shortcut_key)
+        globalShortcutLineEdit.setToolTip(
+            translate("GlobalSettingsTab", "For TAB press CTRL+TAB"))
+
+        assignGlobalShortcutButton = QtGui.QPushButton(
+            translate("GlobalSettingsTab", "Assign"))
+        assignGlobalShortcutButton.clicked.connect(
+            lambda: updateGlobalShortcutKey(globalShortcutLineEdit.text()))
+
+        deleteGlobalShortcutButton = QtGui.QPushButton()
+        deleteGlobalShortcutButton.setMaximumWidth(40)
+        deleteGlobalShortcutButton.setIcon(QtGui.QIcon.fromTheme(resources.iconBackspace))
+        deleteGlobalShortcutButton.clicked.connect(
+            lambda: updateGlobalShortcutKey(""))
+
+        layoutGlobalShortcut = QtGui.QHBoxLayout()
+        layoutGlobalShortcut.addWidget(labelGlobalShortcut)
+        layoutGlobalShortcut.addStretch(1)
+        layoutGlobalShortcut.addWidget(globalShortcutLineEdit)
+        layoutGlobalShortcut.addWidget(assignGlobalShortcutButton)
+        layoutGlobalShortcut.addWidget(deleteGlobalShortcutButton)
+
+        appearanceGroup = QGroupBox(
+            translate("GlobalSettingsTab", "Appearance"))
+        appearanceGroup.setLayout(QtGui.QVBoxLayout())
+        appearanceGroup.layout().addLayout(layoutTheme)
+
+        # Every way of opening a pie, together. These were previously split three
+        # ways: the toggle in the "Global settings" group, long right-click in a
+        # group called "Experimental", and the global shortcut loose at the bottom
+        # of the tab below a stretch.
+        triggersGroup = QGroupBox(
+            translate("GlobalSettingsTab", "Triggers"))
+        triggersGroup.setLayout(QtGui.QVBoxLayout())
+        triggersGroup.layout().addLayout(layoutGlobalShortcut)
+        triggersGroup.layout().addLayout(layoutGlobalToggle)
+        triggersGroup.layout().addLayout(layoutRightClick)
+
+        behaviourGroup = QGroupBox(
+            translate("GlobalSettingsTab", "Behaviour"))
+        behaviourGroup.setLayout(QtGui.QVBoxLayout())
+        behaviourGroup.layout().addLayout(layoutShowQuickMenu)
+        behaviourGroup.layout().addLayout(layoutGlobalContext)
+        behaviourGroup.layout().addLayout(layoutSpinBox)
+
+        settingsTabLayout.addWidget(appearanceGroup)
+        settingsTabLayout.addWidget(triggersGroup)
+        settingsTabLayout.addWidget(behaviourGroup)
+        settingsTabLayout.addWidget(exportGroup)
+        settingsTabLayout.addStretch(1)
 
     # Create a fake command in FreeCAD to handle the PieMenu Separator
     Gui.addCommand('PieMenu_Separator', PieMenuSeparator())
