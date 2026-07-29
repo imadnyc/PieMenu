@@ -1,0 +1,643 @@
+<meta charset="utf-8">
+<title>PieMenu preferences — mockup</title>
+<style>
+:root{--win:#3c3836;--base:#32302f;--alt:#3a3735;--text:#ebdbb2;--dim:#a89984;
+--btn:#504945;--btnhi:#5c5449;--line:#5a534c;--hi:#d3869b;--hitext:#282828;
+--canvas:#282828;--slot:#504945;--slotline:#7c6f64;--warn:#fabd2f;--empty:#4a443f}
+*{box-sizing:border-box}
+body{margin:0;background:#232120;color:var(--text);
+font:13px/1.35 "Segoe UI","Noto Sans","DejaVu Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.topbar{display:flex;gap:14px;align-items:center;padding:9px 14px;background:#2b2928;border-bottom:1px solid #1d1b1a;flex-wrap:wrap}
+.topbar h1{font-size:13px;font-weight:600;margin:0;color:var(--dim)}
+.hint{color:var(--dim);font-size:12px}
+.dialog{margin:16px auto;width:1080px;background:var(--win);border:1px solid #1d1b1a;border-radius:4px;
+box-shadow:0 10px 34px rgba(0,0,0,.5);display:flex;flex-direction:column}
+.body{display:flex;gap:8px;padding:8px;height:600px}
+.col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+.panel{display:flex;flex-direction:column;min-height:0;flex:1;border:1px solid var(--line);
+border-radius:3px;overflow:hidden;background:var(--base)}
+.phead{display:flex;align-items:center;gap:6px;padding:3px 4px 3px 8px;background:var(--win);
+border-bottom:1px solid var(--line);flex:0 0 auto}
+.phead .ptitle{color:var(--dim);font-size:12px;font-weight:600;white-space:nowrap}
+.phead .pcount{color:var(--dim);font-size:11px;opacity:.7}
+.grow{flex:1}
+.pacts{display:flex;gap:1px;align-items:center}
+.list{background:var(--base);overflow:auto;min-height:0;flex:1}
+.row{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 3px;white-space:nowrap;overflow:hidden}
+.row:nth-child(even){background:var(--alt)}
+.row.sel{background:var(--hi);color:var(--hitext)}
+.row .name{overflow:hidden;text-overflow:ellipsis;flex:1}
+.row .tag{font-size:11px;color:var(--dim)}
+.row.sel .tag{color:var(--hitext)}
+.row.drag{opacity:.3}
+.row.over{box-shadow:inset 0 2px 0 var(--hi)}
+.row.dim .name{color:var(--dim)}
+.grip{display:flex;align-items:center;color:var(--dim);opacity:.45;cursor:grab;flex:0 0 auto}
+.row:hover .grip{opacity:.9}
+.row.sel .grip{opacity:.75;color:var(--hitext)}
+.grip svg{width:14px;height:14px}
+.ico{display:flex;flex:0 0 auto}
+.ico svg{width:15px;height:15px;display:block}
+.tool{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--text);
+width:26px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.tool:hover{background:var(--btnhi)}
+.tool.sm{width:22px;height:20px;border-color:transparent;background:transparent}
+.tool.sm:hover{background:var(--btnhi);border-color:var(--line)}
+.tool.sm.on{background:var(--hi);border-color:var(--hi)}
+.tool svg{width:14px;height:14px;display:block}
+.tools{display:flex;gap:2px;padding-top:2px;align-items:center}
+.sep{width:1px;height:16px;background:var(--line);margin:0 3px}
+.form{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}
+.form label{text-align:right;white-space:nowrap}
+select,input[type=number],input[type=text]{background:var(--btn);color:var(--text);
+border:1px solid var(--line);border-radius:2px;padding:3px 5px;font:inherit;width:100%;min-width:0}
+.check{display:flex;align-items:center;gap:6px;padding:1px 0;cursor:pointer}
+.check input{accent-color:var(--hi)}
+.group{border:1px solid var(--line);border-radius:3px;padding:9px 8px 8px;position:relative;margin-top:9px}
+.group>.title{position:absolute;top:-8px;left:8px;background:var(--win);padding:0 5px;color:var(--dim);font-size:12px}
+.canvas{position:relative;background:var(--canvas);border:1px solid var(--line);border-radius:2px;
+overflow:hidden;min-height:0;flex:1}
+.canvas .lbl{position:absolute;top:6px;left:8px;color:#928374;font-size:12px;pointer-events:none}
+.slot{position:absolute;display:flex;align-items:center;justify-content:center;background:var(--slot);
+border:1px solid var(--slotline);border-radius:4px;cursor:grab;user-select:none;font-size:11px}
+.slot svg{width:62%;height:62%;display:block}
+.slot.empty{background:transparent;border-style:dashed;border-color:var(--empty);cursor:pointer;color:var(--empty)}
+.slot.empty:hover{border-color:var(--hi);color:var(--hi)}
+.slot.sel{box-shadow:0 0 0 2px var(--hi)}
+.slot.dragging{opacity:.22}
+.slot.ghost{z-index:9;pointer-events:none;opacity:.95;box-shadow:0 5px 16px rgba(0,0,0,.6)}
+.slot.target{box-shadow:0 0 0 2px var(--hi)}
+.slot.off{opacity:.32;filter:grayscale(1)}
+.slot.pin{border-color:var(--warn);border-style:dashed}
+.slot.reg{border-color:var(--hi)}
+.slot.centre{border-radius:50%;background:#413b36;cursor:default;opacity:.85}
+.ring{position:absolute;border:1px solid #423c37;border-radius:50%;pointer-events:none}
+.footer{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line)}
+.btn{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--text);
+padding:5px 14px;font:inherit;cursor:pointer}
+.btn:hover{background:var(--btnhi)}
+.btn.primary{background:var(--hi);color:var(--hitext);font-weight:600}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:var(--win);border:1px solid #1d1b1a;border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.6);min-width:380px}
+.modal h2{margin:0;padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line)}
+.modal .content{padding:14px}
+.modal .foot{display:flex;gap:6px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line)}
+.picker{max-height:320px;overflow:auto;border:1px solid var(--line);background:var(--base);border-radius:2px}
+.row.grp{background:var(--btn);font-weight:600;cursor:pointer}
+.row.grp .tw{width:12px;color:var(--dim);text-align:center}
+.row.child{padding-left:18px}
+.pop{position:absolute;z-index:60;background:var(--win);border:1px solid var(--line);border-radius:3px;
+box-shadow:0 8px 22px rgba(0,0,0,.5);padding:3px;min-width:200px}
+.pop .row{padding:5px 9px;border-radius:2px;cursor:pointer;gap:8px}
+.pop .row:hover{background:var(--btnhi)}
+.pop .row:nth-child(even){background:transparent}
+.pop .row.dim{opacity:.4;cursor:default}
+.popsep{height:1px;background:var(--line);margin:3px 6px}
+.note{width:1080px;margin:0 auto 18px;color:var(--dim);font-size:12px;line-height:1.65}
+.note b{color:var(--text)}
+.note code{background:#2b2928;padding:1px 4px;border-radius:2px;color:var(--text)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:11px;height:11px;border-radius:2px;border:1px solid var(--slotline);background:var(--slot);display:inline-block}
+.sw.empty{background:transparent;border-style:dashed;border-color:var(--empty)}
+.sw.pin{border-color:var(--warn);border-style:dashed}
+.sw.off{opacity:.32;filter:grayscale(1)}
+.sw.reg{border-color:var(--hi)}
+.sheet{width:1080px;margin:0 auto 40px}
+.sheet h3{font-size:13px;color:var(--text);margin:0 0 8px}
+.sheet table{width:100%;border-collapse:collapse;font-size:12px;background:var(--win);
+border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.sheet th{background:var(--btn);color:var(--dim);text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
+.sheet td{padding:6px 9px;border-bottom:1px solid #46403b;vertical-align:top}
+.sheet tr:last-child td{border-bottom:0}
+.sheet td:first-child{white-space:nowrap;font-weight:600}
+.sheet td:nth-child(3){color:var(--dim)}
+.new{color:#b8bb26}.fix{color:#fabd2f}.perf{color:#83a598}.int{color:#a89984}.ui{color:#d3869b}
+</style>
+
+<div class="topbar">
+  <h1>PieMenu preferences</h1>
+  <span class="hint">double-click a slot to choose a tool · right-click a slot for its options · drag a slot to move it · drag a pie by its grip to reorder</span>
+</div>
+
+<div class="dialog">
+  <div class="body" id="body"></div>
+  <div class="footer">
+    <button class="btn" id="btnAbout">About</button>
+    <button class="btn" id="btnPrefs">Preferences…</button>
+    <span class="grow"></span>
+    <button class="btn">Close</button>
+  </div>
+</div>
+<div class="note" id="note"></div>
+
+<div class="sheet">
+  <h3>Everything added to PieMenu — 39 commits</h3>
+  <table>
+    <tr><th>Feature</th><th>What it does</th><th>Where in this mockup</th><th>Status</th></tr>
+    <tr><td>Per-tool context rules</td><td>Grey a tool out unless the selection matches a six-axis rule</td><td>right-click a slot → Context rule</td><td class="new">new feature</td></tr>
+    <tr><td>Shared / pinned tools</td><td>Define once, appears in the corner of every pie</td><td>right-click a slot → Pin to a corner</td><td class="new">new feature</td></tr>
+    <tr><td>Composite regions</td><td>Extra layout regions with their own shape and sizes beside the main pie</td><td>Regions box, then right-click a slot</td><td class="new">new feature</td></tr>
+    <tr><td>Gesture trigger mode</td><td>Hold the shortcut, move, release to run — marking-menu style</td><td>Trigger → Mode</td><td class="new">new feature</td></tr>
+    <tr><td>Gesture cursor line</td><td>Line drawn from the pie centre to the pointer; first painted element in the addon</td><td>not shown here</td><td class="new">new feature</td></tr>
+    <tr><td>Multiple workbench shortcuts</td><td>Four global shortcut slots; a workbench can map to a different pie per slot</td><td>Assignment → On shortcut</td><td class="new">new feature</td></tr>
+    <tr><td>Drag to arrange</td><td>Drag a tool between slots on the pie itself</td><td>works here</td><td class="new">new feature</td></tr>
+    <tr><td>Per-pie export / import</td><td>Share one pie instead of the whole config</td><td>withdrawn — feedback #13, export is all-or-nothing</td><td class="fix">to revert</td></tr>
+    <tr><td>Default-pie fix</td><td>Picking from the QuickMenu no longer overwrites the default you saved</td><td>“default” tag</td><td class="fix">bug fix</td></tr>
+    <tr><td>Duplicate pies fix</td><td>IndexList listed two pies twice, so they appeared twice and got two shortcut registrations</td><td>each pie listed once</td><td class="fix">bug fix</td></tr>
+    <tr><td>Right-click delay fix</td><td>Upgraded installs stored 0, which would open the pie on every right-click</td><td>not shown here</td><td class="fix">bug fix</td></tr>
+    <tr><td>Custom pie icons fix</td><td>NestedPieMenu accepted an icon path then discarded it</td><td>not shown here</td><td class="fix">bug fix</td></tr>
+    <tr><td>Wayland cursor position</td><td>The pie opens under the cursor; QCursor.pos() returns a stale point on Wayland</td><td>not shown here</td><td class="fix">bug fix</td></tr>
+    <tr><td>Preview re-centres</td><td>Resizing stretched the backdrop but left the pie where it was</td><td>resize the window</td><td class="fix">bug fix</td></tr>
+    <tr><td>Lazy dialog construction</td><td>~200 Qt widgets no longer built during every FreeCAD startup</td><td>not visible by design</td><td class="perf">performance</td></tr>
+    <tr><td>Cached parameter handles</td><td>The parameter tree was re-fetched on every read, across 153 call sites</td><td>not visible by design</td><td class="perf">performance</td></tr>
+    <tr><td>Event filter ordering</td><td>Settings were read on every event before checking it was even a mouse click</td><td>not visible by design</td><td class="perf">performance</td></tr>
+    <tr><td>Tool-list keys scoped</td><td>Delete/Up/Down moved off the application-wide filter onto the list itself</td><td>not visible by design</td><td class="perf">performance</td></tr>
+    <tr><td>Runtime / dialog decoupling</td><td>The pie no longer reads dialog widgets, which is what made lazy construction possible</td><td>not visible by design</td><td class="int">internal</td></tr>
+    <tr><td>Per-tool attribute model</td><td>One migration carrying region, slot, pinned and context data</td><td>underlies the tags</td><td class="int">internal</td></tr>
+    <tr><td>Layout extraction</td><td>Table geometry made callable on its own</td><td>superseded by feedback #16</td><td class="int">internal</td></tr>
+    <tr><td>Global settings split out</td><td>Per-pie and global settings no longer sit side by side looking identical</td><td>Preferences… button</td><td class="ui">UI</td></tr>
+    <tr><td>Pie list instead of dropdown</td><td>Every pie visible at once</td><td>left column</td><td class="ui">UI</td></tr>
+  </table>
+  <p style="color:#a89984;margin:10px 0 0"><b style="color:#ebdbb2">Feedback #16, shown here:</b> the eleven shapes collapse into two families. <b style="color:#ebdbb2">Circle</b> replaces Pie, Concentric, Star and both Rainbows — they differ only in slots per ring, ring count, stagger and arc. <b style="color:#ebdbb2">Grid</b> replaces the four Tables plus UpDown and LeftRight — rows, columns, anchor and split. Slots exist whether or not a tool sits in one, so a layout is an arrangement rather than an ordering.</p>
+</div>
+
+<script>
+const ICONS = __ICONS__;            /* the addon's own SVGs, inlined as markup */
+
+/* Stand-ins for FreeCAD's per-command icons, which live in FreeCAD's compiled
+   resources rather than in this repository. */
+const G=d=>'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" '
+ +'stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+const T={
+ new:G('<path d="M4 2.5h5l3 3v8h-8z"/><path d="M9 2.5v3h3"/>'),
+ open:G('<path d="M2.5 12.5v-8h4l1.5 2h5.5v6z"/>'),
+ save:G('<path d="M2.5 3.5h9l2 2v8h-11z"/><rect x="5" y="9" width="6" height="4.5"/>'),
+ undo:G('<path d="M3 8h7a3 3 0 0 1 0 6H7"/><path d="M5.5 5.5L3 8l2.5 2.5"/>'),
+ redo:G('<path d="M13 8H6a3 3 0 0 0 0 6h3"/><path d="M10.5 5.5L13 8l-2.5 2.5"/>'),
+ refresh:G('<path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13.5 2.5v3h-3"/>'),
+ cut:G('<circle cx="4.5" cy="12" r="1.6"/><circle cx="11.5" cy="12" r="1.6"/><path d="M5.6 10.9L12 2.5M10.4 10.9L4 2.5"/>'),
+ paste:G('<rect x="3.5" y="3" width="9" height="10.5" rx="1"/><path d="M6 3V1.8h4V3"/>'),
+ trash:G('<path d="M3.5 4.5h9M6 4.5V3h4v1.5M4.5 4.5l.7 9h5.6l.7-9"/>'),
+ fit:G('<rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M5.5 6.5h5v3h-5z"/>'),
+ front:G('<rect x="3.5" y="3.5" width="9" height="9"/>'),
+ top:G('<path d="M8 2.5l5.5 3-5.5 3-5.5-3z"/><path d="M2.5 5.5v5l5.5 3 5.5-3v-5"/>'),
+ right:G('<path d="M3.5 4l4-1.5 5 2.5v7l-5 1.5-4-2z"/>'),
+ axo:G('<path d="M8 2.5l5.5 3v5L8 13.5l-5.5-3v-5z"/><path d="M8 8.5l5.5-3M8 8.5v5M8 8.5l-5.5-3"/>'),
+ wire:G('<path d="M8 2.5l5.5 3v5L8 13.5l-5.5-3v-5z"/><path d="M2.5 5.5L8 8.5l5.5-3"/>'),
+ eye:G('<path d="M1.5 8S4 4 8 4s6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4z"/><circle cx="8" cy="8" r="1.8"/>'),
+ pad:G('<path d="M4 13.5V7l4-2 4 2v6.5z"/><path d="M8 5V1.5M6 3L8 1l2 2"/>'),
+ pocket:G('<path d="M3 3.5h10v9H3z"/><path d="M6 3.5v4h4v-4"/>'),
+ revolve:G('<ellipse cx="8" cy="4.5" rx="4.5" ry="2"/><path d="M3.5 4.5v7c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-7"/>'),
+ groove:G('<ellipse cx="8" cy="4.5" rx="4.5" ry="2"/><path d="M3.5 4.5v7M12.5 4.5v7"/>'),
+ fillet:G('<path d="M3 13V7a4 4 0 0 1 4-4h6"/><path d="M3 13h10"/>'),
+ chamfer:G('<path d="M3 13V7l4-4h6"/><path d="M3 13h10"/>'),
+ draft:G('<path d="M4 13L7 3h2l3 10z"/>'),
+ thick:G('<rect x="2.5" y="2.5" width="11" height="11" rx="1"/><rect x="5" y="5" width="6" height="6"/>'),
+ mirror:G('<path d="M8 1.5v13"/><path d="M6 4.5L2.5 8 6 11.5z"/><path d="M10 4.5L13.5 8 10 11.5z"/>'),
+ linpat:G('<rect x="2" y="6" width="3.2" height="3.2"/><rect x="6.4" y="6" width="3.2" height="3.2"/><rect x="10.8" y="6" width="3.2" height="3.2"/>'),
+ polpat:G('<circle cx="8" cy="8" r="5.2"/><rect x="6.6" y="1.4" width="2.8" height="2.8"/><rect x="11.8" y="6.6" width="2.8" height="2.8"/>'),
+ sketch:G('<path d="M2.5 13.5L5 7l6-4.5 2.5 2.5L9 11z"/>'),
+ line:G('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1.3"/><circle cx="13" cy="3" r="1.3"/>'),
+ circle:G('<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1"/>'),
+ arc:G('<path d="M2.5 12a6 6 0 0 1 11-3"/><circle cx="2.5" cy="12" r="1.2"/>'),
+ rect:G('<rect x="2.5" y="4.5" width="11" height="7"/>'),
+ poly:G('<path d="M2.5 11L6 5l4 4 3.5-6"/>'),
+ trim:G('<path d="M2.5 8h4M9.5 8h4"/><path d="M6 5l4 6"/>'),
+ dim:G('<path d="M2.5 5v6M13.5 5v6M2.5 8h11"/>'),
+ box:G('<path d="M8 2l5.5 3v6L8 14l-5.5-3V5z"/><path d="M8 8l5.5-3M8 8v6M8 8L2.5 5"/>'),
+ cyl:G('<ellipse cx="8" cy="4" rx="4.5" ry="1.8"/><path d="M3.5 4v8c0 1 2 1.8 4.5 1.8s4.5-.8 4.5-1.8V4"/>'),
+ sphere:G('<circle cx="8" cy="8" r="5.4"/><ellipse cx="8" cy="8" rx="5.4" ry="2.2"/>'),
+ cone:G('<path d="M8 2l4.5 10H3.5z"/><ellipse cx="8" cy="12" rx="4.5" ry="1.6"/>'),
+ bool:G('<circle cx="6" cy="8" r="3.8"/><circle cx="10" cy="8" r="3.8"/>'),
+ extrude:G('<rect x="3" y="8" width="7" height="5"/><path d="M3 8l3-3h7v5l-3 3"/>'),
+ asm:G('<rect x="2" y="2.5" width="5.5" height="5.5"/><rect x="8.5" y="8" width="5.5" height="5.5"/>'),
+ link:G('<path d="M6.5 9.5a2.5 2.5 0 0 1 0-3.5l2-2a2.5 2.5 0 0 1 3.5 3.5l-1 1"/><path d="M9.5 6.5a2.5 2.5 0 0 1 0 3.5l-2 2a2.5 2.5 0 0 1-3.5-3.5l1-1"/>'),
+ solve:G('<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2"/>'),
+ grip:'<svg viewBox="0 0 16 16" fill="currentColor">'
+  +'<circle cx="6" cy="3.5" r="1.15"/><circle cx="10" cy="3.5" r="1.15"/>'
+  +'<circle cx="6" cy="8" r="1.15"/><circle cx="10" cy="8" r="1.15"/>'
+  +'<circle cx="6" cy="12.5" r="1.15"/><circle cx="10" cy="12.5" r="1.15"/></svg>',
+ dot:G('<circle cx="8" cy="8" r="2.2"/>'),
+};
+const MAP={Std_New:"new",Std_Open:"open",Std_Save:"save",Std_Undo:"undo",Std_Redo:"redo",
+Std_Refresh:"refresh",Std_Cut:"cut",Std_Paste:"paste",Std_Delete:"trash",Std_ToggleVisibility:"eye",
+View_Fit:"fit",View_Front:"front",View_Top:"top",View_Right:"right",View_Axo:"axo",
+View_Wireframe:"wire",View_Shaded:"sphere",PartDesign_Pad:"pad",PartDesign_Pocket:"pocket",
+PartDesign_Revolution:"revolve",PartDesign_Groove:"groove",PartDesign_Fillet:"fillet",
+PartDesign_Chamfer:"chamfer",PartDesign_Draft:"draft",PartDesign_Thickness:"thick",
+PartDesign_Mirrored:"mirror",PartDesign_LinearPattern:"linpat",PartDesign_PolarPattern:"polpat",
+Sketcher_NewSketch:"sketch",Sketcher_EditSketch:"sketch",Sketcher_Line:"line",Sketcher_Circle:"circle",
+Sketcher_Arc:"arc",Sketcher_Rectangle:"rect",Sketcher_Polyline:"poly",Sketcher_Trimming:"trim",
+Sketcher_ConstrainDistance:"dim",Part_Box:"box",Part_Cylinder:"cyl",Part_Sphere:"sphere",
+Part_Cone:"cone",Part_Cut:"bool",Part_Fuse:"bool",Part_Common:"bool",Part_Extrude:"extrude",
+Assembly_CreateAssembly:"asm",Assembly_InsertLink:"link",Assembly_SolveAssembly:"solve"};
+const toolIcon=c=>c&&c.startsWith("PieMenu_")?ICONS.PieMenu_Logo:(T[MAP[c]]||T.dot);
+const uiIcon=n=>ICONS[n]||T.dot;
+
+const CATALOG={
+ "FreeCAD":["Std_New","Std_Open","Std_Save","Std_Undo","Std_Redo","Std_Refresh","Std_Cut","Std_Paste","Std_Delete"],
+ "View":["View_Fit","View_Front","View_Top","View_Right","View_Axo","View_Wireframe","View_Shaded","Std_ToggleVisibility"],
+ "PartDesign":["PartDesign_Pad","PartDesign_Pocket","PartDesign_Revolution","PartDesign_Groove","PartDesign_Fillet","PartDesign_Chamfer","PartDesign_Draft","PartDesign_Thickness","PartDesign_Mirrored","PartDesign_LinearPattern","PartDesign_PolarPattern"],
+ "Sketcher":["Sketcher_NewSketch","Sketcher_EditSketch","Sketcher_Line","Sketcher_Circle","Sketcher_Arc","Sketcher_Rectangle","Sketcher_Polyline","Sketcher_Trimming","Sketcher_ConstrainDistance"],
+ "Part":["Part_Box","Part_Cylinder","Part_Sphere","Part_Cone","Part_Cut","Part_Fuse","Part_Common","Part_Extrude"],
+ "Assembly":["Assembly_CreateAssembly","Assembly_InsertLink","Assembly_SolveAssembly"],
+ "PieMenus":["PieMenu_Sketcher","PieMenu_PartDesign","PieMenu_View"],
+};
+const AXES=["Vertex","Edge","Face","Object","Axis","Plane"];
+const SIGNS=["<","<=","==","!=",">",">="];
+const CORNERS=["TopLeft","TopRight","BottomLeft","BottomRight"];
+
+function mkPie(name,items,o={}){return Object.assign({
+ name,def:false,family:"circle",
+ slots:8,perRing:8,radius:80,arc:360,stagger:false,
+ cols:3,rows:2,anchor:"Center",split:false,
+ button:34,spacing:6,sel:0,items:items.slice(),
+ names:false,mode:"Press",delay:100,key:"",wb:"None",slot:1,
+ inherit:true,regions:[],rules:{},toolRegion:{},
+},o);}
+const S={pies:[
+ mkPie("WB Selector",["Std_New","Std_Open","Std_Save",null,"View_Fit","View_Front",null,"PieMenu_Sketcher"],{key:"TAB"}),
+ mkPie("View",["View_Fit","View_Front","View_Top","View_Right","View_Axo","View_Wireframe"],
+   {def:true,slots:12,perRing:6,radius:56}),
+ mkPie("PartDesign",["PartDesign_Pad","PartDesign_Pocket","PartDesign_Revolution","PartDesign_Fillet","PartDesign_Chamfer",null,null,null],
+   {wb:"PartDesign",mode:"Gesture",rules:{"PartDesign_Fillet":{on:true,Edge:[">=",1]}}}),
+ mkPie("PartDesignFrequent",["PartDesign_Pad","PartDesign_Pocket","Std_Undo","Std_Redo","PartDesign_Mirrored",null],
+   {family:"grid",cols:3,rows:2}),
+ mkPie("Sketcher",["Sketcher_NewSketch","Sketcher_Line","Sketcher_Circle","Sketcher_Rectangle",null,null],
+   {wb:"Sketcher",slot:2,family:"grid",cols:2,rows:3,anchor:"Right"}),
+], cur:0, shared:{"Std_Save":"TopRight"}};
+const pie=()=>S.pies[S.cur];
+const slotCount=p=>p.family==="circle"?p.slots:p.cols*p.rows;
+const filled=p=>p.items.filter(Boolean);
+function normalise(p){const n=slotCount(p);
+ while(p.items.length<n)p.items.push(null);
+ if(p.items.length>n){const extra=p.items.splice(n).filter(Boolean);
+  extra.forEach(c=>{const i=p.items.indexOf(null); if(i>-1)p.items[i]=c;});}
+ if(p.sel>=n)p.sel=0;}
+
+const el=(t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+const svg=(h,c)=>{const s=el("span",c||"ico"); s.innerHTML=h; return s;};
+const shortName=c=>c.replace(/^PieMenu_/,"▤ ").replace(/^[A-Za-z]+_/,"").replace(/([a-z])([A-Z])/g,"$1 $2");
+
+function modal(title,content,onOk,okLabel){
+ const scrim=el("div","scrim"),m=el("div","modal");
+ m.append(el("h2",null,title));
+ const c=el("div","content"); c.append(content); m.append(c);
+ const f=el("div","foot"),cancel=el("button","btn","Cancel"),ok=el("button","btn primary",okLabel||"OK");
+ cancel.onclick=()=>scrim.remove();
+ ok.onclick=()=>{if(onOk()!==false){scrim.remove(); render();}};
+ f.append(cancel,ok); m.append(f); scrim.append(m); document.body.append(scrim);
+ scrim.tabIndex=0; scrim.focus();
+ scrim.onkeydown=e=>{if(e.key==="Escape")scrim.remove(); if(e.key==="Enter")ok.click();};
+ return {scrim,ok};
+}
+function askText(t,l,v,cb){const w=el("div","form"),i=el("input"); i.type="text"; i.value=v||"";
+ w.append(el("label",null,l),i); modal(t,w,()=>{if(!i.value.trim())return false; cb(i.value.trim());});
+ setTimeout(()=>i.focus(),0);}
+function ctxMenu(ev,items){
+ ev.preventDefault(); ev.stopPropagation();
+ document.querySelectorAll(".pop").forEach(n=>n.remove());
+ const pop=el("div","pop");
+ items.forEach(it=>{
+  if(it==="-"){pop.append(el("div","popsep"));return;}
+  const [icon,label,fn,dis]=it;
+  const r=el("div","row"+(dis?" dim":""));
+  r.append(svg(icon),el("span","name",label));
+  if(!dis)r.onclick=()=>{pop.remove(); fn();};
+  pop.append(r);});
+ document.body.append(pop);
+ pop.style.left=Math.min(ev.clientX,innerWidth-pop.offsetWidth-8)+"px";
+ pop.style.top=Math.min(ev.clientY,innerHeight-pop.offsetHeight-8)+"px";
+ setTimeout(()=>document.addEventListener("mousedown",function h(e){
+  if(!pop.contains(e.target)){pop.remove(); document.removeEventListener("mousedown",h);}}),0);
+ return false;}
+const uniqueName=b=>{const n=S.pies.map(p=>p.name); if(!n.includes(b))return b;
+ let i=2; while(n.includes(b+"-"+i))i++; return b+"-"+i;};
+
+const pieAdd=()=>askText("New PieMenu","Name:","",n=>{S.pies.push(mkPie(uniqueName(n),[])); S.cur=S.pies.length-1;});
+const pieRename=()=>askText("Rename PieMenu","Name:",pie().name,n=>{pie().name=uniqueName(n);});
+const pieCopy=()=>{const c=JSON.parse(JSON.stringify(pie())); c.name=uniqueName(pie().name); c.def=false;
+ S.pies.splice(S.cur+1,0,c); S.cur++; render();};
+const pieDelete=()=>{if(S.pies.length<2)return; S.pies.splice(S.cur,1); S.cur=Math.max(0,S.cur-1); render();};
+const pieDefault=()=>{S.pies.forEach(p=>p.def=false); pie().def=true; render();};
+const pieMove=d=>{const i=S.cur,j=i+d; if(j<0||j>=S.pies.length)return;
+ [S.pies[i],S.pies[j]]=[S.pies[j],S.pies[i]]; S.cur=j; render();};
+
+/* the global tool list, folded by workbench -- reached by double-clicking a slot */
+function chooseTool(slot){
+ const box=el("div","picker"); box.style.minWidth="420px";
+ let chosen=null; const open={};
+ const draw=()=>{box.innerHTML="";
+  Object.entries(CATALOG).forEach(([wb,cmds])=>{
+   const h=el("div","row grp");
+   h.append(el("span","tw",open[wb]?"▾":"▸"),el("span","name",wb),el("span","tag",cmds.length+""));
+   h.onclick=()=>{open[wb]=!open[wb]; draw();};
+   box.append(h);
+   if(!open[wb])return;
+   cmds.forEach(c=>{
+    const has=pie().items.includes(c);
+    const r=el("div","row child"+(chosen===c?" sel":"")+(has?" dim":""));
+    r.append(el("span","tw",""),svg(toolIcon(c)),el("span","name",shortName(c)));
+    if(has)r.append(el("span","tag","in pie"));
+    r.onclick=()=>{chosen=c; draw();};
+    r.ondblclick=()=>{chosen=c; h2.ok.click();};
+    box.append(r);});});};
+ draw();
+ const h2=modal("Choose a tool for slot "+(slot+1),box,()=>{
+  if(chosen==null)return false;
+  const p=pie(); normalise(p); p.items[slot]=chosen; p.sel=slot;},"Use tool");
+}
+const clearSlot=i=>{const p=pie(),c=p.items[i]; if(!c)return;
+ p.items[i]=null; delete p.rules[c]; delete p.toolRegion[c]; render();};
+function swapSlots(a,b){const p=pie(); if(a===b)return;
+ [p.items[a],p.items[b]]=[p.items[b],p.items[a]]; p.sel=b; render();}
+function slotRule(i){
+ const p=pie(),cmd=p.items[i]; if(!cmd)return;
+ const cur=p.rules[cmd]||{on:false},w=el("div");
+ const on=el("input"); on.type="checkbox"; on.checked=!!cur.on;
+ const t=el("label","check"); t.append(on,el("span",null,"Only enable this tool when the selection matches"));
+ w.append(t);
+ const f=el("div","form"); f.style.marginTop="10px"; const rows={};
+ AXES.forEach(a=>{
+  const s=el("select"); SIGNS.forEach(g=>{const o=el("option",null,g); if(cur[a]&&cur[a][0]===g)o.selected=true; s.append(o);});
+  const n=el("input"); n.type="number"; n.min=0; n.max=99; n.value=cur[a]?cur[a][1]:0;
+  const cell=el("div"); cell.style.cssText="display:flex;gap:6px"; s.style.width="74px"; n.style.width="74px";
+  cell.append(s,n); f.append(el("label",null,a+":"),cell); rows[a]=[s,n];});
+ w.append(f);
+ modal("Context rule — "+shortName(cmd),w,()=>{
+  const r={on:on.checked}; AXES.forEach(a=>r[a]=[rows[a][0].value,+rows[a][1].value]);
+  if(r.on)p.rules[cmd]=r; else delete p.rules[cmd];});
+}
+function slotPin(i){
+ const p=pie(),cmd=p.items[i]; if(!cmd)return;
+ if(S.shared[cmd]){delete S.shared[cmd]; render(); return;}
+ const box=el("div","picker"); let chosen=null;
+ CORNERS.forEach(c=>{const r=el("div","row"); r.append(el("span","name",c));
+  r.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("sel")); r.classList.add("sel"); chosen=c;};
+  box.append(r);});
+ modal("Pin “"+shortName(cmd)+"” to a corner of every pie",box,()=>{if(!chosen)return false; S.shared[cmd]=chosen;});
+}
+function slotRegion(i){
+ const p=pie(),cmd=p.items[i]; if(!cmd)return;
+ if(!p.regions.length){alert("This pie has no extra regions yet.\nAdd one in the Regions box first."); return;}
+ const box=el("div","picker"); let chosen=null;
+ ["main"].concat(p.regions.map(r=>r.name)).forEach(c=>{
+  const r=el("div","row"); r.append(el("span","name",c));
+  r.onclick=()=>{[...box.children].forEach(x=>x.classList.remove("sel")); r.classList.add("sel"); chosen=c;};
+  box.append(r);});
+ modal("Region for “"+shortName(cmd)+"”",box,()=>{if(!chosen)return false;
+  if(chosen==="main")delete p.toolRegion[cmd]; else p.toolRegion[cmd]=chosen;});
+}
+const regionAdd=()=>askText("New region","Name:","sidebar",n=>{
+ pie().regions.push({name:n,family:"grid",cols:1,rows:3,anchor:"Right",button:24,spacing:2,radius:40,slots:3,perRing:3});});
+const regionRemove=()=>{const p=pie(); if(!p.regions.length)return;
+ const g=p.regions.pop().name;
+ Object.keys(p.toolRegion).forEach(k=>{if(p.toolRegion[k]===g)delete p.toolRegion[k];}); render();};
+
+/* Two families only: circle and grid. */
+function positions(p){
+ const out=[],n=slotCount(p),step=p.button+p.spacing;
+ if(p.family==="circle"){
+  const per=Math.max(1,Math.min(p.perRing,n)),span=p.arc*Math.PI/180,start=-Math.PI/2;
+  for(let i=0;i<n;i++){
+   const ring=Math.floor(i/per),k=i%per,inRing=Math.min(per,n-ring*per);
+   const div=p.arc>=360?inRing:Math.max(1,inRing-1);
+   const a=start+(span/div)*k;
+   let r=p.radius+ring*(p.button+p.spacing+10);
+   if(p.stagger&&k%2)r+=p.button*0.55;
+   out.push([Math.cos(a)*r,Math.sin(a)*r]);}
+  return out;}
+ const cols=Math.max(1,p.cols),rows=Math.max(1,p.rows);
+ for(let i=0;i<n;i++){
+  let x=((i%cols)-(cols-1)/2)*step,y,ry=Math.floor(i/cols);
+  if(p.split){const half=Math.ceil(rows/2);
+   y=ry<half?-(p.radius/2+(half-1-ry)*step):(p.radius/2+(ry-half)*step);}
+  else{y=(ry-(rows-1)/2)*step;
+   if(p.anchor==="Top")y-=p.radius/2+((rows-1)/2)*step;
+   if(p.anchor==="Bottom")y+=p.radius/2+((rows-1)/2)*step;
+   if(p.anchor==="Left")x-=p.radius/2+((cols-1)/2)*step;
+   if(p.anchor==="Right")x+=p.radius/2+((cols-1)/2)*step;}
+  out.push([x,y]);}
+ return out;}
+
+function pieListEl(){
+ const l=el("div","list");
+ S.pies.forEach((p,i)=>{
+  const r=el("div","row"+(i===S.cur?" sel":"")); r.draggable=true;
+  r.append(svg(T.grip,"grip"),svg(p.def?uiIcon("PieMenu_Logo"):uiIcon("PieMenuEditMenu")),
+           el("span","name",p.name));
+  if(p.def)r.append(el("span","tag","default"));
+  if(p.slot>1)r.append(el("span","tag","⌨"+p.slot));
+  r.onclick=()=>{S.cur=i; render();};
+  r.ondblclick=()=>{S.cur=i; pieRename();};
+  r.oncontextmenu=e=>{S.cur=i; render(); return ctxMenu(e,[
+   [uiIcon("PieMenuRename"),"Rename…",pieRename],
+   [uiIcon("PieMenuCopy"),"Duplicate",pieCopy],
+   [uiIcon("PieMenuRemove"),"Delete",pieDelete,S.pies.length<2],
+   "-",
+   [uiIcon("PieMenu_Logo"),"Use when no workbench matches",pieDefault,p.def],
+   "-",
+   [uiIcon("PieMenuAdd"),"Add a new PieMenu…",pieAdd],
+  ]);};
+  r.ondragstart=e=>{e.dataTransfer.setData("text/plain","pie:"+i); r.classList.add("drag");};
+  r.ondragend=()=>r.classList.remove("drag");
+  r.ondragover=e=>{e.preventDefault(); r.classList.add("over");};
+  r.ondragleave=()=>r.classList.remove("over");
+  r.ondrop=e=>{e.preventDefault(); r.classList.remove("over");
+   const d=String(e.dataTransfer.getData("text/plain"));
+   if(!d.startsWith("pie:"))return;
+   const from=+d.slice(4); if(from===i)return;
+   const [x]=S.pies.splice(from,1); S.pies.splice(i,0,x); S.cur=i; render();};
+  l.append(r);});
+ return l;}
+
+function iconBtn(icon,title,fn,active,small){
+ const b=el("button","tool"+(small?" sm":"")+(active?" on":""));
+ b.title=title; b.append(svg(icon)); b.onclick=fn; return b;}
+function panel(title,count,actions,listNode){
+ const p=el("div","panel"),h=el("div","phead");
+ h.append(el("span","ptitle",title));
+ if(count!=null)h.append(el("span","pcount",count));
+ h.append(el("span","grow"));
+ const a=el("div","pacts"); actions.forEach(x=>a.append(x==="|"?el("div","sep"):x));
+ h.append(a); p.append(h,listNode); return p;}
+
+function canvasEl(){
+ const c=el("div","canvas");
+ c.append(el("div","lbl","Double-click a slot to choose a tool · right-click for options"));
+ c.oncontextmenu=e=>e.preventDefault();
+ requestAnimationFrame(()=>paint(c));
+ return c;}
+function paint(c){
+ [...c.querySelectorAll(".slot,.ring")].forEach(n=>n.remove());
+ const p=pie(); normalise(p);
+ const w=c.clientWidth,h=c.clientHeight; if(!w||!h)return;
+ const cx=w/2,cy=h/2,pos=positions(p);
+ if(p.family==="circle"){
+  const rings=Math.ceil(slotCount(p)/Math.max(1,p.perRing));
+  for(let r=0;r<rings;r++){
+   const rad=p.radius+r*(p.button+p.spacing+10),ring=el("div","ring");
+   ring.style.cssText=`left:${cx-rad}px;top:${cy-rad}px;width:${rad*2}px;height:${rad*2}px`;
+   c.append(ring);}}
+ const mk=(cmd,idx,x,y,size,cls)=>{
+  const off=cmd&&p.rules[cmd]&&p.rules[cmd].on;
+  const s=el("div","slot"+(cmd?"":" empty")+(off?" off":"")+(cls?" "+cls:"")
+            +(idx===p.sel&&idx!=null?" sel":""));
+  s.style.cssText=`left:${x-size/2}px;top:${y-size/2}px;width:${size}px;height:${size}px`;
+  if(idx!=null)s.dataset.idx=idx;
+  if(cmd){s.title=shortName(cmd)+(off?" · greyed unless the selection matches":"")
+    +(S.shared[cmd]?" · shared, "+S.shared[cmd]:"");
+   if(p.names)s.textContent=shortName(cmd).split(" ")[0]; else s.append(svg(toolIcon(cmd)));}
+  else{s.title="Empty slot — double-click to choose a tool"; s.textContent="+";}
+  if(idx!=null){
+   s.onclick=()=>{p.sel=idx; render();};
+   s.ondblclick=()=>chooseTool(idx);
+   s.oncontextmenu=e=>{p.sel=idx; render(); return ctxMenu(e,[
+    [uiIcon("PieMenuAddCommand"),cmd?"Change tool…":"Choose a tool…",()=>chooseTool(idx)],
+    [uiIcon("PieMenuRemoveCommand"),"Clear this slot",()=>clearSlot(idx),!cmd],
+    "-",
+    [uiIcon("PieMenuReload"),"Context rule…",()=>slotRule(idx),!cmd],
+    [uiIcon("PieMenuAddMenu"),cmd&&S.shared[cmd]?"Unpin from every pie":"Pin to a corner…",()=>slotPin(idx),!cmd],
+    [uiIcon("PieMenuSeparator"),"Assign to a region…",()=>slotRegion(idx),!cmd],
+   ]);};
+   if(cmd) s.onmousedown=ev=>{
+    if(ev.button!==0)return;
+    ev.preventDefault(); p.sel=idx;
+    const rect=c.getBoundingClientRect(),ghost=s.cloneNode(true);
+    ghost.classList.add("ghost"); c.append(ghost); s.classList.add("dragging");
+    let over=null;
+    const move=e2=>{
+     ghost.style.left=(e2.clientX-rect.left-size/2)+"px";
+     ghost.style.top=(e2.clientY-rect.top-size/2)+"px";
+     let best=null,bd=1e9;
+     c.querySelectorAll(".slot:not(.ghost):not(.centre)").forEach(o=>{
+      if(o===s)return;
+      const b=o.getBoundingClientRect();
+      const d=Math.hypot(b.left+b.width/2-e2.clientX,b.top+b.height/2-e2.clientY);
+      if(d<bd){bd=d;best=o;}});
+     if(over&&over!==best)over.classList.remove("target");
+     over=bd<size*1.5?best:null;
+     if(over)over.classList.add("target");};
+    const up=()=>{
+     document.removeEventListener("mousemove",move);
+     document.removeEventListener("mouseup",up);
+     ghost.remove(); s.classList.remove("dragging");
+     if(over){over.classList.remove("target"); swapSlots(idx,+over.dataset.idx);} else render();};
+    document.addEventListener("mousemove",move);
+    document.addEventListener("mouseup",up);};}
+  c.append(s);};
+ p.items.forEach((cmd,i)=>{if(cmd&&p.toolRegion[cmd])return;
+  mk(cmd,i,cx+pos[i][0],cy+pos[i][1],p.button);});
+ p.regions.forEach(rg=>{
+  const tools=p.items.filter(t=>t&&p.toolRegion[t]===rg.name); if(!tools.length)return;
+  const rp=positions(Object.assign({},rg,{slots:tools.length,perRing:tools.length,rows:tools.length,cols:1}));
+  const dx={Right:1,Left:-1,Above:0,Below:0}[rg.anchor]||1;
+  const dy={Right:0,Left:0,Above:-1,Below:1}[rg.anchor]||0;
+  const ox=cx+dx*(p.radius+rg.button*2.4),oy=cy+dy*(p.radius+rg.button*2.4);
+  tools.forEach((cmd,i)=>mk(cmd,p.items.indexOf(cmd),ox+(rp[i]?rp[i][0]:0),oy+(rp[i]?rp[i][1]:0),rg.button,"reg"));});
+ if(p.inherit)Object.entries(S.shared).forEach(([cmd,corner])=>{
+  const pad=10+p.button/2;
+  mk(cmd,null,corner.includes("Left")?pad:w-pad,corner.startsWith("Top")?pad:h-pad,p.button,"pin");});
+ const inner=el("div","slot centre"),isz=Math.max(24,Math.round(p.button*0.72));
+ inner.style.cssText=`left:${cx-isz/2}px;top:${cy-isz/2}px;width:${isz}px;height:${isz}px`;
+ inner.title="QuickMenu — switch pie, open preferences";
+ inner.append(svg(uiIcon("PieMenuEditMenu"))); c.append(inner);}
+
+const sel=(v,o,on)=>{const s=el("select"); o.forEach(x=>{const p=el("option",null,x); if(x===v)p.selected=true; s.append(p);});
+ s.onchange=()=>{on(s.value); render();}; return s;};
+const num=(v,on,mn,mx)=>{const i=el("input"); i.type="number"; i.value=v; i.min=mn??0; i.max=mx??999;
+ i.onchange=()=>{on(+i.value); render();}; return i;};
+const check=(l,v,on)=>{const w=el("label","check"),i=el("input"); i.type="checkbox"; i.checked=v;
+ i.onchange=()=>{on(i.checked); render();}; w.append(i,el("span",null,l)); return w;};
+const formGrid=r=>{const f=el("div","form"); r.forEach(([l,n])=>f.append(el("label",null,l),n)); return f;};
+const group=(t,n)=>{const g=el("div","group"); g.append(el("span","title",t),n); return g;};
+
+function build(){
+ const p=pie(); normalise(p);
+ const b=el("div","body");
+ const c1=el("div","col"); c1.style.width="212px";
+ c1.append(panel("Pies",S.pies.length,[
+  iconBtn(uiIcon("PieMenuAdd"),"Add a new PieMenu",pieAdd,false,true),
+  iconBtn(uiIcon("PieMenuUp"),"Move up",()=>pieMove(-1),false,true),
+  iconBtn(uiIcon("PieMenuDown"),"Move down",()=>pieMove(1),false,true),
+ ],pieListEl()));
+
+ const c2=el("div","col"); c2.style.flex="1"; c2.append(canvasEl());
+
+ const c3=el("div","col"); c3.style.width="252px"; c3.style.overflowY="auto";
+ const rows=[["Family:",sel(p.family,["circle","grid"],v=>{p.family=v; normalise(p);})]];
+ if(p.family==="circle")rows.push(
+  ["Slots:",num(p.slots,v=>{p.slots=v; normalise(p);},1,24)],
+  ["Per ring:",num(p.perRing,v=>p.perRing=v,1,24)],
+  ["Radius:",num(p.radius,v=>p.radius=v,20,300)],
+  ["Arc:",sel(String(p.arc),["360","270","180"],v=>p.arc=+v)],
+  ["Stagger:",check("alternate radius",p.stagger,v=>p.stagger=v)]);
+ else rows.push(
+  ["Columns:",num(p.cols,v=>{p.cols=v; normalise(p);},1,10)],
+  ["Rows:",num(p.rows,v=>{p.rows=v; normalise(p);},1,10)],
+  ["Anchor:",sel(p.anchor,["Center","Top","Bottom","Left","Right"],v=>p.anchor=v)],
+  ["Split:",check("either side of centre",p.split,v=>p.split=v)],
+  ["Offset:",num(p.radius,v=>p.radius=v,0,300)]);
+ rows.push(["Button:",num(p.button,v=>p.button=v,16,96)],["Spacing:",num(p.spacing,v=>p.spacing=v,0,60)]);
+ c3.append(group("Layout",formGrid(rows)));
+ c3.append(group("Trigger",formGrid([
+  ["Mode:",sel(p.mode,["Press","Hover","Gesture"],v=>p.mode=v)],
+  ["Delay:",num(p.delay,v=>p.delay=v,0,1000)],
+  ["Shortcut:",sel(p.key||"—",["—","TAB","Q","W","E","R"],v=>p.key=v==="—"?"":v)],
+ ])));
+ c3.append(group("Assignment",formGrid([
+  ["Workbench:",sel(p.wb,["None","PartDesign","Sketcher","Assembly","Part"],v=>p.wb=v)],
+  ["On shortcut:",num(p.slot,v=>p.slot=v,1,4)],
+ ])));
+ const regs=el("div");
+ regs.append(formGrid([["Extra:",el("span",null,p.regions.length?p.regions.map(r=>r.name).join(", "):"none")]]));
+ const rb=el("div","tools");
+ rb.append(iconBtn(uiIcon("PieMenuAdd"),"Add a layout region",regionAdd),
+           iconBtn(uiIcon("PieMenuRemove"),"Remove the last region",regionRemove));
+ regs.append(rb); c3.append(group("Regions",regs));
+ const show=el("div");
+ show.append(check("Command names",p.names,v=>p.names=v),
+             check("Inherit shared tools",p.inherit,v=>p.inherit=v));
+ c3.append(group("Show",show));
+ b.append(c1,c2,c3); return b;}
+
+function render(){
+ const host=document.getElementById("body"),fresh=build();
+ host.replaceWith(fresh); fresh.id="body";
+ const p=pie();
+ document.getElementById("note").innerHTML=
+  "<b>No tool list.</b> The pie itself is the editor: double-click a slot to pick a tool from the global "
+ +"list folded by workbench, right-click one for its options, drag one to move it. "
+ +"<b>Two shape families, not eleven.</b> <code>circle</code> covers Pie, Concentric, Star and both "
+ +"Rainbows; <code>grid</code> covers the four Tables plus UpDown and LeftRight."
+ +"<div class=legend><span><i class='sw'></i>filled</span><span><i class='sw empty'></i>empty slot</span>"
+ +"<span><i class='sw off'></i>greyed by a context rule</span>"
+ +"<span><i class='sw pin'></i>shared, pinned to a corner</span>"
+ +"<span><i class='sw reg'></i>in an extra region</span></div>"
+ +"<div style='margin-top:6px'>Selected <code>"+p.name+"</code> · "+p.family+" · "
+ +filled(p).length+" of "+slotCount(p)+" slots filled · trigger <code>"+p.mode+"</code></div>";}
+
+document.getElementById("btnAbout").onclick=()=>{
+ const d=el("div"); d.innerHTML="<b>PieMenu 1.13</b><br>Interactive mockup.";
+ modal("About",d,()=>{});};
+document.getElementById("btnPrefs").onclick=()=>{
+ const w=el("div");
+ w.append(group("Appearance",formGrid([["Theme:",sel("Legacy",["Legacy","Dark","Light"],()=>{})]])));
+ w.append(group("Triggers",formGrid([
+  ["Global 1:",sel("TAB",["TAB","Q","W"],()=>{})],
+  ["Global 2:",sel("—",["—","Q","W","E"],()=>{})],
+  ["Global 3:",sel("—",["—","Q","W","E"],()=>{})],
+  ["Global 4:",sel("—",["—","Q","W","E"],()=>{})],
+ ])));
+ const beh=el("div");
+ beh.append(check("Show QuickMenu",true,()=>{}),check("Global context",false,()=>{}),
+            check("Toggle show/hide",true,()=>{}),check("Long right-click to open",false,()=>{}));
+ w.append(group("Behaviour",beh));
+ const bk=el("div"); bk.style.cssText="display:flex;gap:6px";
+ bk.append(el("button","btn","Export all settings…"),el("button","btn","Import all settings…"));
+ w.append(group("Backup",bk));
+ modal("PieMenu Preferences — applies to every pie",w,()=>{});};
+render();
+window.addEventListener("resize",()=>render());
+</script>
