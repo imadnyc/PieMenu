@@ -1916,6 +1916,119 @@ def pieMenuStart():
             value = config.get_params()["main"].GetString(name)
         return value
 
+    #### Per-tool model ####
+    # ToolList stays the source of truth for which tools a pie holds and in what
+    # order -- it is a ".,."-joined string of command names and every existing
+    # reader depends on it. Per-tool attributes live alongside it in a Tools
+    # subgroup keyed by command name, so a PieMenu that predates this simply
+    # ignores them and still renders the pie correctly.
+    #
+    #   .../PieMenu/Index/<i>/Tools/<command>/
+    #       Region           Int   which layout region the tool belongs to
+    #       Slot             Int   position within that region, -1 = automatic
+    #       Pinned           Bool  shared tool pinned to a corner
+    #       ContextEnabled   Bool  per-tool context rule active
+    #       <Axis>Sign       Str   one of the operators in constants.get_signs()
+    #       <Axis>Value      Int   for Axis in Vertex/Edge/Face/Object/Axis/Plane
+    TOOL_MODEL_VERSION = 1
+
+    def getToolsGroup(pieName, create=False):
+        """ The Tools subgroup of a pie, or None when there is nothing there """
+        index = getCurrentMenuIndex(pieName)
+        if index == "-1":
+            return None
+        pieGroup = config.get_params()["index"].GetGroup(index)
+        if not create and "Tools" not in pieGroup.GetGroups():
+            return None
+        return pieGroup.GetGroup("Tools")
+
+    def getToolGroup(pieName, command, create=False):
+        """ Parameter group carrying one tool's attributes within one pie.
+
+        Returns None rather than creating anything when the tool has no stored
+        attributes, which is the normal case -- attributes are all optional and
+        absence means the default.
+        """
+        toolsGroup = getToolsGroup(pieName, create)
+        if toolsGroup is None:
+            return None
+        if not create and command not in toolsGroup.GetGroups():
+            return None
+        return toolsGroup.GetGroup(command)
+
+    def getToolAttr(pieName, command, paramType, paramName, default=None):
+        """ Read one per-tool attribute, or default when it is not set """
+        group = getToolGroup(pieName, command)
+        if group is None:
+            return default
+        if paramType == "Int":
+            return group.GetInt(paramName, default if default is not None else 0)
+        if paramType == "Bool":
+            return group.GetBool(paramName, bool(default))
+        return group.GetString(paramName, default if default is not None else "")
+
+    def setToolAttr(pieName, command, paramType, paramName, value):
+        """ Write one per-tool attribute, creating the group on demand """
+        group = getToolGroup(pieName, command, create=True)
+        if group is None:
+            return
+        if paramType == "Int":
+            group.SetInt(paramName, int(value))
+        elif paramType == "Bool":
+            group.SetBool(paramName, bool(value))
+        else:
+            group.SetString(paramName, value)
+
+    def removeToolAttrs(pieName, command):
+        """ Drop a tool's attributes, e.g. when it is removed from the pie """
+        toolsGroup = getToolsGroup(pieName)
+        if toolsGroup is not None and command in toolsGroup.GetGroups():
+            toolsGroup.RemGroup(command)
+
+    def pruneToolAttrs(pieName, toolData):
+        """ Drop attributes for tools the pie no longer contains.
+
+        Called wherever ToolList is regenerated, so removing a tool from a pie
+        does not leave its attributes behind to be silently reapplied if the
+        same tool is added again later.
+        """
+        toolsGroup = getToolsGroup(pieName)
+        if toolsGroup is None:
+            return
+        keep = set(toolData)
+        for command in toolsGroup.GetGroups():
+            if command not in keep:
+                toolsGroup.RemGroup(command)
+
+    def migrateToolModel():
+        """ One-time migration to the per-tool model.
+
+        Deliberately additive: it seeds Tools/<command>/Region = 0 for each tool
+        a pie already holds and touches nothing else, so ToolList and every
+        per-pie key keep their current meaning and an older PieMenu still loads
+        the config unchanged. Guarded by SchemaVersion so it runs once.
+        """
+        main = config.get_params()["main"]
+        if main.GetInt("SchemaVersion", 0) >= TOOL_MODEL_VERSION:
+            return
+
+        for i in getIndexList():
+            pieName = getParamIndex(str(i))
+            if not pieName:
+                continue
+            toolList = getParameterGroup(pieName, "String", "ToolList")
+            if not toolList:
+                continue
+            for command in toolList.split(".,."):
+                # separators repeat within a pie, so they cannot be keyed by
+                # name; they carry no attributes anyway
+                if not command or command == "PieMenu_Separator":
+                    continue
+                setToolAttr(pieName, command, "Int", "Region", 0)
+
+        main.SetInt("SchemaVersion", TOOL_MODEL_VERSION)
+        App.saveParameter()
+
     def currentPieName():
         """ Name of the pie selected in the pie list.
 
@@ -4104,6 +4217,7 @@ def pieMenuStart():
                 toolData.append(item.data(QtCore.Qt.UserRole))
         group = getGroup()
         group.SetString("ToolList", ".,.".join(toolData))
+        pruneToolAttrs(currentPieName(), toolData)
 
     def toolListDropRow(event):
         """ Row a drop should land on, following the drop indicator """
@@ -5043,6 +5157,10 @@ def pieMenuStart():
         # GetInt returns 0. Use the same default setDefaultPie() does.
         if not any(item[1] == "DelayRightClick" for item in settingContent):
             config.get_params()["main"].SetInt("DelayRightClick", 100)
+
+        # Seed the per-tool model. Additive and guarded by SchemaVersion, so it
+        # runs once and leaves every existing key untouched.
+        migrateToolModel()
 
     #### Preferences dialog ####
     def onControl():
