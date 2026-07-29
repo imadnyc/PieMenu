@@ -356,6 +356,51 @@ def pieMenuStart():
 
     #### Class PieMenu ####
 
+    class GestureOverlay(QtWidgets.QWidget):
+        """ Draws the line from the pie's centre to the pointer, in Gesture mode.
+
+        The first painted element in this addon: everything else is Qt widgets
+        positioned by trigonometry and styled with QSS, and PreselectButton only
+        swaps between two static icons. So this decides how custom drawing is
+        done here -- a transparent child of the menu that paints and nothing
+        else.
+
+        Transparent to mouse events, so it never intercepts anything from the
+        buttons underneath it.
+        """
+
+        def __init__(self, parent=None):
+            super(GestureOverlay, self).__init__(parent)
+            self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+            self.setAttribute(QtCore.Qt.WA_NoSystemBackground)
+            self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+            self.cursor_pos = None
+
+        def setCursorPos(self, pos):
+            """ Point to draw towards, in this widget's coordinates """
+            self.cursor_pos = pos
+            self.update()
+
+        def paintEvent(self, event):
+            if self.cursor_pos is None:
+                return
+
+            centre = QtCore.QPoint(self.width() // 2, self.height() // 2)
+            painter = QtGui.QPainter(self)
+            painter.setRenderHint(QtGui.QPainter.Antialiasing, True)
+
+            pen = QtGui.QPen(self.palette().highlight().color())
+            pen.setWidth(2)
+            pen.setCapStyle(QtCore.Qt.RoundCap)
+            painter.setPen(pen)
+            painter.drawLine(centre, self.cursor_pos)
+
+            painter.setBrush(self.palette().highlight())
+            painter.drawEllipse(centre, 3, 3)
+            painter.end()
+
+
+
     class PieMenu(QWidget):
         """ Main widget for PieMenu """
         mw = Gui.getMainWindow()
@@ -399,6 +444,11 @@ def pieMenuStart():
 
             self.menuFlags = flags
             self.menu.setWindowFlags(flags)
+
+            # Gesture mode's origin-to-cursor line. Hidden unless that mode is
+            # active, and transparent to mouse events either way.
+            self.gestureOverlay = GestureOverlay(self.menu)
+            self.gestureOverlay.hide()
             self.menu.setAttribute(QtCore.Qt.WA_TranslucentBackground)
 
             self.menuSize = self.radius * 2 + self.buttonSize
@@ -521,6 +571,18 @@ def pieMenuStart():
                         state.app_state.last_mouse_pos = event.globalPos()
                 except Exception:
                     pass
+
+                # redraw the gesture line as the pointer moves
+                if (event.type() == QtCore.QEvent.MouseMove
+                        and self.menu.isVisible()
+                        and globals().get("triggerMode") == "Gesture"
+                        and state.app_state.last_mouse_pos is not None):
+                    try:
+                        self.gestureOverlay.setCursorPos(
+                            self.menu.mapFromGlobal(
+                                state.app_state.last_mouse_pos))
+                    except Exception:
+                        pass
 
             if event.type() == QtCore.QEvent.MouseButtonRelease:
                 if event.button() == QtCore.Qt.LeftButton:
@@ -1616,6 +1678,10 @@ def pieMenuStart():
                 self.buttons.append(button)
 
         def hide(self):
+            try:
+                self.gestureOverlay.hide()
+            except AttributeError:
+                pass
             for i in self.buttons:
                 i.hide()
             self.menu.hide()
@@ -1738,6 +1804,14 @@ def pieMenuStart():
                                cursor_pos.y() - self.menu.height() // 2)
 
                 self.menu.show()
+                if globals().get("triggerMode") == "Gesture":
+                    self.gestureOverlay.setGeometry(0, 0, width, height)
+                    self.gestureOverlay.setCursorPos(None)
+                    self.gestureOverlay.raise_()
+                    self.gestureOverlay.show()
+                else:
+                    self.gestureOverlay.hide()
+
                 for i in self.buttons:
                     i.move(i.property("ButtonX") + posX - i.width() / 2 + self.offset_x,
                            i.property("ButtonY") + posY - i.height() / 2 + self.offset_y)
