@@ -1,51 +1,67 @@
-# Plan progress
+# Plan progress — complete
 
-Tracks `thisihavemorereplicatedmochi.md`. Tags mark phase boundaries:
-`git log phase-0-complete..phase-1-decoupling-complete`.
+Implements `thisihavemorereplicatedmochi.md`. Tags mark phase boundaries:
 
-## Phase 0 — quick wins  (tag: `phase-0-complete`)
+```
+git log phase-0-complete                                  # Phase 0
+git log phase-0-complete..phase-1-complete                # Phase 1
+git log phase-1-complete..phase-2-complete                # Phase 2
+git log phase-2-complete..phase-3-complete                # Phase 3
+```
 
-| item | commit | note |
-| ---- | ------ | ---- |
-| F5.1 preview resizeEvent | `09ae111` | |
-| F7.0 drag-to-reorder tool list | `3d79ac9` | not "nearly free": QTableWidget InternalMove moves cells, so the drop is fully overridden |
-| F1.b CurrentPie / ActivePie split | `9ee4b54` | also clears ActivePie when a default is set, else the default still loses |
-| F1.a relabel default checkbox | `c5c5e49` | |
-| F8.b PieMenus in the tool picker | `c0911fa` | also fixes NestedPieMenu discarding its iconPath |
-| F4.1 regroup Global settings tab | `77b1916` | found 2 more mistagged contexts than the plan listed: the Assign buttons were swapped |
-| F9 try existing export/import | — | **user action, not code** |
+## Phase 0 — quick wins  (`phase-0-complete`)
 
-## Phase 1 — decoupling, Part 3  (tag: `phase-1-decoupling-complete`)
+| item | note |
+| ---- | ---- |
+| F5.1 preview resizeEvent | |
+| F7.0 drag-to-reorder tool list | not "nearly free": QTableWidget InternalMove moves cells, so the drop is fully overridden |
+| F1.b CurrentPie / ActivePie split | also clears ActivePie when a default is set, or the default still loses |
+| F1.a relabel default checkbox | |
+| F8.b PieMenus in the tool picker | also fixes NestedPieMenu discarding its iconPath |
+| F4.1 regroup Global settings tab | found 2 mistagged contexts beyond the plan's 4: the Assign buttons were swapped |
+| F9 try existing export/import | **user action — not code** |
 
-| item | commit | note |
-| ---- | ------ | ---- |
-| 1 memoize param handles | `c1ffb87` | |
-| 2 reorder eventFilter | `46c71f5` | |
-| F11 Wayland pointer cache | `074215b` | rides along with 2, as planned |
-| (extra) backfill DelayRightClick | `d444e8d` | not in the plan; commit 4 regresses without it |
-| 3 right-click settings from params | `0596b3a` | |
-| 4 GlobalKeyToggle from params | `f009f08` | |
-| 5 ShowQuickMenu from params | `297b679` | |
-| 6 isPreviewMode() | `6dd973a` | |
-| 7a getShape split | `f06a995` | |
-| 8 tool-list key filter | `84c8165` | installed on buttonListWidget, not the dialog |
-| 9 ensureDefaultPieGroup | `2e2adbc` | |
-| 7b Wire E | `f536f17` | **behaviour change**, as the plan flags |
+## Phase 1 — decoupling  (`phase-1-complete`)
 
-After 7b, nothing reachable from the hotkey reads a preferences-dialog widget.
+Part 3 commits 1-9, plus **7b (Wire E)**, F11, lazy dialog construction, F11.2,
+F4.2, F4.3. Extra commit not in the plan: backfill `DelayRightClick`, without
+which commit 4 regresses.
 
-## Not started
+After 7b, nothing reachable from the hotkey reads a preferences-dialog widget,
+which is what allows the dialog to be built on first use rather than at startup
+(~200 widget constructions off every FreeCAD launch).
 
-- **Phase 1 remainder**: lazy dialog construction, F11.2, F4.2, F4.3
-- **Phase 2**: Part 5 tool model + the one migration, F3.1, F3, F8.c, F2, F9.2, F6.0
-- **Phase 3**: F6, F7, F10a, F10b, F4.4
+## Phase 2 — foundations  (`phase-2-complete`)
 
-### Next step, and why it stopped here
+| item | note |
+| ---- | ---- |
+| Part 5 per-tool model | one additive migration, guarded by `SchemaVersion` |
+| (extra) IndexList dedupe | the real config had indices 1 and 2 listed twice |
+| F3.1 extract `matchesContext()` | |
+| F3 per-tool context | disables the **button**, never the shared action |
+| F8.c shared/pinned tools | corners are already empty, so this needed no F6 |
+| F2 multi-slot keyboard binds | slot 1 keeps `GlobalShortcutKey` verbatim |
+| F9.2 per-pie export/import | after the tool model, so attributes travel |
+| F6.0 extract shape dispatch | table family only — see below |
 
-Lazy dialog construction is the next item. Measured: the block is **1,092 lines
-binding 214 names, 68 of which are referenced from outside it** by callbacks
-defined earlier in the closure. Making it lazy therefore needs those 68
-pre-declared and re-bound with `nonlocal`, or the callbacks stop resolving.
-That is the largest structural change in the plan and the hardest to isolate if
-it breaks -- so it waits until the 17 commits above are confirmed in a running
-FreeCAD, per Part 6.
+## Phase 3 — layout  (`phase-3-complete`)
+
+| item | note |
+| ---- | ---- |
+| F6 composite layouts | extra regions with their own shape/radius/spacing |
+| F7 snap-to-slot | stores `(slot)`, not pixels, so layouts survive DPI changes |
+| F10a Gesture trigger | needed F11's pointer cache; nearest-button fallback |
+| F10b origin→cursor line | first `paintEvent` in the addon |
+| F4.4 splitter + ToolBars | preview takes the slack |
+
+## Known limits
+
+- **F6.0 is partial.** Pie and LeftRight interleave geometry with per-button
+  styling and text measurement; Concentric and Star grow `self.radius` as the
+  loop runs, so button N depends on having walked 1..N-1. Only the table family
+  is callable standalone, so an extra region asking for a pie-family shape falls
+  back to `TableRight`.
+- **No GUI verification.** Everything is `py_compile` plus semantic probes against
+  the running FreeCAD's Qt. Nothing has been exercised in a rebuilt session.
+- Part 7 backlog untouched by design (`package.xml` license path, unguarded
+  `int(fc_version[…])`, `showPiemenuPreview` duplication, bare `except: None`).
