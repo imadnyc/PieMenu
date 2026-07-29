@@ -1392,7 +1392,7 @@ def pieMenuStart():
 
             displaySpinBox = getParameterGlobal("Bool", "DisplaySpinBox")
             buttonQuickMenu = quickMenu()
-            if checkboxQuickMenu.isChecked():
+            if getParameterGlobal("Bool", "ShowQuickMenu"):
                 buttonQuickMenu.setParent(self.menu)
                 self.buttons.append(buttonQuickMenu)
             else:
