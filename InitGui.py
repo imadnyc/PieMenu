@@ -6056,7 +6056,11 @@ def pieMenuStart():
         tabs.addTab(pieMenuTab, translate("PieMenuTab", "PieMenu"))
         tabs.addTab(widgetContainer, translate("ToolsTab", "Tools"))
         tabs.addTab(contextTab, translate("ContextTab", "Context"))
-        tabs.addTab(settingsTab, translate("GlobalSettingsTab", "Global settings"))
+        # settingsTab is deliberately NOT a tab here. Everything in this tab bar
+        # applies to the selected pie; the global settings now live in their own
+        # dialog, reached by the Preferences button. Sitting side by side, the
+        # two scopes were indistinguishable -- nothing indicated that Shape
+        # affects one pie while Theme affects all of them.
 
         tabToolBar.addTab(toolBarTab, translate("ToolBarsTab", "ToolBars"))
 
@@ -6192,8 +6196,18 @@ def pieMenuStart():
         close_button = QtGui.QPushButton(translate("MainWindow", "Close"))
         close_button.setMaximumWidth(120)
 
+        prefs_button = QtGui.QPushButton(
+            translate("GlobalSettingsTab", "Preferences"))
+        prefs_button.setToolTip(
+            translate("GlobalSettingsTab", "Settings that apply to every PieMenu"))
+        prefs_button.setIcon(QtGui.QIcon.fromTheme("preferences-system"))
+        # globalSettingsDialog is created further down, once its groups exist;
+        # the lambda resolves it when the button is actually clicked.
+        prefs_button.clicked.connect(lambda: globalSettingsDialog.exec())
+
         button_row_layout = QtGui.QHBoxLayout()
         button_row_layout.addWidget(info_button)
+        button_row_layout.addWidget(prefs_button)
         button_row_layout.addStretch(1)
         button_row_layout.addWidget(
             close_button, 0, alignment=QtCore.Qt.AlignCenter)
@@ -6414,6 +6428,30 @@ def pieMenuStart():
         settingsTabLayout.addWidget(behaviourGroup)
         settingsTabLayout.addWidget(exportGroup)
         settingsTabLayout.addStretch(1)
+
+        # The global settings, as their own dialog rather than a tab among the
+        # per-pie ones. settingsTab is reused verbatim as its content.
+        globalSettingsDialog = QtGui.QDialog(pieMenuDialog)
+        globalSettingsDialog.setObjectName("PieMenuGlobalPreferences")
+        globalSettingsDialog.setWindowTitle(
+            translate("GlobalSettingsTab", "PieMenu Preferences"))
+        globalSettingsDialog.setWindowIcon(
+            QtGui.QIcon(resources.iconPieMenuLogo))
+        globalSettingsDialog.setMinimumWidth(560)
+
+        globalSettingsClose = QtGui.QPushButton(
+            translate("MainWindow", "Close"))
+        globalSettingsClose.setMaximumWidth(120)
+        globalSettingsClose.clicked.connect(globalSettingsDialog.accept)
+        globalSettingsButtonRow = QtGui.QHBoxLayout()
+        globalSettingsButtonRow.addStretch(1)
+        globalSettingsButtonRow.addWidget(globalSettingsClose)
+        globalSettingsButtonRow.addStretch(1)
+
+        globalSettingsDialogLayout = QtGui.QVBoxLayout()
+        globalSettingsDialog.setLayout(globalSettingsDialogLayout)
+        globalSettingsDialogLayout.addWidget(settingsTab)
+        globalSettingsDialogLayout.addLayout(globalSettingsButtonRow)
 
     # Create a fake command in FreeCAD to handle the PieMenu Separator
     Gui.addCommand('PieMenu_Separator', PieMenuSeparator())
