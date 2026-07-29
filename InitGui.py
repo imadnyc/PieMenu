@@ -386,13 +386,18 @@ def pieMenuStart():
             self.buttons = []
             self.buttonSize = 32
 
-            self.menu = QtWidgets.QWidget(None)
+            # Parented to the main window so the menu has a transient parent.
+            # It is still a top-level window (the Popup flag below makes it
+            # one), but Wayland will not place a surface that has no parent to
+            # position against, which is what absolute move() relies on.
+            self.menu = QtWidgets.QWidget(mw)
             self.menu.setObjectName("styleContainer")
             self.menu.setStyleSheet(styleCurrentTheme)
 
             flags = QtCore.Qt.FramelessWindowHint | QtCore.Qt.Popup | QtCore.Qt.NoDropShadowWindowHint
             # flags = QtCore.Qt.FramelessWindowHint | QtCore.Qt.Popup
 
+            self.menuFlags = flags
             self.menu.setWindowFlags(flags)
             self.menu.setAttribute(QtCore.Qt.WA_TranslucentBackground)
 
@@ -1684,7 +1689,11 @@ def pieMenuStart():
                     self.menu.setParent(pieMenuDialog)
                     self.menu.show()
                     self.menu.hide()
-                    self.menu.setParent(None)
+                    # Back to the main window, not None: the transient parent
+                    # is what lets Wayland place the popup. setParent clears
+                    # window flags, so re-apply them.
+                    self.menu.setParent(mw)
+                    self.menu.setWindowFlags(self.menuFlags)
 
                 for i in self.buttons:
                     i.move(i.property("ButtonX") + posX - i.width() / 2 + self.offset_x,
