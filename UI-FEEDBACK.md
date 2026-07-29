@@ -23,6 +23,7 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 14 | A distinct icon per tool | Currently every tool row shows the same dot, so the list reads as undifferentiated. |
 | 20 | Replace, not delete-then-add | A filled slot's right-click menu needs **Replace tool…**, so changing what is in a slot is one step rather than clearing it and adding again. |
 | 23 | Playground needs a workbench switch | Changing workbench there must resolve which pie opens through the Assignment setting, so the workbench-to-pie mapping can actually be tried. |
+| 25 | Arc: free number plus presets, and a facing angle | Arc should be typeable as well as pickable, and needs a direction: a 90° arc must be able to face up, down, left or right rather than always starting from the top. |
 | 24 | Selection chips do not belong on the preview | Previewing against a selection is an occasional action, so it goes in the preview's right-click menu rather than sitting permanently across the top of it. |
 | 21 | A playground under the dialog | A rudimentary viewport: pick a vertex, edge, face or body on a solid, open the pie, and watch which tool each slot resolves to and what firing it does. |
 | 15 | Dragging must be visible on the pie itself | The dragged tool should follow the cursor on the preview and the landing slot should be indicated, rather than only updating on drop. |

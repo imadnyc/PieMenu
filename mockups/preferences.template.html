@@ -71,8 +71,21 @@ border:1px solid var(--slotline);border-radius:4px;cursor:grab;user-select:none;
 .slot.ghost{z-index:9;pointer-events:none;opacity:.95;box-shadow:0 5px 16px rgba(0,0,0,.6)}
 .slot.target{box-shadow:0 0 0 2px var(--hi)}
 .slot.off{opacity:.32;filter:grayscale(1)}
-.slot.pin{border-color:var(--warn)}
-.slot.inherited{border-color:var(--warn);border-style:dashed;opacity:.85}
+.slot.pin,.slot.inherited{border-color:var(--slotline)}
+.pinmark{position:absolute;top:-4px;right:-4px;color:var(--text);pointer-events:none;
+ filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+.pinmark svg{width:11px;height:11px;display:block}
+.pinmark.inh{opacity:.5}
+.plus{font-size:14px;line-height:1}
+.slot{overflow:visible}
+.plegend{position:absolute;left:8px;bottom:6px;display:flex;gap:12px;flex-wrap:wrap;
+ color:#7c6f64;font-size:11px;pointer-events:none}
+.plegend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:4px;
+ border:1px solid var(--slotline);background:var(--slot);vertical-align:-1px}
+.plegend i.pin,.plegend i.inh{position:relative}
+.plegend i.un{opacity:.3;filter:grayscale(1)}
+.plegend i.mu{border-color:var(--hi)}
+.slot.inherited{border-style:dashed}
 .slot.multi::after{content:"";position:absolute;right:2px;bottom:2px;width:0;height:0;
  border-left:5px solid transparent;border-bottom:5px solid var(--hi)}
 .slot.unbound{opacity:.28;filter:grayscale(1)}
@@ -97,6 +110,7 @@ border:1px solid var(--slotline);border-radius:4px;cursor:grab;user-select:none;
 padding:5px 14px;font:inherit;cursor:pointer}
 .btn:hover{background:var(--btnhi)}
 .btn.primary{background:var(--hi);color:var(--hitext);font-weight:600}
+.btn.tiny{padding:2px 8px;font-size:11px}
 .scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50}
 .modal{background:var(--win);border:1px solid #1d1b1a;border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.6);min-width:380px}
 .modal h2{margin:0;padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line)}
@@ -208,7 +222,6 @@ body{display:flex;align-items:flex-start}
     <button class="btn">Close</button>
   </div>
 </div>
-<div class="note" id="note"></div>
 
 <div class="play">
   <h3>Playground — does it behave the way you expect?</h3>
@@ -225,48 +238,18 @@ body{display:flex;align-items:flex-start}
         <span id="selnow">selection: nothing</span>
         <span class="grow"></span>
         <button class="btn" id="openPie">Open pie</button>
-        <button class="btn" id="clearSel">Clear</button>
+        <button class="btn" id="clearSel">Clear selection</button>
       </div>
     </div>
     <div class="logbox">
-      <div class="phead"><span class="ptitle">What happened</span><span class="grow"></span>
-        <button class="tool sm" id="clearLog" title="Clear">·</button></div>
+      <div class="phead"><span class="ptitle">What happened</span>
+        <span class="pcount" id="logCount">0</span><span class="grow"></span>
+        <button class="btn tiny" id="clearLog" title="Empty the log">Clear log</button></div>
       <div class="log" id="log"></div>
     </div>
   </div>
 </div>
 
-
-<div class="sheet">
-  <h3>Everything added to PieMenu — 39 commits</h3>
-  <table>
-    <tr><th>Feature</th><th>What it does</th><th>Where in this mockup</th><th>Status</th></tr>
-    <tr><td>Per-tool context rules</td><td>The six-axis rule now decides <i>which</i> tool a slot shows, not just whether it is greyed</td><td>selection chips + playground</td><td class="new">new feature</td></tr>
-    <tr><td>Pinned slots</td><td>A pinned slot keeps its position and contents in this pie and every pie descended from it</td><td>right-click a slot → Pin to child pies</td><td class="new">reworked — feedback #17/#18</td></tr>
-    <tr><td>Conditional slots</td><td>One slot, several bindings: face→Pad, edge→Fillet, nothing applies→greyed, several apply→hover to choose</td><td>playground below</td><td class="new">new — feedback #19</td></tr>
-    <tr><td>Gesture trigger mode</td><td>Hold the shortcut, move, release to run — marking-menu style</td><td>Trigger → Mode</td><td class="new">new feature</td></tr>
-    <tr><td>Gesture cursor line</td><td>Line drawn from the pie centre to the pointer; first painted element in the addon</td><td>not shown here</td><td class="new">new feature</td></tr>
-    <tr><td>Multiple workbench shortcuts</td><td>Four global shortcut slots; a workbench can map to a different pie per slot</td><td>Assignment → On shortcut</td><td class="new">new feature</td></tr>
-    <tr><td>Drag to arrange</td><td>Drag a tool between slots on the pie itself</td><td>works here</td><td class="new">new feature</td></tr>
-    <tr><td>Per-pie export / import</td><td>Share one pie instead of the whole config</td><td>withdrawn — feedback #13, export is all-or-nothing</td><td class="fix">to revert</td></tr>
-    <tr><td>Default-pie fix</td><td>Picking from the QuickMenu no longer overwrites the default you saved</td><td>“default” tag</td><td class="fix">bug fix</td></tr>
-    <tr><td>Duplicate pies fix</td><td>IndexList listed two pies twice, so they appeared twice and got two shortcut registrations</td><td>each pie listed once</td><td class="fix">bug fix</td></tr>
-    <tr><td>Right-click delay fix</td><td>Upgraded installs stored 0, which would open the pie on every right-click</td><td>not shown here</td><td class="fix">bug fix</td></tr>
-    <tr><td>Custom pie icons fix</td><td>NestedPieMenu accepted an icon path then discarded it</td><td>not shown here</td><td class="fix">bug fix</td></tr>
-    <tr><td>Wayland cursor position</td><td>The pie opens under the cursor; QCursor.pos() returns a stale point on Wayland</td><td>not shown here</td><td class="fix">bug fix</td></tr>
-    <tr><td>Preview re-centres</td><td>Resizing stretched the backdrop but left the pie where it was</td><td>resize the window</td><td class="fix">bug fix</td></tr>
-    <tr><td>Lazy dialog construction</td><td>~200 Qt widgets no longer built during every FreeCAD startup</td><td>not visible by design</td><td class="perf">performance</td></tr>
-    <tr><td>Cached parameter handles</td><td>The parameter tree was re-fetched on every read, across 153 call sites</td><td>not visible by design</td><td class="perf">performance</td></tr>
-    <tr><td>Event filter ordering</td><td>Settings were read on every event before checking it was even a mouse click</td><td>not visible by design</td><td class="perf">performance</td></tr>
-    <tr><td>Tool-list keys scoped</td><td>Delete/Up/Down moved off the application-wide filter onto the list itself</td><td>not visible by design</td><td class="perf">performance</td></tr>
-    <tr><td>Runtime / dialog decoupling</td><td>The pie no longer reads dialog widgets, which is what made lazy construction possible</td><td>not visible by design</td><td class="int">internal</td></tr>
-    <tr><td>Per-tool attribute model</td><td>One migration carrying region, slot, pinned and context data</td><td>underlies the tags</td><td class="int">internal</td></tr>
-    <tr><td>Layout extraction</td><td>Table geometry made callable on its own</td><td>superseded by feedback #16</td><td class="int">internal</td></tr>
-    <tr><td>Global settings split out</td><td>Per-pie and global settings no longer sit side by side looking identical</td><td>Preferences… button</td><td class="ui">UI</td></tr>
-    <tr><td>Pie list instead of dropdown</td><td>Every pie visible at once</td><td>left column</td><td class="ui">UI</td></tr>
-  </table>
-  <p style="color:#a89984;margin:10px 0 0"><b style="color:#ebdbb2">Feedback #16, shown here:</b> the eleven shapes collapse into two families. <b style="color:#ebdbb2">Circle</b> replaces Pie, Concentric, Star and both Rainbows — they differ only in slots per ring, ring count, stagger and arc. <b style="color:#ebdbb2">Grid</b> replaces the four Tables plus UpDown and LeftRight — rows, columns, anchor and split. Slots exist whether or not a tool sits in one, so a layout is an arrangement rather than an ordering.</p>
-</div>
 
 </div>
 <script>
@@ -322,6 +305,7 @@ const T={
  asm:G('<rect x="2" y="2.5" width="5.5" height="5.5"/><rect x="8.5" y="8" width="5.5" height="5.5"/>'),
  link:G('<path d="M6.5 9.5a2.5 2.5 0 0 1 0-3.5l2-2a2.5 2.5 0 0 1 3.5 3.5l-1 1"/><path d="M9.5 6.5a2.5 2.5 0 0 1 0 3.5l-2 2a2.5 2.5 0 0 1-3.5-3.5l1-1"/>'),
  solve:G('<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2"/>'),
+ pin:G('<path d="M6 2.5h4l-.7 4 2.2 2.2H4.5L6.7 6.5z"/><path d="M8 8.7V13.5"/>'),
  grip:'<svg viewBox="0 0 16 16" fill="currentColor">'
   +'<circle cx="6" cy="3.5" r="1.15"/><circle cx="10" cy="3.5" r="1.15"/>'
   +'<circle cx="6" cy="8" r="1.15"/><circle cx="10" cy="8" r="1.15"/>'
@@ -366,7 +350,7 @@ const slot=(bindings,pin)=>({b:bindings.map(x=>typeof x==="string"?{cmd:x,when:"
 
 function mkPie(name,items,o={}){return Object.assign({
  name,parent:null,open:true,def:false,family:"circle",
- slots:8,perRing:8,radius:80,arc:360,stagger:false,
+ slots:8,perRing:8,radius:80,arc:360,arcFace:-90,stagger:false,
  cols:3,rows:2,anchor:"Center",split:false,
  button:34,spacing:6,sel:0,items:items.slice(),
  names:false,openOn:"single",runOn:"click",delay:250,key:"",wb:"None",shortcutSlot:1,
@@ -526,7 +510,11 @@ function slotBindings(i){
 function positions(p){
  const out=[],n=slotCount(p),step=p.button+p.spacing;
  if(p.family==="circle"){
-  const per=Math.max(1,Math.min(p.perRing,n)),span=p.arc*Math.PI/180,start=-Math.PI/2;
+  const per=Math.max(1,Math.min(p.perRing,n)),span=p.arc*Math.PI/180;
+  const face=(p.arcFace==null?-90:p.arcFace)*Math.PI/180;
+  /* a full circle starts at the facing angle; a partial arc is centred on it,
+     so a 90 degree arc facing right sits either side of the 3 o'clock line */
+  const start=p.arc>=360?face:face-span/2;
   for(let i=0;i<n;i++){
    const ring=Math.floor(i/per),k=i%per,inRing=Math.min(per,n-ring*per);
    const div=p.arc>=360?inRing:Math.max(1,inRing-1);
@@ -563,7 +551,12 @@ function pieListEl(){
             svg(p.def?uiIcon("PieMenu_Logo"):uiIcon("PieMenuEditMenu")),
             el("span","name",p.name));
    const pins=p.items.filter(x=>x&&x.pin).length;
-   if(pins)r.append(el("span","tag","\ud83d\udccc"+pins));
+   if(pins){const tg=el("span","tag");
+    tg.innerHTML=T.pin.replace("<svg","<svg style='width:11px;height:11px;vertical-align:-1px'")
+      +" "+pins;
+    tg.title=pins+" pinned slot"+(pins>1?"s":"")+" — every pie under "+p.name
+      +" shows "+(pins>1?"them":"it")+" in the same position";
+    r.append(tg);}
    if(p.def)r.append(el("span","tag","default"));
    r.onclick=()=>{S.cur=i; render();};
    r.ondblclick=()=>{S.cur=i; pieRename();};
@@ -661,8 +654,16 @@ function paint(c){
   s.style.cssText=`left:${x-size/2}px;top:${y-size/2}px;width:${size}px;height:${size}px`;
   if(idx!=null)s.dataset.idx=idx;
   if(cmd){
-   if(p.names)s.textContent=shortName(cmd).split(" ")[0]; else s.append(svg(toolIcon(cmd)));}
-  else{s.title="Empty slot — double-click to choose a tool"; s.textContent="+";}
+   if(p.names)s.textContent=shortName(cmd).split(" ")[0];
+   else s.append(svg(toolIcon(cmd)));
+  }else{
+   s.title="Empty slot \u2014 double-click to choose a tool";
+   s.append(el("span","plus","+"));
+  }
+  /* pinned and inherited are marked with a small pin rather than a colour --
+     the colour alone said nothing about what it meant */
+  if(cls&&/(^| )pin( |$)/.test(cls)){const m=el("span","pinmark"); m.innerHTML=T.pin; s.append(m);}
+  else if(cls&&/inherited/.test(cls)){const m=el("span","pinmark inh"); m.innerHTML=T.pin; s.append(m);}
   if(idx!=null){
    s.onclick=()=>{p.sel=idx; render();};
    s.ondblclick=()=>chooseTool(idx);
@@ -722,11 +723,35 @@ function paint(c){
     +"\n"+sl.b.map(b=>b.when+" \u2192 "+shortName(b.cmd)).join("\n");
    if(hits.length>1)node.onmouseenter=()=>showChooser(c,node,i,hits);
   }});
+ const seen=[];
+ if(c.querySelector(".slot.pin"))seen.push(["pin","\ud83d\udccc pinned here — child pies inherit it"]);
+ if(c.querySelector(".slot.inherited"))seen.push(["inh","\ud83d\udccc faded — inherited from a parent pie"]);
+ if(c.querySelector(".slot.unbound"))seen.push(["un","nothing applies to this selection"]);
+ if(c.querySelector(".slot.multi"))seen.push(["mu","several apply — hover to choose"]);
+ if(seen.length){
+  const lg=el("div","plegend");
+  seen.forEach(([k,label])=>{const e2=el("span");
+   e2.innerHTML='<i class="'+k+'"></i>'+label; lg.append(e2);});
+  c.append(lg);
+ }
  const inner=el("div","slot centre"),isz=Math.max(24,Math.round(p.button*0.72));
  inner.style.cssText=`left:${cx-isz/2}px;top:${cy-isz/2}px;width:${isz}px;height:${isz}px`;
  inner.title="QuickMenu — switch pie, open preferences";
  inner.append(svg(uiIcon("PieMenuEditMenu"))); c.append(inner);}
 
+const comboNum=(v,presets,on,mn,mx)=>{
+ const wrap=el("div"); wrap.style.cssText="display:flex;gap:4px;min-width:0";
+ const id="dl"+Math.abs(presets.join("").length*31+v);
+ const i=el("input"); i.type="number"; i.value=v; i.min=mn??0; i.max=mx??360;
+ i.setAttribute("list",id); i.style.flex="1";
+ const dl=document.createElement("datalist"); dl.id=id;
+ presets.forEach(([val,label])=>{const o=el("option"); o.value=val; o.label=label||String(val); dl.append(o);});
+ const pick=el("select"); pick.style.width="34px"; pick.title="Presets";
+ pick.append(el("option",null,"\u25be"));
+ presets.forEach(([val,label])=>{const o=el("option",null,label||String(val)); o.value=val; pick.append(o);});
+ pick.onchange=()=>{if(pick.selectedIndex>0){on(+pick.value); render();}};
+ i.onchange=()=>{on(+i.value); render();};
+ wrap.append(i,dl,pick); return wrap;};
 const sel=(v,o,on)=>{const s=el("select"); o.forEach(x=>{const p=el("option",null,x); if(x===v)p.selected=true; s.append(p);});
  s.onchange=()=>{on(s.value); render();}; return s;};
 const num=(v,on,mn,mx)=>{const i=el("input"); i.type="number"; i.value=v; i.min=mn??0; i.max=mx??999;
@@ -754,7 +779,10 @@ function build(){
   ["Slots:",num(p.slots,v=>{p.slots=v; normalise(p);},1,24)],
   ["Per ring:",num(p.perRing,v=>p.perRing=v,1,24)],
   ["Radius:",num(p.radius,v=>p.radius=v,20,300)],
-  ["Arc:",sel(String(p.arc),["360","270","180"],v=>p.arc=+v)],
+  ["Arc:",comboNum(p.arc,[[360,"360 full"],[270,"270"],[180,"180 half"],
+                          [120,"120"],[90,"90 quarter"],[60,"60"]],v=>p.arc=v,10,360)],
+  ["Facing:",comboNum(p.arcFace,[[-90,"up"],[0,"right"],[90,"down"],[180,"left"]],
+                      v=>p.arcFace=v,-180,360)],
   ["Stagger:",check("alternate radius",p.stagger,v=>p.stagger=v)]);
  else rows.push(
   ["Columns:",num(p.cols,v=>{p.cols=v; normalise(p);},1,10)],
@@ -782,20 +810,7 @@ function build(){
 function render(){
  const host=document.getElementById("body"),fresh=build();
  host.replaceWith(fresh); fresh.id="body";
- const p=pie();
- document.getElementById("note").innerHTML=
-  "<b>No tool list.</b> The pie itself is the editor: double-click a slot to pick a tool from the global "
- +"list folded by workbench, right-click one for its options, drag one to move it. "
- +"<b>Two shape families, not eleven.</b> <code>circle</code> covers Pie, Concentric, Star and both "
- +"Rainbows; <code>grid</code> covers the four Tables plus UpDown and LeftRight."
- +"<div class=legend><span><i class='sw'></i>filled</span><span><i class='sw empty'></i>empty slot</span>"
- +"<span><i class='sw off'></i>nothing here applies to this selection</span>"
- +"<span><i class='sw pin'></i>pinned — child pies inherit this slot</span>"
- +"<span><i class='sw reg'></i>two or more apply — hover to choose</span></div>"
- +"<div style='margin-top:6px'>Selected <code>"+p.name+"</code> · "+p.family+" · "
- +p.items.filter(Boolean).length+" of "+slotCount(p)+" slots used · selection <code>"+S.selection+"</code>"
- +" · open <code>"+p.openOn+"</code> · run <code>"+p.runOn+"</code></div>";}
-
+}
 document.getElementById("btnAbout").onclick=()=>{
  const d=el("div"); d.innerHTML="<b>PieMenu 1.13</b><br>Interactive mockup.";
  modal("About",d,()=>{});};
@@ -876,6 +891,7 @@ function logLine(icon,html){
  const when=el("span","t",new Date().toLocaleTimeString().slice(0,8)); e.append(when);
  box.prepend(e);
  while(box.children.length>200)box.lastChild.remove();
+ const c=document.getElementById('logCount'); if(c)c.textContent=box.children.length;
 }
 let livePie=null, hoverTimer=null, gestureOn=false, mousePos={x:0,y:0};
 
@@ -923,6 +939,8 @@ function openLivePie(x,y){
   s2.style.cssText=`left:${x+pos[i][0]-size/2}px;top:${y+pos[i][1]-size/2}px;width:${size}px;height:${size}px`;
   const cmd=hits.length?hits[Math.min(chooserPick[i]||0,hits.length-1)].cmd:null;
   if(cmd)s2.append(svg(toolIcon(cmd)));
+  if(sl&&sl.pin&&!eff.inherited){const m=el("span","pinmark"); m.innerHTML=T.pin; s2.append(m);}
+  else if(eff.inherited){const m=el("span","pinmark inh"); m.innerHTML=T.pin; s2.append(m);}
   s2.title=cmd?shortName(cmd):"nothing here applies to "+S.selection;
   s2._cmd=cmd; s2._i=i; s2._eff=eff;
   nodes.push(s2);
@@ -1053,7 +1071,9 @@ function initPlayground(){
   if(!mousePos.x&&!mousePos.y)mousePos={x:r.width/2,y:r.height/2-20};
   openLivePie(mousePos.x,mousePos.y);};
  document.getElementById("clearSel").onclick=()=>select("none",-1);
- document.getElementById("clearLog").onclick=()=>document.getElementById("log").innerHTML="";
+ document.getElementById("clearLog").onclick=()=>{
+  document.getElementById("log").innerHTML="";
+  document.getElementById("logCount").textContent="0";};
 }
 function drawPlan(){
  const box=document.getElementById("side"); if(!box)return;
