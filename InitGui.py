@@ -1051,117 +1051,19 @@ def pieMenuStart():
                         height = valueRadius * 2 + buttonSize + 4
                         self.menu.setFixedSize(width, height)
 
-                    elif shape == "TableTop":
-                        ### Table  Top ###
-                        num_of_line = math.ceil(commandNumber/num_of_column)
-                        offset = num_of_line * (buttonSize + icon_spacing)
-                        X = ((num-1) % num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        Y = self.radius / 2 + \
-                            ((num-1) // num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        button.setProperty(
-                            "ButtonX", X - ((num_of_column-1) * (buttonSize + icon_spacing)) / 2)
-                        button.setProperty("ButtonY", -Y)
-
-                        X_shortcut = (
-                            X - ((num_of_column-1) * (buttonSize + icon_spacing)) / 2) + icon/2
-                        Y_shortcut = -Y + icon/2
-
-                        # self.menu size Table Top
-                        width = num_of_column * (buttonSize + icon_spacing)
-                        height = valueRadius + offset + (buttonSize + icon_spacing) * (num_of_line - 1)
-                        self.menu.setFixedSize(width, height)
-
-                    elif shape == "TableDown":
-                        ### Table Down  ###
-                        num_of_line = math.ceil(commandNumber/num_of_column)
-                        offset = num_of_line * (buttonSize + icon_spacing)
-                        X = ((num-1) % num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        Y = - buttonSize - self.radius / 4 - \
-                            ((num-1) // num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        button.setProperty(
-                            "ButtonX", X - ((num_of_column-1) * (buttonSize + icon_spacing)) / 2)
-                        button.setProperty("ButtonY", -Y)
-
-                        X_shortcut = (
-                            X - ((num_of_column-1) * (buttonSize + icon_spacing)) / 2) + icon/2
-                        Y_shortcut = -Y - icon/2
-                        
-                        # self.menu size Table Down
-                        width = num_of_column * (buttonSize + icon_spacing)
-                        height = valueRadius + offset + (buttonSize + icon_spacing) * (num_of_line - 1)
-                        self.menu.setFixedSize(width, height)
-
-                    elif shape == "TableLeft":
-                        ### Table Left  ###
-                        num_of_line = math.ceil(commandNumber/num_of_column)
-                        X = - buttonSize - self.radius / 2 - \
-                            ((num-1) // num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        Y = ((num-1) % num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        button.setProperty("ButtonX", X)
-                        button.setProperty(
-                            "ButtonY", Y - ((num_of_column-1) * (buttonSize + icon_spacing)) / 2)
-
-                        X_shortcut = X + icon/2
-                        Y_shortcut = Y - \
-                            ((num_of_column-1) * (buttonSize + icon_spacing)) / 2 + icon/2
-
-                        # self.menu size Table Left
-                        width = 2 * (valueRadius + num_of_line * (buttonSize + 4 + icon_spacing))
-                        height = num_of_column * (icon_spacing + buttonSize + 4)
-                        self.menu.setFixedSize(width, height)
-
-                    elif shape == "TableRight":
-                        ### Table Right  ###
-                        num_of_line = math.ceil(commandNumber/num_of_column)
-                        X = buttonSize + self.radius / 2 + \
-                            ((num-1) // num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        Y = ((num-1) % num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        button.setProperty("ButtonX", X)
-                        button.setProperty(
-                            "ButtonY", Y - ((num_of_column-1) * (buttonSize + icon_spacing)) / 2)
-
-                        X_shortcut = X - icon/2
-                        Y_shortcut = Y - \
-                            ((num_of_column-1) * (buttonSize + icon_spacing)) / 2 + icon/2
-                            
-                        # self.menu size Table Right
-                        width = 2 * (valueRadius + num_of_line * (buttonSize + 4 + icon_spacing))
-                        height = num_of_column * (icon_spacing + buttonSize + 4)
-                        self.menu.setFixedSize(width, height)
-
-                    elif shape == "UpDown":
-                        ### Table Up and Down  ###
-                        num_of_column = math.ceil(commandNumber / 2)
-                        X = ((num - 1) % num_of_column) * \
-                            (buttonSize + icon_spacing)
-                        if ((num - 1) < num_of_column):
-                            offset = 0
-                            side = -1
-                        else:
-                            offset = 2 * self.radius
-                            side = 1
-                        Y = (self.radius - offset)
-
-                        button.setProperty(
-                            "ButtonX", X - ((num_of_column - 1) * (buttonSize + icon_spacing)) / 2)
-                        button.setProperty("ButtonY", -Y)
-
-                        X_shortcut = X - \
-                            ((num_of_column - 1) *
-                             (buttonSize + icon_spacing)) / 2 + icon/2
-                        Y_shortcut = -Y - (side * icon/2)
-
-                        # self.menu size Table Up and Down
-                        width = num_of_column * (buttonSize + 4 + icon_spacing)
-                        height = valueRadius * 2 + buttonSize + 4
+                    elif shape in ("TableTop", "TableDown", "TableLeft",
+                                   "TableRight", "UpDown"):
+                        (bx, by), (sx, sy), (width, height) = tableLayout(
+                            shape, num,
+                            {"buttonSize": buttonSize, "icon": icon,
+                             "iconSpacing": icon_spacing, "radius": self.radius,
+                             "valueRadius": valueRadius,
+                             "commandNumber": commandNumber,
+                             "numColumn": num_of_column})
+                        button.setProperty("ButtonX", bx)
+                        button.setProperty("ButtonY", by)
+                        X_shortcut = sx
+                        Y_shortcut = sy
                         self.menu.setFixedSize(width, height)
 
                     elif shape == "Concentric":
@@ -2757,6 +2659,72 @@ def pieMenuStart():
             group.SetString(axis + "Sign", combo.currentText())
             group.SetInt(axis + "Value", spin.value())
         updatePiemenuPreview()
+
+    def tableLayout(shape, num, opts):
+        """ Geometry for one button of a table-family shape.
+
+        Returns ((buttonX, buttonY), (shortcutX, shortcutY), (width, height))
+        for button number `num` (1-based). Pure arithmetic: it takes the sizes
+        it needs and touches no widget, so a region can be laid out without
+        building the pie around it -- which is what composite layouts need.
+
+        Only the table family lives here. Pie, LeftRight, Concentric and Star
+        interleave their geometry with per-button styling, icon labels and (for
+        the concentric pair) a radius that grows as the loop runs, so they stay
+        inline until that is untangled.
+        """
+        buttonSize = opts["buttonSize"]
+        icon = opts["icon"]
+        spacing = opts["iconSpacing"]
+        radius = opts["radius"]
+        valueRadius = opts["valueRadius"]
+        count = opts["commandNumber"]
+        columns = opts["numColumn"]
+        step = buttonSize + spacing
+
+        if shape == "UpDown":
+            columns = math.ceil(count / 2)
+            X = ((num - 1) % columns) * step
+            side = -1 if (num - 1) < columns else 1
+            offset = 0 if (num - 1) < columns else 2 * radius
+            Y = radius - offset
+            bx = X - ((columns - 1) * step) / 2
+            by = -Y
+            return ((bx, by),
+                    (bx + icon / 2, by - (side * icon / 2)),
+                    (columns * (buttonSize + 4 + spacing),
+                     valueRadius * 2 + buttonSize + 4))
+
+        lines = math.ceil(count / columns)
+
+        if shape in ("TableTop", "TableDown"):
+            X = ((num - 1) % columns) * step
+            if shape == "TableTop":
+                Y = radius / 2 + ((num - 1) // columns) * step
+                shortcutY = -Y + icon / 2
+            else:
+                Y = -buttonSize - radius / 4 - ((num - 1) // columns) * step
+                shortcutY = -Y - icon / 2
+            bx = X - ((columns - 1) * step) / 2
+            offset = lines * step
+            return ((bx, -Y),
+                    (bx + icon / 2, shortcutY),
+                    (columns * step,
+                     valueRadius + offset + step * (lines - 1)))
+
+        # TableLeft / TableRight
+        if shape == "TableLeft":
+            X = -buttonSize - radius / 2 - ((num - 1) // columns) * step
+            shortcutX = X + icon / 2
+        else:
+            X = buttonSize + radius / 2 + ((num - 1) // columns) * step
+            shortcutX = X - icon / 2
+        Y = ((num - 1) % columns) * step
+        by = Y - ((columns - 1) * step) / 2
+        return ((X, by),
+                (shortcutX, by + icon / 2),
+                (2 * (valueRadius + lines * (buttonSize + 4 + spacing)),
+                 columns * (spacing + buttonSize + 4)))
 
     def selectionCounts():
         """ Count the current selection by topology.
