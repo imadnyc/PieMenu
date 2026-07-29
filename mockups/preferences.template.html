@@ -28,7 +28,6 @@ border-bottom:1px solid var(--line);flex:0 0 auto}
 .row.sel{background:var(--hi);color:var(--hitext)}
 .row .name{overflow:hidden;text-overflow:ellipsis;flex:1}
 .row .tag{font-size:11px;color:var(--dim)}
-.row .tag.key{color:var(--text);background:#4a443f;border-radius:2px;padding:0 4px;font-weight:600}
 .row.sel .tag{color:var(--hitext)}
 .row.drag{opacity:.3}
 .row.over{box-shadow:inset 0 2px 0 var(--hi)}
@@ -230,7 +229,7 @@ body{display:flex;align-items:flex-start}
   <h3>Playground — does it behave the way you expect?</h3>
   <div class="playrow">
     <div class="viewport" id="viewport">
-      <div class="vplbl">Click a vertex, edge or face on the solid, or <b>Body</b> in the tree. Then press <b>1</b>–<b>4</b> (global) or <b>9</b>/<b>0</b> (direct) here, or click <b>Open pie</b>.</div>
+      <div class="vplbl">Click a vertex, edge or face on the solid, or <b>Body</b> in the tree. Then press <b>1</b>–<b>4</b> here, or click <b>Open pie</b>.</div>
       <div class="vpmain">
         <div class="mtree" id="mtree"></div>
         <svg id="solid" viewBox="0 0 220 240"></svg>
@@ -356,7 +355,7 @@ function mkPie(name,items,o={}){return Object.assign({
  slots:8,perRing:8,radius:80,arc:360,arcFace:-90,stagger:false,
  cols:3,rows:2,anchor:"Center",split:false,
  button:34,spacing:6,sel:0,items:items.slice(),
- names:false,openOn:"single",runOn:"click",delay:250,directKey:"",wb:"None",shortcutSlot:1,
+ names:false,openOn:"single",runOn:"click",delay:250,key:"",wb:"None",shortcutSlot:1,
  regions:[],toolRegion:{},
 },o);}
 
@@ -369,7 +368,7 @@ const S={pies:[
          {cmd:"PartDesign_Fillet",when:"edge"},
          {cmd:"PartDesign_Chamfer",when:"edge"}]),           /* conditional, two on edge */
    slot(["View_Fit"]),null,slot(["PieMenu_Sketcher"]),
-  ],{}),
+  ],{key:"1"}),
  mkPie("Modelling",[
    slot([{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Pocket",when:"face"}]),
    slot([{cmd:"PartDesign_Fillet",when:"edge"}]),
@@ -380,22 +379,15 @@ const S={pies:[
  mkPie("Sketching",[
    slot(["Sketcher_NewSketch"]),slot(["Sketcher_Line"]),
    null,slot(["Sketcher_Circle"]),slot(["Sketcher_Rectangle"]),null,
-  ],{parent:"Main",wb:"Sketcher",family:"grid",cols:3,rows:2,directKey:"9"}),
+  ],{parent:"Main",wb:"Sketcher",family:"grid",cols:3,rows:2}),
  mkPie("View",[slot(["View_Fit"]),slot(["View_Front"]),slot(["View_Top"]),
                slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"])],
-   {def:true,slots:12,perRing:6,radius:56,directKey:"0"}),
+   {def:true,slots:12,perRing:6,radius:56}),
 ], cur:0, selection:"face",
  /* Any number of global shortcuts; a pie's shortcutSlot indexes into this. */
  globals:[{key:"1"},{key:"2"},{key:"3"},{key:"4"}]};
 
 const childrenOf=n=>S.pies.filter(p=>p.parent===n);
-/* A direct key must not collide with a global key or another pie's direct key. */
-function directKeyClash(p,key){
- if(!key)return "";
- if(S.globals.some(g=>g.key===key))return "key "+key+" is a global shortcut";
- const other=S.pies.find(q=>q!==p&&q.directKey===key);
- return other?("key "+key+" already opens "+other.name):"";
-}
 const ancestors=p=>{const out=[]; let cur=p;
  while(cur&&cur.parent){cur=S.pies.find(x=>x.name===cur.parent); if(cur)out.push(cur);} return out;};
 /* Pinning and slot inheritance are deferred -- see UI-FEEDBACK.md #17/#18.
@@ -558,8 +550,6 @@ function pieListEl(){
             el("span","name",p.name));
 
    if(p.def)r.append(el("span","tag","default"));
-   if(p.directKey)r.append(el("span","tag key",p.directKey));
-   if(p.wb!=="None")r.append(el("span","tag",p.wb+" \u00b7 g"+(p.shortcutSlot||1)));
    r.onclick=()=>{S.cur=i; render();};
    r.ondblclick=()=>{S.cur=i; pieRename();};
    r.oncontextmenu=e=>{S.cur=i; render(); return ctxMenu(e,[
@@ -791,28 +781,10 @@ function build(){
   ["Delay:",num(p.delay,v=>p.delay=v,0,1000)],
   ["Shortcut:",sel(p.key||"—",["—"].concat(S.globals.map(g=>g.key)),v=>p.key=v==="—"?"":v)],
  ])));
- const clash=directKeyClash(p,p.directKey);
- const dk=el("input"); dk.type="text"; dk.maxLength=12; dk.value=p.directKey||"";
- dk.placeholder="none";
- dk.onchange=()=>{const v=dk.value.trim();
-  const why=directKeyClash(p,v);
-  if(why){alert("Cannot use that key: "+why); dk.value=p.directKey||""; return;}
-  p.directKey=v; render();};
- if(clash)dk.style.borderColor="#fb4934";
-
- c3.append(group("Opens for a workbench",formGrid([
+ c3.append(group("Assignment",formGrid([
   ["Workbench:",sel(p.wb,["None","PartDesign","Sketcher","Assembly","Part"],v=>p.wb=v)],
-  ["On global:",num(p.shortcutSlot,v=>p.shortcutSlot=v,1,Math.max(1,S.globals.length))],
+  ["On shortcut:",num(p.shortcutSlot,v=>p.shortcutSlot=v,1,Math.max(1,S.globals.length))],
  ])));
- const dwrap=el("div");
- dwrap.append(formGrid([["Direct key:",dk]]));
- const hint=el("div");
- hint.style.cssText="color:#7c6f64;font-size:11px;margin-top:5px;line-height:1.4";
- hint.textContent=p.directKey
-  ? "\u201c"+p.directKey+"\u201d opens this pie anywhere, whatever the workbench."
-  : "A key here opens this pie directly, ignoring the workbench.";
- dwrap.append(hint);
- c3.append(group("Its own key",dwrap));
  const show=el("div");
  show.append(check("Command names",p.names,v=>p.names=v));
  c3.append(group("Show",show));
@@ -851,24 +823,7 @@ document.getElementById("btnPrefs").onclick=()=>{
   trg.append(add);
  };
  drawGlobals();
- const gh=el("div");
- gh.style.cssText="color:#7c6f64;font-size:11px;margin-top:7px;line-height:1.45";
- gh.textContent="A global key opens whichever pie claims the active workbench for that "
-  +"slot, so what it opens changes as you switch workbench.";
- trg.append(gh);
- w.append(group("Global shortcuts \u2014 one key, many pies",trg));
-
- const dl=el("div"), used=S.pies.filter(q=>q.directKey);
- if(used.length){const f2=el("div","form");
-  used.forEach(q=>f2.append(el("label",null,q.directKey+":"),el("span",null,q.name)));
-  dl.append(f2);}
- else dl.append(el("div",null,"none set"));
- const dh=el("div");
- dh.style.cssText="color:#7c6f64;font-size:11px;margin-top:7px;line-height:1.45";
- dh.textContent="A direct key always opens the same pie. Set it on the pie itself, "
-  +"under \u201cIts own key\u201d.";
- dl.append(dh);
- w.append(group("Direct keys \u2014 one key, one pie",dl));
+ w.append(group("Global shortcuts",trg));
  const beh=el("div");
  beh.append(check("Show QuickMenu",true,()=>{}),check("Global context",false,()=>{}),
             check("Toggle show/hide",true,()=>{}),check("Long right-click to open",false,()=>{}));
@@ -948,10 +903,10 @@ function closeLivePie(reason){
  if(reason)logLine(uiIcon("PieMenuClose"),reason);
 }
 
-function openLivePie(x,y,slotNo,forcePie){
+function openLivePie(x,y,slotNo){
  const vp=document.getElementById("viewport"); if(!vp)return;
  closeLivePie(null);
- const p=forcePie||((typeof activePie==="function")?activePie(slotNo):pie());
+ const p=(typeof activePie==="function")?activePie(slotNo):pie();
  const n=slotCount(p), pos=positions(p), size=p.button;
  const wrap=el("div","livepie"); livePie=wrap;
  wrap.dataset.cx=x; wrap.dataset.cy=y;
@@ -1028,8 +983,7 @@ function openLivePie(x,y,slotNo,forcePie){
  vp.append(wrap);
  const usable=nodes.filter(q=>q._cmd).length;
  logLine(uiIcon("PieMenu_Logo"),"opened <b>"+p.name+"</b> at the cursor \u2014 "
-   +usable+" of "+n+" slots usable <i>("+(forcePie?"direct key":"global "+(slotNo||1))
-   +" \u00b7 open: "+p.openOn+", run: "+p.runOn+")</i>");
+   +usable+" of "+n+" slots usable <i>(open: "+p.openOn+", run: "+p.runOn+")</i>");
  return wrap;
 }
 
@@ -1078,10 +1032,8 @@ function initPlayground(){
  const wbSel=document.getElementById("wbPick");
  WORKBENCHES.forEach(w=>{const o=el("option",null,w); if(w===playWb)o.selected=true; wbSel.append(o);});
  wbSel.onchange=()=>{playWb=wbSel.value;
-  const direct=S.pies.filter(q=>q.directKey).map(q=>q.directKey+"\u2192"+q.name);
-  logLine(uiIcon("PieMenuEditMenu"),"workbench <b>"+playWb+"</b> \u2014 global: "
-    +S.globals.map((g,i)=>g.key+"\u2192"+activePie(i+1).name).join(", ")
-    +(direct.length?"; direct: "+direct.join(", "):""));};
+  logLine(uiIcon("PieMenuEditMenu"),"workbench \u2192 <b>"+playWb+"</b>; shortcut "
+    +S.globals.map((g,i)=>g.key+"\u2192"+activePie(i+1).name).join(", "));};
  drawSolid();
  const vp=document.getElementById("viewport");
  vp.tabIndex=0;
@@ -1092,12 +1044,7 @@ function initPlayground(){
  let lastTap=0, lastKey=null, heldSlot=null;
  const openHere=slot=>openLivePie(mousePos.x,mousePos.y,slot);
  const slotForKey=k=>{const i=S.globals.findIndex(g=>g.key===k); return i<0?null:i+1;};
- const pieForDirect=k=>S.pies.find(q=>q.directKey&&q.directKey===k);
  vp.addEventListener("keydown",e=>{
-  /* a direct key names one pie and ignores the workbench entirely */
-  const direct=pieForDirect(e.key);
-  if(direct){ e.preventDefault(); if(e.repeat)return;
-   openLivePie(mousePos.x,mousePos.y,null,direct); return; }
   const slot=slotForKey(e.key);
   if(slot==null)return;
   e.preventDefault();
