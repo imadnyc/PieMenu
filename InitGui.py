@@ -5022,8 +5022,13 @@ def pieMenuStart():
         infoShortcut.setText('')
         piemenuBoxGroup.setVisible(False)
 
+        # toolBarTab takes over the settings pane's slot rather than opening
+        # a pane of its own, so the preview keeps its width and you do not lose
+        # your place in the layout while picking toolbars.
+        paneSizes = vSplitter.sizes()
         tabs.setVisible(False)
         toolBarTab.setVisible(True)
+        vSplitter.setSizes(paneSizes[:1] + [paneSizes[0]] + paneSizes[2:])
         buttonBackToSettings.setVisible(True)
         buttonExistingToolBar.setVisible(False)
 
@@ -5056,7 +5061,10 @@ def pieMenuStart():
                 buttonsLayout.itemAt(i).widget().show()
             except:
                 None
+        paneSizes = vSplitter.sizes()
         tabs.setVisible(True)
+        toolBarTab.setVisible(False)
+        vSplitter.setSizes([paneSizes[1] or paneSizes[0], 0] + paneSizes[2:])
 
         vSplitter.refresh()
         buttonBackToSettings.setVisible(False)
@@ -7159,6 +7167,18 @@ def pieMenuStart():
         vSplitter.insertWidget(1, toolBarTab)
         vSplitter.insertWidget(2, pieButtons)
         vSplitter.insertWidget(3, showPiemenu)
+
+        # The preview is what you judge the arrangement by, and with F7 it is
+        # the surface you arrange on, so it takes the slack when the dialog is
+        # resized instead of splitting it four ways. toolBarTab shares the
+        # settings pane's slot: it is only ever visible while tabs is hidden,
+        # so giving it stretch of its own would leave a gap when it is away.
+        vSplitter.setStretchFactor(0, 0)
+        vSplitter.setStretchFactor(1, 0)
+        vSplitter.setStretchFactor(2, 0)
+        vSplitter.setStretchFactor(3, 1)
+        vSplitter.setSizes([340, 0, 260, 620])
+        vSplitter.setChildrenCollapsible(False)
 
         preferencesWidget = QtGui.QWidget()
         preferencesLayout = QtGui.QVBoxLayout()
