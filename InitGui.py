@@ -1597,19 +1597,8 @@ def pieMenuStart():
                 showPreviewWidget.setStyleSheet(
                     f"background-color: {cssColorSimple};")
 
-            shape = getParameterGroup(cBox.currentText(), "String", "Shape")
-
             # positions of PieMenu in widget
-            height = showPiemenu.height()
-            width = showPiemenu.width()
-            posX = width / 2
-            posY = height / 2
-
-            if shape == "TableLeft":
-                posX = width * 4 / 5
-
-            if shape == "TableRight":
-                posX = width / 5
+            posX, posY = self.previewCenter()
 
             updateCommands(keyValue)
 
@@ -1647,6 +1636,46 @@ def pieMenuStart():
                     if i.objectName() == "styleButtonMenu" or i.objectName() == "styleMenuClose":
                         i.setEnabled(False)
 
+
+        def previewCenter(self):
+            """ Centre point for the preview pie inside the showPiemenu pane """
+            shape = getParameterGroup(cBox.currentText(), "String", "Shape")
+            height = showPiemenu.height()
+            width = showPiemenu.width()
+            posX = width / 2
+            posY = height / 2
+
+            if shape == "TableLeft":
+                posX = width * 4 / 5
+
+            if shape == "TableRight":
+                posX = width / 5
+
+            return posX, posY
+
+        def repositionPreview(self):
+            """ Re-centre the preview buttons after the pane has been resized.
+
+            showPiemenuPreview reads the pane size once, when it runs, so
+            resizing the dialog stretched the backdrop but left the pie where
+            it was. Called from showPiemenu's resizeEvent. Only the buttons are
+            moved -- they are already parented and shown, so nothing is rebuilt.
+            """
+            if not self.buttons:
+                return
+
+            if windowShadow:
+                posX, posY = self.previewCenter()
+                for i in self.buttons:
+                    i.move(i.property("ButtonX") + posX - i.width() / 2 + self.offset_x,
+                           i.property("ButtonY") + posY - i.height() / 2 + self.offset_y)
+            else:
+                for i in self.buttons:
+                    i.move(i.property("ButtonX")
+                           + (self.menuSize - i.size().width()) /
+                           2 + self.offset_x,
+                           i.property("ButtonY")
+                           + (self.menuSize - i.size().height()) / 2 + self.offset_y)
 
         def spin_interactif(self):
             """ Handle spinbox in fast edit mode """
@@ -5827,6 +5856,17 @@ def pieMenuStart():
     showPiemenu.setLayout(showPiemenuLayout)
     showPiemenuLayout.setContentsMargins(0, 0, 0, 0)
     showPiemenuLayout.addWidget(showPreviewWidget)
+
+    def onShowPiemenuResize(event):
+        """ Keep the preview pie centred when the preview pane is resized """
+        QtGui.QWidget.resizeEvent(showPiemenu, event)
+        try:
+            PieMenuInstance.repositionPreview()
+        except NameError:
+            # bootstrap has not created the instance yet
+            pass
+
+    showPiemenu.resizeEvent = onShowPiemenuResize
 
     #### Main Layout####
     vSplitter = QtGui.QSplitter()
