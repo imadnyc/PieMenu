@@ -324,6 +324,36 @@ def pieMenuStart():
             """Set the icon path for the NestedPieMenu instance."""
             self.iconPath = icon_path
 
+    class ButtonListEventFilter(QtCore.QObject):
+        """Key handler for the preferences-dialog tool list.
+
+        Installed on buttonListWidget so key events are intercepted before the
+        QTableWidget consumes them (Up/Down row nav, Delete handling). This is
+        the logic that previously lived in PieMenu's application-wide filter.
+        """
+
+        def eventFilter(self, obj, event):
+            """Handle Delete/Backspace/Up/Down for the tool list."""
+            if event.type() != QtCore.QEvent.KeyPress:
+                return False
+            # move/delete only when 'tabs' is visible (not in ToolbarTab's settings)
+            if not tabs.isVisible():
+                return False
+            key = event.key()
+            if key == Qt.Key_Backspace or key == Qt.Key_Delete:
+                if buttonListWidget.hasFocus():
+                    onButtonRemoveCommand()
+                    return True
+            if key == Qt.Key_Up:
+                if buttonListWidget.hasFocus():
+                    onButtonUp()
+                    return True
+            if key == Qt.Key_Down:
+                if buttonListWidget.hasFocus():
+                    onButtonDown()
+                    return True
+            return False
+
     #### Class PieMenu ####
 
     class PieMenu(QWidget):
@@ -578,23 +608,6 @@ def pieMenuStart():
                     except:
                         None
                         return True
-
-                #### Keys SUPPR, DEL, UP and DOWN in Toollist ####
-                """ Handle Keys SUPPR, DEL, UP and DOWN in Toollist """
-                # move/delete only when 'tabs' is visible (not in ToolbarTab's settings)
-                if tabs.isVisible():
-                    if key == Qt.Key_Backspace or key == Qt.Key_Delete:
-                        if buttonListWidget.hasFocus():
-                            onButtonRemoveCommand()
-                            return True
-                    if key == Qt.Key_Up:
-                        if buttonListWidget.hasFocus():
-                            onButtonUp()
-                            return True
-                    if key == Qt.Key_Down:
-                        if buttonListWidget.hasFocus():
-                            onButtonDown()
-                            return True
 
             if event.type() == QtCore.QEvent.KeyRelease:
                 """ Handle tool shortcut in PieMenu """
@@ -5607,6 +5620,10 @@ def pieMenuStart():
 
     # keep this line here
     buttonListWidget = QtGui.QTableWidget()
+    # Intercept Delete/Backspace/Up/Down before the QTableWidget consumes them.
+    # Keep a name reference so the QObject isn't garbage-collected.
+    buttonListEventFilter = ButtonListEventFilter(buttonListWidget)
+    buttonListWidget.installEventFilter(buttonListEventFilter)
 
     toolShortcutGroup.setTitle(translate("PieMenuTab", "Tools shortcuts"))
     toolShortcutGroup.setCheckable(True)
