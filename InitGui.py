@@ -614,6 +614,19 @@ def pieMenuStart():
                         None
                         return True
 
+            # Gesture mode: the pie opened while the shortcut was held down, so
+            # releasing it runs whatever the pointer has landed on. The pointer
+            # position comes from the event-stream cache rather than
+            # QCursor.pos(), which is what makes this work on Wayland too.
+            if (event.type() == QtCore.QEvent.KeyRelease
+                    and not event.isAutoRepeat()
+                    and self.menu.isVisible()
+                    # triggerMode is a module global set by updateCommands, so
+                    # it may not exist yet on an early event
+                    and globals().get("triggerMode") == "Gesture"):
+                if self.commitGesture():
+                    return True
+
             if event.type() == QtCore.QEvent.KeyRelease:
                 """ Handle tool shortcut in PieMenu """
                 if state.app_state.flag_shortcut_override:
@@ -1607,6 +1620,51 @@ def pieMenuStart():
                 i.hide()
             self.menu.hide()
 
+
+        def commitGesture(self):
+            """ Run whatever the pointer is over, then hide. Gesture trigger mode.
+
+            Called when the shortcut is released while the pie is up. The button
+            under the cursor wins; failing that the nearest one, so a flick in
+            roughly the right direction still commits rather than doing nothing --
+            which is the whole point of a marking menu.
+
+            Returns True when it handled the release.
+            """
+            if not self.buttons:
+                return False
+
+            pos = self.cursorGlobalPos()
+            local = self.menu.mapFromGlobal(pos)
+
+            target = None
+            for button in self.buttons:
+                if button.parent() is self.menu and button.geometry().contains(local):
+                    target = button
+                    break
+
+            if target is None:
+                best = None
+                for button in self.buttons:
+                    if button.parent() is not self.menu:
+                        continue
+                    centre = button.geometry().center()
+                    distance = (centre.x() - local.x()) ** 2 + (centre.y() - local.y()) ** 2
+                    if best is None or distance < best:
+                        best = distance
+                        target = button
+
+            self.hide()
+            if target is None or not target.isEnabled():
+                return True
+
+            action = target.defaultAction()
+            if action is not None and action.isEnabled():
+                mw.setFocus()
+                action.trigger()
+            return True
+
+
         def cursorGlobalPos(self):
             """Global cursor position to anchor the pie at.
 
@@ -2354,10 +2412,7 @@ def pieMenuStart():
 
     def setTriggerMode(triggerMode):
         """ Set TriggerMode in parameter """
-        if triggerMode == "Press":
-            spinHoverDelay.setEnabled(False)
-        else:
-            spinHoverDelay.setEnabled(True)
+        spinHoverDelay.setEnabled(triggerMode == "Hover")
         indexList = getIndexList()
         for i in indexList:
             pieName = getParamIndex(str(i))
@@ -3667,6 +3722,7 @@ def pieMenuStart():
         setTriggerMode(triggerMode)
         radioButtonPress.setChecked(triggerMode == "Press")
         radioButtonHover.setChecked(triggerMode == "Hover")
+        radioButtonGesture.setChecked(triggerMode == "Gesture")
         spinHoverDelay.setValue(hoverDelay)
         if spinShortcutSlot is not None:
             spinShortcutSlot.blockSignals(True)
@@ -5985,7 +6041,7 @@ def pieMenuStart():
     tabs = window_icons = grid_layout = buttonIconPieMenu = pieListWidget = buttonExistingToolBar = None
     piemenuBoxGroup = checkboxDefaultPie = comboWbForPieMenu = comboShape = spinRadius = spinButton = None
     labelIconSpacing = spinIconSpacing = labelNumColumn = spinNumColumn = labelCommandPerCircle = spinCommandPerCircle = None
-    checkboxDisplayCommandName = labeldisplayCommandName = checkboxDisplayPreselect = labelDisplayPreselect = radioButtonPress = radioButtonHover = None
+    checkboxDisplayCommandName = labeldisplayCommandName = checkboxDisplayPreselect = labelDisplayPreselect = radioButtonPress = radioButtonHover = radioButtonGesture = None
     spinHoverDelay = toolShortcutGroup = checkboxDisplayShortcut = labelShortcutSize = spinShortcutLabelSize = enableShortcut = None
     buttonListWidget = shortcutKey = labelShortcut = shortcutLineEdit = infoShortcut = toolListWidget = None
     vertexComboBox = edgeComboBox = faceComboBox = objectComboBox = axisComboBox = planeComboBox = None
@@ -6010,6 +6066,7 @@ def pieMenuStart():
         nonlocal spinRadius, spinButton, labelIconSpacing, spinIconSpacing, labelNumColumn
         nonlocal spinNumColumn, labelCommandPerCircle, spinCommandPerCircle, checkboxDisplayCommandName, labeldisplayCommandName
         nonlocal checkboxDisplayPreselect, labelDisplayPreselect, radioButtonPress, radioButtonHover, spinHoverDelay
+        nonlocal radioButtonGesture
         nonlocal toolShortcutGroup, checkboxDisplayShortcut, labelShortcutSize, spinShortcutLabelSize, enableShortcut
         nonlocal buttonListWidget, shortcutKey, labelShortcut, shortcutLineEdit, infoShortcut
         nonlocal toolListWidget, vertexComboBox, edgeComboBox, faceComboBox, objectComboBox
@@ -6353,13 +6410,23 @@ def pieMenuStart():
         radioButtonHover.toggled.connect(
             lambda checked, data="Hover":  setTriggerMode(data))
 
+        radioButtonGesture = QtGui.QRadioButton(
+            translate("PieMenuTab", "Gesture"))
+        radioButtonGesture.setToolTip(
+            translate("PieMenuTab",
+                      "Hold the shortcut, move onto a tool, release to run it"))
+        radioButtonGesture.toggled.connect(
+            lambda checked, data="Gesture": setTriggerMode(data))
+
         radioGroup = QtGui.QButtonGroup()
         radioGroup.addButton(radioButtonPress)
         radioGroup.addButton(radioButtonHover)
+        radioGroup.addButton(radioButtonGesture)
 
         layoutActionHoverButton = QtGui.QVBoxLayout()
         layoutActionHoverButton.addWidget(radioButtonPress)
         layoutActionHoverButton.addWidget(radioButtonHover)
+        layoutActionHoverButton.addWidget(radioButtonGesture)
 
         labelHoverDelay = QtGui.QLabel(
             translate("PieMenuTab", "Hover delay (ms):"))
