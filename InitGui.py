@@ -1818,6 +1818,25 @@ def pieMenuStart():
             value = config.get_params()["main"].GetString(name)
         return value
 
+    def getActivePie():
+        """ PieMenu to open when the active workbench has none assigned.
+
+        Two different things used to share the CurrentPie parameter:
+        CurrentPie is the fallback the user picks with the "default" checkbox,
+        while the QuickMenu wrote the pie you selected at runtime to the same
+        key -- so choosing a pie from the QuickMenu silently replaced the saved
+        default. The QuickMenu now writes ActivePie instead.
+
+        ActivePie wins while it is set, so a QuickMenu choice still sticks. A
+        name left behind by a renamed or deleted pie is ignored.
+        """
+        activePie = getParam("ActivePie")
+        if activePie:
+            for i in getIndexList():
+                if getParamIndex(str(i)) == activePie:
+                    return activePie
+        return getParam("CurrentPie")
+
     def addAccessoriesMenu():
         if mw.property("eventLoop"):
             startAM = False
@@ -2507,7 +2526,7 @@ def pieMenuStart():
 
                 # current Pie
                 if text is None:
-                    text = getParam("CurrentPie")
+                    text = getActivePie()
             # else:
                 # text = keyValue
                 context = False
@@ -3269,6 +3288,9 @@ def pieMenuStart():
         """ Set the selected PieMenu as default PieMenu """
         if state == 2:
             config.get_params()["main"].SetString("CurrentPie", cBox.currentText())
+            # drop any QuickMenu choice, which would otherwise keep winning and
+            # make the newly chosen default look like it had not been applied
+            config.get_params()["main"].RemString("ActivePie")
         currentPie = config.get_params()["main"].GetString("CurrentPie")
         index = cBox.findText(currentPie)
         cBox.setItemIcon(index, iconDefault)
@@ -4913,9 +4935,10 @@ def pieMenuStart():
                 shortcut = param.GetString("ShortcutKey")
                 shortlist.append(shortcut)
             if not config.get_params()["main"].GetBool("ToolBar"):
-                text = getParam("CurrentPie")
+                text = getActivePie()
             else:
                 text = None
+            defaultPie = getParam("CurrentPie")
 
             for i, pieName in enumerate(pieList):
                 action = QtGui.QAction(pieGroup)
@@ -4926,7 +4949,9 @@ def pieMenuStart():
                     action.setCheckable(True)
                     if pieName == text:
                         action.setChecked(True)
+                    if pieName == defaultPie:
                         # Add icon in front of default PieMenu in Quickmenu list
+                        # (the default is not necessarily the active one)
                         action.setIcon(iconDefault)
                 else:
                     pass
@@ -4938,10 +4963,10 @@ def pieMenuStart():
             config.get_params()["main"].RemString("ToolBar")
             try:
                 text = pieGroup.checkedAction().text().encode("UTF-8")
-                config.get_params()["main"].SetString("CurrentPie", text)
+                config.get_params()["main"].SetString("ActivePie", text)
             except TypeError:
                 text = pieGroup.checkedAction().text()
-                config.get_params()["main"].SetString("CurrentPie", text)
+                config.get_params()["main"].SetString("ActivePie", text)
             PieMenuInstance.hide()
             PieMenuInstance.showAtMouseInstance()
 
