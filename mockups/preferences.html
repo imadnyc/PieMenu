@@ -10,9 +10,26 @@ font:13px/1.35 "Segoe UI","Noto Sans","DejaVu Sans",system-ui,sans-serif;-webkit
 .topbar{display:flex;gap:14px;align-items:center;padding:9px 14px;background:#2b2928;border-bottom:1px solid #1d1b1a;flex-wrap:wrap}
 .topbar h1{font-size:13px;font-weight:600;margin:0;color:var(--dim)}
 .hint{color:var(--dim);font-size:12px}
-.dialog{margin:16px auto;width:1080px;background:var(--win);border:1px solid #1d1b1a;border-radius:4px;
+.dialog{margin:16px auto;width:1310px;max-width:calc(100% - 24px);background:var(--win);
+border:1px solid #1d1b1a;border-radius:4px;
 box-shadow:0 10px 34px rgba(0,0,0,.5);display:flex;flex-direction:column}
-.body{display:flex;gap:8px;padding:8px;height:600px}
+.body{display:flex;gap:8px;padding:8px;height:640px}
+/* the slot's contexts, edited in place beside the preview rather than in a modal */
+.slothead{padding:6px 8px 5px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11px;
+flex:0 0 auto;background:var(--win)}
+.slothead b{color:var(--text);font-weight:600}
+.empt{padding:14px 10px;color:var(--dim);font-size:12px;line-height:1.5}
+/* the settings column is a panel like the others, so it can say whose settings
+   these are rather than floating unlabelled beside the preview */
+.setbody{overflow-y:auto;padding:0 8px 8px;flex:1;min-height:0}
+/* hover help: what a setting means, and eventually a picture of it doing it */
+.help{position:fixed;z-index:60;width:252px;background:var(--base);border:1px solid var(--line);
+border-radius:3px;box-shadow:0 8px 22px rgba(0,0,0,.55);padding:8px 9px;pointer-events:none;font-size:12px}
+.help h5{margin:0 0 4px;font-size:12px;color:var(--text);font-weight:600}
+.help p{margin:0 0 8px;color:var(--dim);line-height:1.45}
+.help .shot{height:100px;border:1px dashed var(--empty);border-radius:2px;display:flex;
+align-items:center;justify-content:center;color:var(--empty);font-size:11px;
+background:var(--canvas);text-align:center;padding:0 8px}
 .col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
 .panel{display:flex;flex-direction:column;min-height:0;flex:1;border:1px solid var(--line);
 border-radius:3px;overflow:hidden;background:var(--base)}
@@ -44,6 +61,9 @@ svg{max-width:100%;max-height:100%}
 width:26px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
 .tool:hover{background:var(--btnhi)}
 .tool.sm{width:22px;height:20px;border-color:transparent;background:transparent}
+.tool:disabled{opacity:.3;cursor:default}
+.tool:disabled:hover{background:var(--btn)}
+.tool.sm:disabled:hover{background:transparent}
 .tool.sm:hover{background:var(--btnhi);border-color:var(--line)}
 .tool.sm.on{background:var(--hi);border-color:var(--hi)}
 .tool.sm .ico{width:13px;height:13px}
@@ -147,10 +167,10 @@ border:1px solid var(--line);border-radius:3px;overflow:hidden}
 .sheet tr:last-child td{border-bottom:0}
 .sheet td:first-child{white-space:nowrap;font-weight:600}
 .sheet td:nth-child(3){color:var(--dim)}
-.play{width:1080px;margin:0 auto 26px}
+.play{width:1310px;max-width:calc(100% - 24px);margin:0 auto 26px}
 .play h3{font-size:13px;color:var(--text);margin:0 0 8px}
 .playrow{display:flex;gap:8px}
-.viewport{position:relative;flex:1;height:330px;background:#1f2223;border:1px solid var(--line);
+.viewport{position:relative;flex:1;height:440px;background:#1f2223;border:1px solid var(--line);
  border-radius:3px;display:flex;flex-direction:column;overflow:hidden}
 .vpmain{flex:1;display:flex;min-height:0}
 .viewport svg{flex:1;min-width:0}
@@ -163,7 +183,7 @@ border:1px solid var(--line);border-radius:3px;overflow:hidden}
 .vplbl{position:absolute;top:6px;left:9px;color:#7c6f64;font-size:11px;pointer-events:none;z-index:1}
 .vpfoot{display:flex;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line);
  background:var(--win);font-size:12px;color:var(--dim)}
-.logbox{width:320px;height:330px;display:flex;flex-direction:column;border:1px solid var(--line);
+.logbox{width:320px;height:440px;display:flex;flex-direction:column;border:1px solid var(--line);
  border-radius:3px;overflow:hidden;background:var(--base)}
 /* min-height:0 is what actually lets this scroll -- a flex child grows to fit
    its content otherwise, however it is told to overflow */
@@ -185,7 +205,15 @@ border:1px solid var(--line);border-radius:3px;overflow:hidden}
 .livepie .slot{cursor:pointer}
 body{display:flex;align-items:flex-start}
 .side{position:sticky;top:0;width:290px;flex:0 0 290px;height:100vh;overflow-y:auto;
- background:#1e1c1b;border-right:1px solid #131211;padding:12px 10px 24px}
+ background:#1e1c1b;border-right:1px solid #131211;padding:12px 10px 24px;position:sticky}
+.side.shut{width:30px;flex:0 0 30px;padding:10px 4px;overflow:hidden}
+.sidetog{position:absolute;top:8px;right:6px;width:18px;height:18px;padding:0;line-height:1;
+ background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--dim);
+ cursor:pointer;font-size:11px}
+.sidetog:hover{color:var(--text);border-color:var(--slotline)}
+.side.shut .sidetog{right:auto;left:5px}
+.sidev{writing-mode:vertical-rl;margin-top:32px;color:#7c6f64;font-size:11px;
+ letter-spacing:.08em;white-space:nowrap}
 .side h2{font-size:12px;color:var(--text);margin:0 0 2px;letter-spacing:.02em}
 .side .sub{color:#7c6f64;font-size:11px;margin-bottom:10px}
 .side h4{font-size:11px;color:var(--dim);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.06em}
@@ -485,24 +513,53 @@ function chooseTool(idx,bindingIdx){
   p.sel=idx;},"Use tool");
 }
 const clearSlot=i=>{const p=pie(); p.items[i]=null; render();};
-function slotBindings(i){
- const p=pie(),sl=p.items[i]; if(!sl)return;
- const box=el("div","picker");
- const draw=()=>{box.innerHTML="";
+/* The contexts of whichever slot is selected, as a column of its own. Selecting
+   a slot in the preview retargets it, so there is no dialog to open or dismiss. */
+function contextsPanel(){
+ const p=pie(),i=p.sel|0,sl=p.items[i];
+ const list=el("div","list");
+ const head=el("div","slothead"); list.append(head);
+ const bindingMove=d=>{const j=p.bsel|0,k=j+d;
+  if(!sl||k<0||k>=sl.b.length)return;
+  [sl.b[j],sl.b[k]]=[sl.b[k],sl.b[j]]; p.bsel=k; render();};
+ if(!sl){
+  head.innerHTML="<b>Contexts</b> \u2014 nothing bound";
+  const e=el("div","empt");
+  e.textContent="Nothing is bound here yet. Add a tool, or double-click the slot in the preview.";
+  list.append(e);
+ }else{
+  head.innerHTML="<b>Contexts</b> \u2014 "+sl.b.length
+   +(sl.b.length===1?" tool":" tools, first match wins");
   sl.b.forEach((b,j)=>{
-   const r=el("div","row");
+   const r=el("div","row"+(j===(p.bsel|0)?" sel":""));
    r.append(svg(toolIcon(b.cmd)),el("span","name",shortName(b.cmd)));
-   const cond=el("select"); cond.style.width="98px";
+   const cond=el("select"); cond.style.width="92px";
    CONDS.forEach(c=>{const o=el("option",null,c); if(c===b.when)o.selected=true; cond.append(o);});
-   cond.onchange=()=>{b.when=cond.value;};
-   const del=el("button","tool sm"); del.append(svg(uiIcon("PieMenuRemove")));
-   del.title="Remove this binding";
-   del.onclick=()=>{sl.b.splice(j,1); if(!sl.b.length)p.items[i]=null; draw(); render();};
-   r.append(cond,del); box.append(r);});};
- draw();
- const add=el("button","btn","Add another tool\u2026"); add.onclick=()=>chooseTool(i);
- const w=el("div"); w.append(box,add);
- modal("Slot "+(i+1)+" \u2014 what appears here",w,()=>{});
+   cond.onclick=e=>e.stopPropagation();
+   cond.onchange=()=>{b.when=cond.value; render();};
+   r.append(cond);
+   r.onclick=()=>{p.bsel=j; render();};
+   r.oncontextmenu=e=>{p.bsel=j; render(); return ctxMenu(e,[
+    [uiIcon("PieMenuAddCommand"),"Replace tool\u2026",()=>chooseTool(i,j)],
+    [uiIcon("PieMenuAddCommand"),"Add another tool\u2026",()=>chooseTool(i)],
+    "-",
+    [uiIcon("PieMenuUp"),"Move up",()=>bindingMove(-1),j===0],
+    [uiIcon("PieMenuDown"),"Move down",()=>bindingMove(1),j===sl.b.length-1],
+    "-",
+    [uiIcon("PieMenuRemove"),"Remove",()=>{sl.b.splice(j,1);
+      if(!sl.b.length)p.items[i]=null; p.bsel=0; render();}],
+   ]);};
+   list.append(r);});
+ }
+ /* ordering only means something once a slot holds more than one tool */
+ const mv=(icon,title,d)=>{
+  const b=iconBtn(uiIcon(icon),title,()=>bindingMove(d),false,true);
+  b.disabled=!sl||sl.b.length<2; return b;};
+ return panel("Slot "+(i+1)+" of "+p.name,sl?sl.b.length:0,[
+  iconBtn(uiIcon("PieMenuAddCommand"),"Add a tool to this slot",()=>chooseTool(i),false,true),
+  mv("PieMenuUp","Move up",-1),
+  mv("PieMenuDown","Move down",1),
+ ],list);
 }
 /* Two families only: circle and grid. */
 function positions(p){
@@ -654,15 +711,14 @@ function paint(c){
   }
 
   if(idx!=null){
-   s.onclick=()=>{p.sel=idx; render();};
+   s.onclick=()=>{p.sel=idx; p.bsel=0; render();};
    s.ondblclick=()=>chooseTool(idx);
-   s.oncontextmenu=e=>{p.sel=idx; render(); return ctxMenu(e,[
+   s.oncontextmenu=e=>{p.sel=idx; p.bsel=0; render(); return ctxMenu(e,[
     [uiIcon("PieMenuAddCommand"),
      (p.items[idx]&&p.items[idx].b.length===1)?"Replace tool\u2026":"Add a tool to this slot\u2026",
      ()=>chooseTool(idx,(p.items[idx]&&p.items[idx].b.length===1)?0:null)],
     [uiIcon("PieMenuAddCommand"),"Add another tool\u2026",()=>chooseTool(idx),
      !(p.items[idx]&&p.items[idx].b.length===1)],
-    [uiIcon("PieMenuEditMenu"),"What appears here\u2026",()=>slotBindings(idx),!p.items[idx]],
     "-",
     [uiIcon("PieMenuRemoveCommand"),"Clear this slot",()=>clearSlot(idx),!p.items[idx]],
    ]);};
@@ -741,7 +797,61 @@ const num=(v,on,mn,mx)=>{const i=el("input"); i.type="number"; i.value=v; i.min=
  i.onchange=()=>{on(+i.value); render();}; return i;};
 const check=(l,v,on)=>{const w=el("label","check"),i=el("input"); i.type="checkbox"; i.checked=v;
  i.onchange=()=>{on(i.checked); render();}; w.append(i,el("span",null,l)); return w;};
-const formGrid=r=>{const f=el("div","form"); r.forEach(([l,n])=>f.append(el("label",null,l),n)); return f;};
+/* What each setting means. The picture is deliberately a placeholder -- these
+   get shot once the design settles, and the frame is here so the copy is
+   written against the space it will actually occupy. */
+const HELP={
+ "Family":"Circle arranges the slots around the cursor; grid stacks them into rows and columns. These two replace the eleven separate shapes.",
+ "Slots":"How many positions this pie has. Slots you leave empty stay empty — tools no longer fill positions in list order.",
+ "Per ring":"How many slots go in each ring before a new one starts further out.",
+ "Radius":"Distance from the cursor to the first ring. Smaller is faster to reach and harder to aim.",
+ "Arc":"How much of the circle the slots span. 360 is the full circle; 90 is a quarter, which keeps the pie off screen edges.",
+ "Facing":"Which way a partial arc points. A 90° arc facing right sits either side of the 3 o'clock line.",
+ "Stagger":"Push every other slot slightly further out, so neighbours are easier to tell apart.",
+ "Columns":"Slots across.",
+ "Rows":"Slots down.",
+ "Anchor":"Which side of the cursor the block sits on.",
+ "Split":"Divide the rows either side of the cursor rather than putting them all together.",
+ "Offset":"Gap between the cursor and the block.",
+ "Button":"Size of each slot, in pixels.",
+ "Spacing":"Gap between neighbouring slots.",
+ "Open on":"The gesture that opens this pie. Double tap and press-and-hold both make it much harder to open by accident.",
+ "Run on":"How a tool fires once the pie is open. Release is the marking-menu gesture: flick and let go without ever stopping.",
+ "Delay":"Milliseconds to wait before a hold counts as a hold, or before hovering fires a tool.",
+ "Shortcut":"Which global key opens this pie. Global keys are resolved per workbench, so several pies can answer the same one.",
+ "Workbench":"The workbench this pie answers for. Leave it None and the pie is only reachable by its own key.",
+ "On shortcut":"Which of the global keys this pie claims inside its workbench.",
+ "Command names":"Write each tool's name in its slot instead of showing only its icon.",
+};
+let helpTimer=null,helpBox=null;
+const hideHelp=()=>{if(helpTimer){clearTimeout(helpTimer); helpTimer=null;}
+ if(helpBox){helpBox.remove(); helpBox=null;}};
+function attachHelp(node,label){
+ const key=String(label).replace(/:$/,"").trim();
+ const text=HELP[key]; if(!text||!node||!node.addEventListener)return node;
+ node.addEventListener("mouseenter",e=>{
+  hideHelp();
+  const r=node.getBoundingClientRect();
+  helpTimer=setTimeout(()=>{
+   helpBox=el("div","help");
+   helpBox.append(el("h5",null,key),el("p",null,text));
+   const shot=el("div","shot","screenshot of “"+key+"” to come");
+   helpBox.append(shot);
+   document.body.append(helpBox);
+   const w=helpBox.offsetWidth,h=helpBox.offsetHeight;
+   /* these sit on the right edge, so open to the left and clamp vertically */
+   let x=r.left-w-10; if(x<8)x=Math.min(r.right+10,innerWidth-w-8);
+   let y=Math.min(Math.max(8,r.top-6),innerHeight-h-8);
+   helpBox.style.left=x+"px"; helpBox.style.top=y+"px";
+  },350);
+ });
+ node.addEventListener("mouseleave",hideHelp);
+ return node;
+}
+const formGrid=r=>{const f=el("div","form");
+ r.forEach(([l,n])=>{const lab=el("label",null,l);
+  attachHelp(lab,l); attachHelp(n,l); f.append(lab,n);});
+ return f;};
 const group=(t,n)=>{const g=el("div","group"); g.append(el("span","title",t),n); return g;};
 
 function build(){
@@ -756,7 +866,10 @@ function build(){
 
  const c2=el("div","col"); c2.style.flex="1"; c2.append(canvasEl());
 
- const c3=el("div","col"); c3.style.width="252px"; c3.style.overflowY="auto";
+ const c2b=el("div","col"); c2b.style.width="234px"; c2b.append(contextsPanel());
+
+ const c3=el("div","col"); c3.style.width="252px";
+ const set=el("div","setbody");
  const rows=[["Family:",sel(p.family,["circle","grid"],v=>{p.family=v; normalise(p);})]];
  if(p.family==="circle")rows.push(
   ["Slots:",num(p.slots,v=>{p.slots=v; normalise(p);},1,24)],
@@ -774,21 +887,22 @@ function build(){
   ["Split:",check("either side of centre",p.split,v=>p.split=v)],
   ["Offset:",num(p.radius,v=>p.radius=v,0,300)]);
  rows.push(["Button:",num(p.button,v=>p.button=v,16,96)],["Spacing:",num(p.spacing,v=>p.spacing=v,0,60)]);
- c3.append(group("Layout",formGrid(rows)));
- c3.append(group("Trigger",formGrid([
+ set.append(group("Layout",formGrid(rows)));
+ set.append(group("Trigger",formGrid([
   ["Open on:",sel(p.openOn,["single","double","hold","double-hold"],v=>p.openOn=v)],
   ["Run on:",sel(p.runOn,["click","hover","release"],v=>p.runOn=v)],
   ["Delay:",num(p.delay,v=>p.delay=v,0,1000)],
   ["Shortcut:",sel(p.key||"—",["—"].concat(S.globals.map(g=>g.key)),v=>p.key=v==="—"?"":v)],
  ])));
- c3.append(group("Assignment",formGrid([
+ set.append(group("Assignment",formGrid([
   ["Workbench:",sel(p.wb,["None","PartDesign","Sketcher","Assembly","Part"],v=>p.wb=v)],
   ["On shortcut:",num(p.shortcutSlot,v=>p.shortcutSlot=v,1,Math.max(1,S.globals.length))],
  ])));
  const show=el("div");
- show.append(check("Command names",p.names,v=>p.names=v));
- c3.append(group("Show",show));
- b.append(c1,c2,c3); return b;}
+ show.append(attachHelp(check("Command names",p.names,v=>p.names=v),"Command names"));
+ set.append(group("Show",show));
+ c3.append(panel(p.name+"\u2019s settings",null,[],set));
+ b.append(c1,c2,c2b,c3); return b;}
 
 function render(){
  const host=document.getElementById("body"),fresh=build();
@@ -1078,12 +1192,22 @@ function initPlayground(){
   document.getElementById("log").innerHTML="";
   document.getElementById("logCount").textContent="0";};
 }
+let planShut=false;
 function drawPlan(){
  const box=document.getElementById("side"); if(!box)return;
  const shown=PLAN.filter(p=>p.shown&&!p.supersedes&&!p.deferred);
  const supers=PLAN.filter(p=>p.supersedes);
  const todo=PLAN.filter(p=>!p.shown&&!p.supersedes&&!p.deferred);
  box.innerHTML="";
+ box.className="side"+(planShut?" shut":"");
+ const tog=el("button","sidetog",planShut?"›":"‹");
+ tog.title=planShut?"Show the running plan":"Hide the running plan";
+ tog.onclick=()=>{planShut=!planShut; drawPlan();};
+ box.append(tog);
+ if(planShut){
+  const v=el("div","sidev","Running plan · "+PLAN.length);
+  box.append(v); return;
+ }
  box.append(el("h2","","Running plan"));
  const sub=el("div","sub");
  sub.textContent=PLAN.length+" items · from UI-FEEDBACK.md";
