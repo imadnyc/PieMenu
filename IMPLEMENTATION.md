@@ -84,3 +84,31 @@ Each phase is one or a few commits; each names its verification. Headless =
 - No commit mixes phases. Dialog commits are one panel each.
 - The mockup is the spec of record; disagreements get resolved in
   UI-FEEDBACK.md first, code second.
+
+## Status — built, verified, ready for review
+
+All phases through the flip are done on `v2-build`:
+
+| Phase | Commit | Verified by |
+| ----- | ------ | ----------- |
+| Plan | `c54aad6` | — |
+| A model | `c6d5d9f` | `dev/test_model.py` (8 groups) |
+| B migration | `8a2e2df` | `dev/test_migrate.py` (legacy tree + fresh install) |
+| C runtime | `e1691e0` | `dev/test_runtime.py` (widget, chooser, doors, dispatch) |
+| D dialog | `5616dc1` | `dev/test_dialog.py` (panels, tables, picker, rules) |
+| Flip + E | `35375ab` | `dev/smoke_freecad.py` (v2 startup over a legacy tree) |
+| E2E | `d927ae5` | `dev/test_gui.py` in a real offscreen GUI |
+
+`InitGui.py`: 7569 lines → 75. The package: model 356, migrate 208, runtime
+582, dialog 1329, constants 50, resources 26.
+
+**Run everything:** `nix run .#smoke` (5 headless suites, isolated config)
+and `nix run .#e2e` (real GUI, offscreen). Interactive: `nix run .#watch`
+(edit → save → FreeCAD relaunches, isolated), or `nix run .#launch` once.
+
+**Dropped with the legacy body** (deliberate, revisit on demand): the
+theme/stylesheet system, toolbar import, per-pie export/import (whole-tree
+export lives in the behaviour dialog), corner pinning (deferred #17/#18),
+the legacy auto-open context observer (the Global-context open question),
+and the spinbox display option. The mockup remains the spec of record; the
+mockups/ pages document intent for anything not yet obvious from the UI.

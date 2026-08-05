@@ -6,7 +6,8 @@ A hermetic nix flake for iterating on the addon without touching your real FreeC
 nix develop        # shell: freecad + python + ruff, and pm-watch/pm-launch/pm-smoke
 nix run .#watch    # THE FAST LOOP: save any .py -> FreeCAD relaunches with new code
 nix run .#launch   # one isolated FreeCAD GUI with this repo as the addon
-nix run .#smoke    # headless: assert the addon loads and the migration runs
+nix run .#smoke    # headless: model/migration/runtime/dialog suites + startup smoke
+nix run .#e2e      # a real offscreen FreeCAD GUI drives the addon end to end
 ```
 
 ## The fast loop
