@@ -65,11 +65,20 @@ conditions it actually cares about, and unrelated slots stay silent.
 
 ## Design decision — the editor documents, the playground resolves
 
-The editor preview no longer simulates a selection. Buttons never morph: every
-slot prints its **whole binding list beside it** — icon, command, rule — boxed
-when conditional, a dim plain label when it is a single always-binding. The
-entire conditional structure of a pie is on screen at once, the same union-view
-principle as the pie map and the shortcuts table.
+The editor preview no longer simulates a selection — and it does not carry the
+data either. Two attempts failed: buttons that morph per selection (one slice
+at a time, never the whole structure) and binding chips printed beside each
+slot (crowds, fatally on multi-ring pies). The rule that survives: **the pie
+canvas cannot carry the data.**
+
+So the pie stays *clean* — a count badge on a slot holding several bindings, a
+small dot on a conditional single, nothing else — and the full structure lives
+in the always-visible **Slots table** beside the preview: every slot as a
+group, every binding with its rule, edited in place (click a rule to edit it,
+right-click a row for replace / reorder / remove). Hovering a table row lights
+up its slot in the pie; clicking selects it; selecting a slot in the pie
+scrolls its group into view. Same union-view principle as the pie map and the
+shortcuts table, in the one form that scales: a table.
 
 Resolution — greying, the chooser between several matching bindings (#19), door
 rings going dead — happens **only in the playground**, against the selection you

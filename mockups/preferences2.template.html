@@ -283,15 +283,24 @@ body{display:flex;align-items:flex-start}
 .main{flex:1;min-width:0}
 .new{color:#b8bb26}.fix{color:#fabd2f}.perf{color:#83a598}.int{color:#a89984}.ui{color:#d3869b}
 /* v2: six-axis rules + sub-pies-as-commands */
-.ann{position:absolute;z-index:5;display:flex;flex-direction:column;gap:2px;
-pointer-events:none;max-width:200px}
-.ann .abind{display:flex;align-items:center;gap:4px;background:var(--base);
-border:1px solid var(--line);border-radius:3px;padding:1px 5px;font-size:10.5px;white-space:nowrap}
-.ann .abind .mini{width:12px;height:12px;flex:0 0 12px}
-.ann .abind .an{color:var(--text)}
-.ann .abind .ar{color:var(--dim);border-left:1px solid var(--line);padding-left:5px;margin-left:2px;font-size:10px}
-.ann.simple .abind{background:transparent;border-color:transparent;padding:0 2px}
-.ann.simple .abind .an{color:var(--dim)}
+/* clean-pie markers: the data lives in the Slots table */
+.slot .bn{position:absolute;right:-5px;top:-5px;min-width:14px;height:14px;line-height:14px;
+border-radius:7px;background:var(--hi);color:var(--hitext);font-size:9.5px;text-align:center;
+padding:0 3px;font-weight:600}
+.slot.stack::before{content:"";position:absolute;left:4px;top:4px;right:-4px;bottom:-4px;
+border:1px solid var(--slotline);border-radius:5px;opacity:.55;pointer-events:none}
+.slot.condmark::before{content:"";position:absolute;left:-4px;top:-4px;width:8px;height:8px;
+border-radius:50%;background:var(--hi);border:2px solid var(--canvas)}
+.slot.hl{box-shadow:0 0 0 3px rgba(211,134,155,.5)}
+/* the Slots table: one group per slot */
+.sgrp{border-bottom:1px solid #3a3735}
+.sgrp.empty .sghead{opacity:.55}
+.sghead{display:flex;align-items:center;gap:6px;padding:3px 4px 3px 8px;background:var(--win);
+cursor:pointer;font-size:11px;color:var(--dim)}
+.sgrp.sel .sghead{color:var(--text);box-shadow:inset 3px 0 0 var(--hi)}
+.sghead .sgn{font-weight:600}
+.sghead .sgsub{font-size:10px}
+.sgrp .row{padding-left:16px}
 .cond{margin-left:auto;color:var(--dim);font-size:11px;white-space:nowrap;padding-right:4px;cursor:pointer}
 .cond:hover{color:var(--hi)}
 .hint2{color:var(--dim);font-size:11px;margin-top:6px}
@@ -762,50 +771,54 @@ function editRule(binding,after){
  w.append(el("div","hint2",shortName(binding.cmd)+" applies when:"),ruleField(rule));
  modal("When does this apply?",w,()=>{binding.rule=cloneRule(rule); if(after)after();},"Apply");
 }
+/* Every slot of the pie, always visible. The pie above stays clean; this
+   table carries the full conditional structure -- every slot, every binding,
+   every rule -- and cross-highlights with the canvas. */
+function hlSlot(i,on){
+ const n=document.querySelector('#body .canvas .slot[data-idx="'+i+'"]');
+ if(n)n.classList.toggle("hl",!!on);}
 function contextsPanel(){
- const p=pie(),i=p.sel|0,sl=p.items[i];
+ const p=pie(); normalise(p);
  const list=el("div","list");
- const head=el("div","slothead"); list.append(head);
- const bindingMove=d=>{const j=p.bsel|0,k=j+d;
-  if(!sl||k<0||k>=sl.b.length)return;
-  [sl.b[j],sl.b[k]]=[sl.b[k],sl.b[j]]; p.bsel=k; render();};
- if(!sl){
-  head.innerHTML="<b>Contexts</b> \u2014 nothing bound";
-  const e=el("div","empt");
-  e.textContent="Nothing is bound here yet. Add a tool, or double-click the slot in the preview.";
-  list.append(e);
- }else{
-  head.innerHTML="<b>Contexts</b> \u2014 "+sl.b.length
-   +(sl.b.length===1?" tool":" tools, first match wins");
-  sl.b.forEach((b,j)=>{
-   const r=el("div","row"+(j===(p.bsel|0)?" sel":""));
+ const n=slotCount(p);
+ for(let i=0;i<n;i++){
+  const sl=p.items[i];
+  const g=el("div","sgrp"+(i===(p.sel|0)?" sel":"")+(sl?"":" empty"));
+  const h=el("div","sghead");
+  h.append(el("span","sgn","Slot "+(i+1)));
+  h.append(el("span","sgsub",!sl?"empty":(sl.b.length>1?sl.b.length+" tools \u2014 first match wins":"")));
+  h.append(el("span","grow"));
+  h.append(iconBtn(uiIcon("PieMenuAddCommand"),sl?"Add another tool":"Add a tool",
+    ()=>chooseTool(i),false,true));
+  h.onclick=()=>{p.sel=i; p.bsel=0; render();};
+  h.onmouseenter=()=>hlSlot(i,true);
+  h.onmouseleave=()=>hlSlot(i,false);
+  g.append(h);
+  (sl?sl.b:[]).forEach((b,j)=>{
+   const r=el("div","row"+(i===(p.sel|0)&&j===(p.bsel|0)?" sel":""));
    r.append(svg(toolIcon(b.cmd)),el("span","name",shortName(b.cmd)));
    const cond=el("span","cond",ruleText(b.rule));
    cond.title="When this applies \u2014 click to edit";
-   cond.onclick=e=>{e.stopPropagation(); editRule(b,()=>render());};
+   cond.onclick=e=>{e.stopPropagation(); p.sel=i; p.bsel=j; editRule(b,()=>render());};
    r.append(cond);
-   r.onclick=()=>{p.bsel=j; render();};
-   r.oncontextmenu=e=>{p.bsel=j; render(); return ctxMenu(e,[
+   r.onclick=()=>{p.sel=i; p.bsel=j; render();};
+   r.onmouseenter=()=>hlSlot(i,true);
+   r.onmouseleave=()=>hlSlot(i,false);
+   r.oncontextmenu=e=>{p.sel=i; p.bsel=j; render(); return ctxMenu(e,[
     [uiIcon("PieMenuAddCommand"),"Replace tool\u2026",()=>chooseTool(i,j)],
     [uiIcon("PieMenuAddCommand"),"Add another tool\u2026",()=>chooseTool(i)],
     "-",
-    [uiIcon("PieMenuUp"),"Move up",()=>bindingMove(-1),j===0],
-    [uiIcon("PieMenuDown"),"Move down",()=>bindingMove(1),j===sl.b.length-1],
+    [uiIcon("PieMenuUp"),"Move up",()=>{[sl.b[j-1],sl.b[j]]=[sl.b[j],sl.b[j-1]]; p.bsel=j-1; render();},j===0],
+    [uiIcon("PieMenuDown"),"Move down",()=>{[sl.b[j+1],sl.b[j]]=[sl.b[j],sl.b[j+1]]; p.bsel=j+1; render();},j===sl.b.length-1],
     "-",
     [uiIcon("PieMenuRemove"),"Remove",()=>{sl.b.splice(j,1);
       if(!sl.b.length)p.items[i]=null; p.bsel=0; render();}],
    ]);};
-   list.append(r);});
+   g.append(r);
+  });
+  list.append(g);
  }
- /* ordering only means something once a slot holds more than one tool */
- const mv=(icon,title,d)=>{
-  const b=iconBtn(uiIcon(icon),title,()=>bindingMove(d),false,true);
-  b.disabled=!sl||sl.b.length<2; return b;};
- return panel("Slot "+(i+1)+" of "+p.name,sl?sl.b.length:0,[
-  iconBtn(uiIcon("PieMenuAddCommand"),"Add a tool to this slot",()=>chooseTool(i),false,true),
-  mv("PieMenuUp","Move up",-1),
-  mv("PieMenuDown","Move down",1),
- ],list);
+ return panel("Slots \u2014 "+p.name,filled(p).length+"/"+n,[],list);
 }
 /* Two families only: circle and grid. */
 function positions(p){
@@ -1029,7 +1042,7 @@ function shortcutsTableEl(){
 
 function canvasEl(){
  const c=el("div","canvas");
- c.append(el("div","lbl","Every binding, with its rule · double-click a slot to choose a tool · right-click for options · the playground below shows what resolves"));
+ c.append(el("div","lbl","A badge = several tools share the slot, a dot = conditional · every rule is in the Slots table · the playground below shows what resolves"));
  requestAnimationFrame(()=>paint(c));
  return c;}
 let chooserPick={};
@@ -1113,31 +1126,18 @@ function paint(c){
     document.addEventListener("mousemove",move);
     document.addEventListener("mouseup",up);};}
   c.append(s); return s;};
- /* The editor DOCUMENTS the pie; it never simulates it. Every binding is
-    printed beside its slot with its rule, so the whole conditional structure
-    is on screen at once -- nothing morphs when the selection changes. What a
-    slot resolves to under a given selection is the playground's job. */
+ /* A clean pie: the union lives in the Slots table beside it. Markers only --
+    a count badge when several bindings share the slot, a dot when a single
+    binding is conditional. Hovering a table row lights the slot up. */
  p.items.forEach((_,i)=>{
   const eff=effectiveSlot(p,i), sl=eff.slot;
   const node=mk(sl?sl.b[0].cmd:null,i,cx+pos[i][0],cy+pos[i][1],p.button,"");
   if(!sl)return;
   node.title=sl.b.map(b=>ruleText(b.rule)+" \u2192 "+shortName(b.cmd)).join("\n");
-  const simple=sl.b.length===1&&!Object.keys(sl.b[0].rule).length;
-  const ann=el("div","ann"+(simple?" simple":""));
-  sl.b.forEach(b=>{
-   const rw=el("div","abind");
-   rw.append(svg(toolIcon(b.cmd),"mini"),el("span","an",shortName(b.cmd)));
-   if(Object.keys(b.rule).length)rw.append(el("span","ar",ruleText(b.rule)));
-   ann.append(rw);
-  });
-  const r0=Math.hypot(pos[i][0],pos[i][1])||1;
-  const ux=pos[i][0]/r0, uy=pos[i][1]/r0;
-  ann.style.left=(cx+pos[i][0]+ux*(p.button/2+7))+"px";
-  ann.style.top =(cy+pos[i][1]+uy*(p.button/2+7))+"px";
-  const tx=ux>0.35?"0":(ux<-0.35?"-100%":"-50%");
-  const ty=uy>0.35?"0":(uy<-0.35?"-100%":"-50%");
-  ann.style.transform="translate("+tx+","+ty+")";
-  c.append(ann);
+  const conditional=sl.b.some(b=>Object.keys(b.rule).length);
+  if(sl.b.length>1){node.classList.add("stack");
+   node.append(el("span","bn",String(sl.b.length)));}
+  else if(conditional)node.classList.add("condmark");
  });
  const inner=el("div","slot centre"),isz=Math.max(24,Math.round(p.button*0.72));
  inner.style.cssText=`left:${cx-isz/2}px;top:${cy-isz/2}px;width:${isz}px;height:${isz}px`;
@@ -1279,6 +1279,8 @@ function render(){
  /* paint now -- rAF is throttled in a background tab and leaves the pie blank */
  const c=fresh.querySelector(".canvas");
  if(c)paint(c);
+ const g=fresh.querySelector(".sgrp.sel");
+ if(g)g.scrollIntoView({block:"nearest"});
 }
 document.getElementById("btnAbout").onclick=()=>{
  const d=el("div"); d.innerHTML="<b>PieMenu 1.13</b><br>Interactive mockup.";
