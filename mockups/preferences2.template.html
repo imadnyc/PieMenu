@@ -486,18 +486,23 @@ const S={pies:[
  mkPie("Main",[
    slot(["Std_New"]),slot(["Std_Open"]),
    slot(["Std_Save"]),
-   null,
+   /* two doors in one slot, on different axes */
+   slot([{cmd:"PieMenu_Dress-up",rule:{Edge:[">=",1]}},
+         {cmd:"PieMenu_Boolean ops",rule:{Object:[">=",2]}}]),
    slot([{cmd:"PartDesign_Pad",when:"face"},
          {cmd:"PartDesign_Fillet",when:"edge"},
          {cmd:"PartDesign_Chamfer",when:"edge"}]),           /* conditional, two on edge */
    slot(["View_Fit"]),slot(["PieMenu_View"]),
-   /* one slot, two pies: which sub-pie opens depends on the selection */
+   /* one slot, three pies -- and on 2 faces TWO of them match, so the
+      chooser offers a choice between pies */
    slot([{cmd:"PieMenu_Modelling",when:"face"},
+         {cmd:"PieMenu_Boolean ops",rule:{Face:[">=",2]}},
          {cmd:"PieMenu_Sketching",when:"edge"}]),
   ]),
  mkPie("Modelling",[
-   /* two peers on one rule -- a genuine choice, the chooser appears */
-   slot([{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Pocket",when:"face"}]),
+   /* three peers: Groove only on EXACTLY one face, so 2 faces narrows to 2 */
+   slot([{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Pocket",when:"face"},
+         {cmd:"PartDesign_Groove",rule:{Face:["==",1]}}]),
    /* one slot, count rules: an edge, or two-or-more faces */
    slot([{cmd:"PartDesign_Fillet",when:"edge"},
          {cmd:"PartDesign_Thickness",rule:{Face:[">=",2]}}]),
@@ -506,15 +511,49 @@ const S={pies:[
    /* both axes at once */
    slot([{cmd:"PartDesign_Draft",rule:{Face:[">=",1],Edge:[">=",1]}}]),
    slot([{cmd:"PartDesign_Revolution",when:"face"}]),
-   slot(["Std_Undo"]),slot(["PieMenu_View"]),null,
-  ],{openOn:"hold",runOn:"release"}),
+   slot(["Std_Undo"]),slot(["PieMenu_View"]),
+   /* an always-live edge to a pie that is often dead inside: the ring greys
+      from pieLive, not from the edge rule */
+   slot(["PieMenu_Boolean ops"]),
+   slot([{cmd:"PieMenu_Dress-up",rule:{Edge:[">=",1]}}]),
+   slot(["PieMenu_Patterns"]),
+  ],{slots:10,perRing:10,openOn:"hold",runOn:"release"}),
+ mkPie("Dress-up",[
+   slot([{cmd:"PartDesign_Fillet",when:"edge"}]),
+   slot([{cmd:"PartDesign_Chamfer",when:"edge"}]),
+   slot([{cmd:"PartDesign_Draft",when:"face"}]),
+   slot([{cmd:"PartDesign_Thickness",when:"face"}]),
+   slot(["PieMenu_Patterns"]),null,
+  ],{slots:6,perRing:6,radius:66}),
+ mkPie("Patterns",[
+   slot(["PartDesign_Mirrored"]),slot(["PartDesign_LinearPattern"]),
+   slot(["PartDesign_PolarPattern"]),null,
+  ],{slots:4,perRing:4,radius:58}),
+ mkPie("Boolean ops",[
+   slot([{cmd:"Part_Cut",rule:{Object:[">=",2]}}]),
+   slot([{cmd:"Part_Fuse",rule:{Object:[">=",2]}}]),
+   slot([{cmd:"Part_Common",rule:{Object:[">=",2]}}]),
+   null,
+  ],{slots:4,perRing:4,radius:58}),
  mkPie("Sketching",[
    slot(["Sketcher_NewSketch"]),slot(["Sketcher_Line"]),
-   null,slot(["Sketcher_Circle"]),slot(["Sketcher_Rectangle"]),null,
+   slot(["PieMenu_Constraints"]),
+   slot(["Sketcher_Circle"]),slot(["Sketcher_Rectangle"]),null,
   ],{family:"grid",cols:3,rows:2}),
+ mkPie("Constraints",[
+   slot(["Sketcher_ConstrainDistance"]),slot(["Sketcher_Trimming"]),
+   slot(["Sketcher_Polyline"]),null,
+  ],{slots:4,perRing:4,radius:58}),
  mkPie("View",[slot(["View_Fit"]),slot(["View_Front"]),slot(["View_Top"]),
-               slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"])],
+               slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"]),
+               slot(["PieMenu_Main"])],
    {def:true,slots:12,perRing:6,radius:56}),
+ /* deliberately unreached and unbound: the map shows it as its own root and
+    its settings say no shortcut reaches it */
+ mkPie("Assembly",[
+   slot(["Assembly_CreateAssembly"]),slot(["Assembly_InsertLink"]),
+   slot(["Assembly_SolveAssembly"]),null,
+  ],{slots:4,perRing:4,radius:58}),
 ], cur:0,
  /* the current selection, as counts per axis -- "2 faces + 1 edge" is real */
  counts:{Face:1},
@@ -530,8 +569,9 @@ const S={pies:[
     decision in UI-FEEDBACK.md: what a slot does with the selection belongs to
     the slot, inside the pie editor. */
  binds:{"Any workbench":{"9":"Sketching","0":"View"},
-        "PartDesign":{"1":"Main","2":"Modelling"},
-        "Sketcher":{"1":"Main","2":"Sketching"}},
+        "PartDesign":{"1":"Main","2":"Modelling","3":"Dress-up","4":"Boolean ops"},
+        "Sketcher":{"1":"Main","2":"Sketching","3":"Constraints"},
+        "Part":{"1":"Main","2":"Boolean ops"}},
  keys:["1","2","3","4","9","0"]};
 
 /* ---- shortcut resolution -------------------------------------------------
@@ -825,12 +865,16 @@ function pieListEl(){
   ]);};
   l.append(r);
  };
- let roots=S.pies.map(q=>q.name).filter(n=>!parentsOf(n).length);
- if(!roots.length)roots=[S.pies[0].name];
- const owner={}; const bfs=[...roots]; roots.forEach(n=>owner[n]=null);
- while(bfs.length){const n=bfs.shift();
-  Object.keys(edgeMapOf(n)).forEach(k=>{if(!(k in owner)&&pieByName(k)){owner[k]=n; bfs.push(k);}});}
- S.pies.forEach(q=>{if(!(q.name in owner)){owner[q.name]=null; roots.push(q.name);}});
+ const owner={}, roots=[];
+ const claimFrom=r=>{owner[r]=null; roots.push(r);
+  const bfs=[r];
+  while(bfs.length){const n=bfs.shift();
+   Object.keys(edgeMapOf(n)).forEach(k=>{if(!(k in owner)&&pieByName(k)){owner[k]=n; bfs.push(k);}});}};
+ S.pies.map(q=>q.name).filter(n=>!parentsOf(n).length).forEach(claimFrom);
+ /* cycles can leave whole components parentless-free; seed a root from the
+    first unowned pie until everything is claimed */
+ S.pies.forEach(q=>{if(!(q.name in owner))claimFrom(q.name);});
+ roots.sort((a,b)=>S.pies.findIndex(x=>x.name===a)-S.pies.findIndex(x=>x.name===b));
  const walk=(name,depth)=>{
   const em=edgeMapOf(name);
   Object.keys(em).forEach(k=>{ if(!pieByName(k))return;
@@ -1385,12 +1429,12 @@ function openLivePie(x,y,openKey,forcePie){
   s2._cmd=cmd; s2._i=i; s2._eff=eff;
   nodes.push(s2);
 
-  if(p.runOn==="click"){
+  if(p.runOn==="click"||forcePie){
    s2.onclick=ev=>{ev.stopPropagation();
     if(cmd)fire(cmd,i,eff);
     else logLine(uiIcon("PieMenuRemove"),"slot "+(i+1)+" is greyed \u2014 nothing bound for <b>"+describe(S.counts)+"</b>");};
   }
-  if(p.runOn==="hover"&&cmd){
+  if(p.runOn==="hover"&&!forcePie&&cmd){
    s2.onmouseenter=()=>{ if(hoverTimer)clearTimeout(hoverTimer);
     s2.style.boxShadow="0 0 0 2px var(--hi)";
     hoverTimer=setTimeout(()=>fire(cmd,i,eff),p.delay);};
