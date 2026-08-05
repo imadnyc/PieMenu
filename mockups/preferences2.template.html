@@ -283,6 +283,15 @@ body{display:flex;align-items:flex-start}
 .main{flex:1;min-width:0}
 .new{color:#b8bb26}.fix{color:#fabd2f}.perf{color:#83a598}.int{color:#a89984}.ui{color:#d3869b}
 /* v2: six-axis rules + sub-pies-as-commands */
+.ann{position:absolute;z-index:5;display:flex;flex-direction:column;gap:2px;
+pointer-events:none;max-width:200px}
+.ann .abind{display:flex;align-items:center;gap:4px;background:var(--base);
+border:1px solid var(--line);border-radius:3px;padding:1px 5px;font-size:10.5px;white-space:nowrap}
+.ann .abind .mini{width:12px;height:12px;flex:0 0 12px}
+.ann .abind .an{color:var(--text)}
+.ann .abind .ar{color:var(--dim);border-left:1px solid var(--line);padding-left:5px;margin-left:2px;font-size:10px}
+.ann.simple .abind{background:transparent;border-color:transparent;padding:0 2px}
+.ann.simple .abind .an{color:var(--dim)}
 .cond{margin-left:auto;color:var(--dim);font-size:11px;white-space:nowrap;padding-right:4px;cursor:pointer}
 .cond:hover{color:var(--hi)}
 .hint2{color:var(--dim);font-size:11px;margin-top:6px}
@@ -1020,12 +1029,7 @@ function shortcutsTableEl(){
 
 function canvasEl(){
  const c=el("div","canvas");
- c.append(el("div","lbl","Double-click a slot to choose a tool · right-click for options"));
- c.oncontextmenu=e=>ctxMenu(e,[
-   ["nothing",{}],["a vertex",{Vertex:1}],["an edge",{Edge:1}],["a face",{Face:1}],
-   ["2 faces",{Face:2}],["a face + an edge",{Face:1,Edge:1}],["a body",{Object:1}],
-  ].map(([label,cts])=>[uiIcon(sameCounts(cts,S.counts)?"PieMenu_Logo":"PieMenuBlank"),
-   "Preview with "+label+" selected",()=>setCounts(cts)]));
+ c.append(el("div","lbl","Every binding, with its rule · double-click a slot to choose a tool · right-click for options · the playground below shows what resolves"));
  requestAnimationFrame(()=>paint(c));
  return c;}
 let chooserPick={};
@@ -1065,8 +1069,7 @@ function paint(c){
   if(cmd){
    if(p.names)s.textContent=shortName(cmd).split(" ")[0];
    else s.append(svg(toolIcon(cmd)));
-   if(isPie(cmd)){s.classList.add("door"); s.append(el("span","chev","\u203a"));
-    if(!pieLive(pieTarget(cmd)))s.classList.add("unbound");}
+   if(isPie(cmd)){s.classList.add("door"); s.append(el("span","chev","\u203a"));}
   }else{
    s.title="Empty slot \u2014 double-click to choose a tool";
    s.append(el("span","plus","+"));
@@ -1110,31 +1113,32 @@ function paint(c){
     document.addEventListener("mousemove",move);
     document.addEventListener("mouseup",up);};}
   c.append(s); return s;};
- /* Each slot resolves against the current selection: nothing matching greys it
-    out, several matching offers a chooser on hover. */
+ /* The editor DOCUMENTS the pie; it never simulates it. Every binding is
+    printed beside its slot with its rule, so the whole conditional structure
+    is on screen at once -- nothing morphs when the selection changes. What a
+    slot resolves to under a given selection is the playground's job. */
  p.items.forEach((_,i)=>{
-  const eff=effectiveSlot(p,i), sl=eff.slot, hits=matches(sl);
-  const cls=[];
-  if(sl&&!hits.length)cls.push("unbound");
-  if(hits.length>1)cls.push("multi");
-  const pick=hits.length?hits[Math.min(chooserPick[i]||0,hits.length-1)].cmd:null;
-  const node=mk(sl?(pick||sl.b[0].cmd):null,i,cx+pos[i][0],cy+pos[i][1],p.button,cls.join(" "));
-  if(sl){
-   node.title=(pick?shortName(pick):"nothing here applies to this selection")
-
-    +(hits.length>1?"  \u00b7 "+hits.length+" apply, hover to choose":"")
-    +"\n"+sl.b.map(b=>ruleText(b.rule)+" \u2192 "+shortName(b.cmd)).join("\n");
-   if(hits.length>1)node.onmouseenter=()=>showChooser(c,node,i,hits);
-  }});
- const seen=[];
- if(c.querySelector(".slot.unbound"))seen.push(["un","nothing applies to this selection"]);
- if(c.querySelector(".slot.multi"))seen.push(["mu","several apply — hover to choose"]);
- if(seen.length){
-  const lg=el("div","plegend");
-  seen.forEach(([k,label])=>{const e2=el("span");
-   e2.innerHTML='<i class="'+k+'"></i>'+label; lg.append(e2);});
-  c.append(lg);
- }
+  const eff=effectiveSlot(p,i), sl=eff.slot;
+  const node=mk(sl?sl.b[0].cmd:null,i,cx+pos[i][0],cy+pos[i][1],p.button,"");
+  if(!sl)return;
+  node.title=sl.b.map(b=>ruleText(b.rule)+" \u2192 "+shortName(b.cmd)).join("\n");
+  const simple=sl.b.length===1&&!Object.keys(sl.b[0].rule).length;
+  const ann=el("div","ann"+(simple?" simple":""));
+  sl.b.forEach(b=>{
+   const rw=el("div","abind");
+   rw.append(svg(toolIcon(b.cmd),"mini"),el("span","an",shortName(b.cmd)));
+   if(Object.keys(b.rule).length)rw.append(el("span","ar",ruleText(b.rule)));
+   ann.append(rw);
+  });
+  const r0=Math.hypot(pos[i][0],pos[i][1])||1;
+  const ux=pos[i][0]/r0, uy=pos[i][1]/r0;
+  ann.style.left=(cx+pos[i][0]+ux*(p.button/2+7))+"px";
+  ann.style.top =(cy+pos[i][1]+uy*(p.button/2+7))+"px";
+  const tx=ux>0.35?"0":(ux<-0.35?"-100%":"-50%");
+  const ty=uy>0.35?"0":(uy<-0.35?"-100%":"-50%");
+  ann.style.transform="translate("+tx+","+ty+")";
+  c.append(ann);
+ });
  const inner=el("div","slot centre"),isz=Math.max(24,Math.round(p.button*0.72));
  inner.style.cssText=`left:${cx-isz/2}px;top:${cy-isz/2}px;width:${isz}px;height:${isz}px`;
  inner.title="QuickMenu — switch pie, open preferences";

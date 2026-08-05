@@ -63,6 +63,20 @@ conditions it actually cares about, and unrelated slots stay silent.
 - Anything already built that splits a pie per selection should be treated as a
   mistake and folded back into one pie with conditional slots.
 
+## Design decision — the editor documents, the playground resolves
+
+The editor preview no longer simulates a selection. Buttons never morph: every
+slot prints its **whole binding list beside it** — icon, command, rule — boxed
+when conditional, a dim plain label when it is a single always-binding. The
+entire conditional structure of a pie is on screen at once, the same union-view
+principle as the pie map and the shortcuts table.
+
+Resolution — greying, the chooser between several matching bindings (#19), door
+rings going dead — happens **only in the playground**, against the selection you
+actually built there. Consequence: the preview's "preview with a face selected"
+right-click presets (#24) are gone; they belonged to the simulator that no
+longer exists.
+
 ## Sub-pies — a pie is just a command
 
 Slots that open pies already exist: the addon registers every pie as an ordinary
