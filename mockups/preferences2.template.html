@@ -283,6 +283,16 @@ body{display:flex;align-items:flex-start}
 .main{flex:1;min-width:0}
 .new{color:#b8bb26}.fix{color:#fabd2f}.perf{color:#83a598}.int{color:#a89984}.ui{color:#d3869b}
 /* v2: six-axis rules + sub-pies-as-commands */
+.have{margin-bottom:8px;border-bottom:1px solid var(--line);padding-bottom:6px}
+.haverow{display:flex;gap:6px;align-items:center;padding:2px 0;font-size:12px}
+.mini{width:13px;height:13px;display:inline-block;vertical-align:-2px;flex:0 0 13px}
+input[type="range"]{accent-color:var(--hi);height:18px;min-width:0}
+.anchorgrid{display:grid;grid-template-columns:repeat(3,22px);gap:2px}
+.abtn{height:20px;background:var(--btn);border:1px solid var(--line);border-radius:2px;
+color:var(--dim);cursor:pointer;font-size:9px;padding:0}
+.abtn:hover:not(.on):not(.blank){background:var(--btnhi)}
+.abtn.on{background:var(--hi);color:var(--hitext)}
+.abtn.blank{visibility:hidden}
 /* clean-pie markers: the data lives in the Slots table */
 .slot .bn{position:absolute;right:-5px;top:-5px;min-width:14px;height:14px;line-height:14px;
 border-radius:7px;background:var(--hi);color:var(--hitext);font-size:9.5px;text-align:center;
@@ -446,7 +456,6 @@ const CATALOG={
  "Sketcher":["Sketcher_NewSketch","Sketcher_EditSketch","Sketcher_Line","Sketcher_Circle","Sketcher_Arc","Sketcher_Rectangle","Sketcher_Polyline","Sketcher_Trimming","Sketcher_ConstrainDistance"],
  "Part":["Part_Box","Part_Cylinder","Part_Sphere","Part_Cone","Part_Cut","Part_Fuse","Part_Common","Part_Extrude"],
  "Assembly":["Assembly_CreateAssembly","Assembly_InsertLink","Assembly_SolveAssembly"],
- "PieMenus":["PieMenu_Sketcher","PieMenu_PartDesign","PieMenu_View"],
 };
 const AXES=["Vertex","Edge","Face","Object","Axis","Plane"];
 const SIGNS=["<","<=","==","!=",">",">="];
@@ -578,6 +587,7 @@ const S={pies:[
 ], cur:0,
  /* the current selection, as counts per axis -- "2 faces + 1 edge" is real */
  counts:{Face:1},
+ behav:{quick:true,globalCtx:false,toggle:true,rclick:true},
  /* Shortcuts are scoped by workbench. ANY holds the context-less bindings and,
     following AutoHotkey's rule, is the LOWEST priority: it answers only when
     the active workbench has no binding of its own for that key. Two levels
@@ -692,43 +702,93 @@ const pieMove=d=>{const i=S.cur,j=i+d; if(j<0||j>=S.pies.length)return;
  [S.pies[i],S.pies[j]]=[S.pies[j],S.pies[i]]; S.cur=j; render();};
 
 /* the global tool list, folded by workbench -- reached by double-clicking a slot */
+/* the global tool list: searchable, folded by workbench, and the door picker
+   too -- the "Pie menus" group is generated from the live pie list */
 function chooseTool(idx,bindingIdx){
- const box=el("div","picker"); box.style.minWidth="430px";
- let chosen=null; const open={};
+ const p0=pie(); normalise(p0);
+ const sl0=p0.items[idx];
+ const ex=(bindingIdx!=null&&sl0)?sl0.b[bindingIdx]:null;
+ let chosen=ex?ex.cmd:null, q="";
+ const rule=ex?cloneRule(ex.rule):{};
+ const open={};
+ const groups=()=>{
+  const g={...CATALOG};
+  g["Pie menus"]=S.pies.filter(x=>x!==p0).map(x=>"PieMenu_"+x.name);
+  return g;};
+
+ const wrap=el("div");
+ /* what the slot already holds, so adding reads as appending to a list */
+ if(sl0&&sl0.b.length&&bindingIdx==null){
+  const have=el("div","have");
+  have.append(el("div","hint2","Already in slot "+(idx+1)+":"));
+  sl0.b.forEach(b=>{
+   const r=el("div","haverow");
+   r.append(svg(toolIcon(b.cmd),"mini"),el("span","name",shortName(b.cmd)),
+            el("span","cond",ruleText(b.rule)));
+   have.append(r);});
+  wrap.append(have);
+ }
+
+ const search=el("input"); search.type="text";
+ search.placeholder="Search every workbench\u2026";
+ search.style.cssText="width:100%;margin-bottom:6px";
+ const box=el("div","picker");
+ box.style.cssText="min-width:460px;max-height:290px;overflow:auto";
+
  const draw=()=>{box.innerHTML="";
-  Object.entries(CATALOG).forEach(([wb,cmds])=>{
-   const h=el("div","row grp");
-   h.append(el("span","tw",open[wb]?"\u25be":"\u25b8"),el("span","name",wb),el("span","tag",cmds.length+""));
-   h.onclick=()=>{open[wb]=!open[wb]; draw();};
+  const qq=q.trim().toLowerCase();
+  Object.entries(groups()).forEach(([wb,cmds])=>{
+   const hits=qq?cmds.filter(c=>shortName(c).toLowerCase().includes(qq)
+     ||c.toLowerCase().includes(qq)):cmds;
+   if(!hits.length)return;
+   const expanded=qq?true:!!open[wb];
+   const h=el("div","row wbh");
+   h.append(el("span","tw",expanded?"\u25be":"\u25b8"),el("span","name",wb),
+            el("span","pcount",String(hits.length)));
+   if(!qq)h.onclick=()=>{open[wb]=!open[wb]; draw();};
    box.append(h);
-   if(!open[wb])return;
-   cmds.forEach(c=>{
+   if(!expanded)return;
+   hits.forEach(c=>{
     const r=el("div","row child2"+(chosen===c?" sel":""));
     r.append(svg(toolIcon(c)),el("span","name",shortName(c)));
-    r.onclick=()=>{chosen=c; draw();};
+    r.onclick=()=>{chosen=c; draw(); syncPick();};
     r.ondblclick=()=>{chosen=c; m.ok.click();};
-    box.append(r);});});};
- draw();
- const p0=pie(),ex=(bindingIdx!=null&&p0.items[idx])?p0.items[idx].b[bindingIdx]:null;
- const rule=ex?cloneRule(ex.rule):{};
- const wrap=el("div"); wrap.append(box);
+    box.append(r);});
+  });
+  if(!box.children.length)box.append(el("div","empt","Nothing matches \u201c"+q+"\u201d."));
+ };
+ search.oninput=()=>{q=search.value; draw();};
+ wrap.append(search,box);
+
+ /* the whole decision, echoed before committing it -- defined before
+    ruleField, whose constructor fires onChange once immediately */
+ const pickLine=el("div","hint2");
+ const syncPick=()=>{pickLine.innerHTML="";
+  if(!chosen){pickLine.textContent="Pick a tool or a pie above."; return;}
+  pickLine.append(el("span",null,(bindingIdx!=null?"Replacing with:  ":"Adding:  ")));
+  pickLine.append(svg(toolIcon(chosen),"mini"));
+  pickLine.append(el("span",null," "+shortName(chosen)+" \u2014 "+ruleText(rule)));};
  const f=el("div","form"); f.style.marginTop="10px";
- f.append(el("label",null,"Applies when:"),ruleField(rule));
- wrap.append(f);
- const m=modal("Tool for slot "+(idx+1),wrap,()=>{
+ f.append(el("label",null,"Applies when:"),ruleField(rule,syncPick));
+ wrap.append(f,pickLine);
+
+ const m=modal((bindingIdx!=null?"Replace in slot ":"Add to slot ")
+   +(idx+1)+" of "+p0.name,wrap,()=>{
   if(chosen==null)return false;
   const p=pie(); normalise(p);
   if(!p.items[idx])p.items[idx]=slot([]);
   const b={cmd:chosen,rule:cloneRule(rule)};
   if(bindingIdx==null)p.items[idx].b.push(b); else p.items[idx].b[bindingIdx]=b;
-  p.sel=idx;},"Use tool");
+  p.sel=idx;},"Use it");
+ draw(); syncPick();
+ setTimeout(()=>search.focus(),0);
 }
 const clearSlot=i=>{const p=pie(); p.items[i]=null; render();};
 /* The contexts of whichever slot is selected, as a column of its own. Selecting
    a slot in the preview retargets it, so there is no dialog to open or dismiss. */
 /* Presets in front, the six raw axes behind Custom -- only the axes a rule
    actually constrains are shown, so most rules read as one line. */
-function ruleField(rule){
+function ruleField(rule,onChange){
  const w=el("div"),pick=el("select"),rows=el("div");
  rows.style.marginTop="6px";
  PRESETS.forEach(([label],i)=>{const o=el("option",null,label); o.value=String(i); pick.append(o);});
@@ -760,6 +820,7 @@ function ruleField(rule){
   pick.value=i>-1?String(i):"c";
   rows.style.display=i>-1?"none":"";
   drawRows();
+  if(onChange)onChange();
  };
  pick.onchange=()=>{
   if(pick.value==="c"){if(!Object.keys(rule).length)rule.Face=[">=",1];}
@@ -983,13 +1044,22 @@ function shortcutsTableEl(){
   const tr=el("tr");
   const kc=el("td","k");
   kc.append(keyCapsEl(k));
-  kc.title="click to record a different key";
-  kc.onclick=()=>captureKey(k,v=>{
+  kc.title="click to record a different key \u00b7 right-click to remove it";
+  const recap=()=>captureKey(k,v=>{
    if(!v||S.keys.includes(v))return;
    S.keys[S.keys.indexOf(k)]=v;
    Object.keys(S.binds).forEach(sc=>{if(S.binds[sc][k]!==undefined){
     S.binds[sc][v]=S.binds[sc][k]; delete S.binds[sc][k];}});
    render();});
+  kc.onclick=recap;
+  kc.oncontextmenu=e=>ctxMenu(e,[
+   [uiIcon("PieMenuRename"),"Record a different key\u2026",recap],
+   "-",
+   [uiIcon("PieMenuRemove"),"Remove key "+k+" \u2014 every workbench",()=>{
+    S.keys.splice(S.keys.indexOf(k),1);
+    Object.keys(S.binds).forEach(sc=>{delete S.binds[sc][k];});
+    render();}],
+  ]);
   tr.append(kc);
 
   cols.forEach(w=>{
@@ -1130,8 +1200,30 @@ function paint(c){
  const inner=el("div","slot centre"),isz=Math.max(24,Math.round(p.button*0.72));
  inner.style.cssText=`left:${cx-isz/2}px;top:${cy-isz/2}px;width:${isz}px;height:${isz}px`;
  inner.title="QuickMenu — switch pie, open preferences";
- inner.append(svg(uiIcon("PieMenuEditMenu"))); c.append(inner);}
+ inner.append(svg(uiIcon("PieMenuEditMenu"))); if(S.behav.quick)c.append(inner);}
 
+/* repaint just the canvas while a slider drags -- a full render would destroy
+   the slider mid-drag */
+const livePaint=()=>{const c=document.querySelector("#body .canvas"); if(c)paint(c);};
+const sliderNum=(v,on,mn,mx)=>{
+ const w=el("div"); w.style.cssText="display:flex;gap:6px;align-items:center;min-width:0";
+ const sl=el("input"); sl.type="range"; sl.min=mn; sl.max=mx; sl.value=v; sl.style.flex="1";
+ const n=el("input"); n.type="number"; n.min=mn; n.max=mx; n.value=v; n.style.width="52px";
+ sl.oninput=()=>{n.value=sl.value; on(+sl.value); livePaint();};
+ n.onchange=()=>{sl.value=n.value; on(+n.value); render();};
+ w.append(sl,n); return w;};
+/* where the block sits, relative to the cursor -- five buttons beat a dropdown */
+const anchorPick=(v,on)=>{
+ const g=el("div","anchorgrid");
+ const side={Top:"above",Bottom:"below",Left:"left of",Right:"right of",Center:"centred on"};
+ const glyph={Top:"\u25b2",Bottom:"\u25bc",Left:"\u25c0",Right:"\u25b6",Center:"\u25cf"};
+ [[null,"Top",null],["Left","Center","Right"],[null,"Bottom",null]].flat().forEach(a=>{
+  const b=el("button","abtn"+(a?"":" blank")+(a===v?" on":""),a?glyph[a]:"");
+  if(a){b.title="the block sits "+side[a]+" the cursor";
+   b.onclick=()=>{on(a); render();};}
+  else b.disabled=true;
+  g.append(b);});
+ return g;};
 const comboNum=(v,presets,on,mn,mx)=>{
  const wrap=el("div"); wrap.style.cssText="display:flex;gap:4px;min-width:0";
  const id="dl"+Math.abs(presets.join("").length*31+v);
@@ -1173,6 +1265,10 @@ const HELP={
  "Run on":"How a tool fires once the pie is open. Release is the marking-menu gesture: flick and let go without ever stopping.",
  "Delay":"Milliseconds to wait before a hold counts as a hold, or before hovering fires a tool.",
    "Command names":"Write each tool's name in its slot instead of showing only its icon.",
+ "Show QuickMenu":"The QuickMenu is the small button at the centre of every pie. It opens a utility menu (preferences, the tool list) without leaving the pie. Off hides the centre button everywhere.",
+ "Global context":"Legacy from the current addon: watches the selection and auto-opens the pie whose context rule matches. Under the new model conditions belong to slots, so how auto-opening returns is an open question \u2014 kept as a placeholder.",
+ "Toggle show/hide":"Pressing a pie's shortcut while it is already open closes it. Off means the key only ever opens \u2014 pressing again just reopens at the cursor.",
+ "Long right-click to open":"Hold the right mouse button for a beat and the pie for the current workbench opens at the cursor. Try it in the playground.",
 };
 let helpTimer=null,helpBox=null;
 const hideHelp=()=>{if(helpTimer){clearTimeout(helpTimer); helpTimer=null;}
@@ -1222,22 +1318,30 @@ function build(){
  const c3=el("div","col"); c3.style.width="252px";
  const set=el("div","setbody");
  const rows=[["Family:",sel(p.family,["circle","grid"],v=>{p.family=v; normalise(p);})]];
- if(p.family==="circle")rows.push(
-  ["Slots:",num(p.slots,v=>{p.slots=v; normalise(p);},1,24)],
-  ["Per ring:",num(p.perRing,v=>p.perRing=v,1,24)],
-  ["Radius:",num(p.radius,v=>p.radius=v,20,300)],
-  ["Arc:",comboNum(p.arc,[[360,"360 full"],[270,"270"],[180,"180 half"],
-                          [120,"120"],[90,"90 quarter"],[60,"60"]],v=>p.arc=v,10,360)],
-  ["Facing:",comboNum(p.arcFace,[[-90,"up"],[0,"right"],[90,"down"],[180,"left"]],
-                      v=>p.arcFace=v,-180,360)],
-  ["Stagger:",check("alternate radius",p.stagger,v=>p.stagger=v)]);
- else rows.push(
+ if(p.family==="circle"){
+  const rings=Math.ceil(slotCount(p)/Math.max(1,p.perRing));
+  const perWrap=el("div"); perWrap.style.cssText="display:flex;gap:7px;align-items:center;min-width:0";
+  const pn=num(p.perRing,v=>p.perRing=v,1,24); pn.style.width="56px";
+  const rr=el("span",null,"\u2192 "+rings+" ring"+(rings>1?"s":""));
+  rr.style.cssText="color:var(--dim);font-size:11px;white-space:nowrap";
+  perWrap.append(pn,rr);
+  rows.push(
+   ["Slots:",num(p.slots,v=>{p.slots=v; normalise(p);},1,24)],
+   ["Per ring:",perWrap],
+   ["Radius:",sliderNum(p.radius,v=>p.radius=v,20,300)],
+   ["Arc:",comboNum(p.arc,[[360,"360 full"],[270,"270"],[180,"180 half"],
+                           [120,"120"],[90,"90 quarter"],[60,"60"]],v=>p.arc=v,10,360)],
+   ["Facing:",comboNum(p.arcFace,[[-90,"up"],[0,"right"],[90,"down"],[180,"left"]],
+                       v=>p.arcFace=v,-180,360)],
+   ["Stagger:",check("alternate radius",p.stagger,v=>p.stagger=v)]);
+ }else rows.push(
   ["Columns:",num(p.cols,v=>{p.cols=v; normalise(p);},1,10)],
   ["Rows:",num(p.rows,v=>{p.rows=v; normalise(p);},1,10)],
-  ["Anchor:",sel(p.anchor,["Center","Top","Bottom","Left","Right"],v=>p.anchor=v)],
+  ["Anchor:",anchorPick(p.anchor,v=>p.anchor=v)],
   ["Split:",check("either side of centre",p.split,v=>p.split=v)],
-  ["Offset:",num(p.radius,v=>p.radius=v,0,300)]);
- rows.push(["Button:",num(p.button,v=>p.button=v,16,96)],["Spacing:",num(p.spacing,v=>p.spacing=v,0,60)]);
+  ["Offset:",sliderNum(p.radius,v=>p.radius=v,0,300)]);
+ rows.push(["Button:",sliderNum(p.button,v=>p.button=v,16,96)],
+           ["Spacing:",sliderNum(p.spacing,v=>p.spacing=v,0,60)]);
  set.append(group("Layout",formGrid(rows)));
  set.append(group("Trigger",formGrid([
   ["Open on:",sel(p.openOn,["single","double","hold","double-hold"],v=>p.openOn=v)],
@@ -1286,8 +1390,11 @@ document.getElementById("btnPrefs").onclick=()=>{
  w.append(group("Appearance",formGrid([["Theme:",sel("Legacy",["Legacy","Dark","Light"],()=>{})]])));
 
  const beh=el("div");
- beh.append(check("Show QuickMenu",true,()=>{}),check("Global context",false,()=>{}),
-            check("Toggle show/hide",true,()=>{}),check("Long right-click to open",false,()=>{}));
+ beh.append(
+  attachHelp(check("Show QuickMenu",S.behav.quick,v=>S.behav.quick=v),"Show QuickMenu"),
+  attachHelp(check("Global context",S.behav.globalCtx,v=>S.behav.globalCtx=v),"Global context"),
+  attachHelp(check("Toggle show/hide",S.behav.toggle,v=>S.behav.toggle=v),"Toggle show/hide"),
+  attachHelp(check("Long right-click to open",S.behav.rclick,v=>S.behav.rclick=v),"Long right-click to open"));
  w.append(group("Behaviour",beh));
  const bk=el("div"); bk.style.cssText="display:flex;gap:6px";
  bk.append(el("button","btn","Export all settings…"),el("button","btn","Import all settings…"));
@@ -1400,7 +1507,7 @@ function openLivePie(x,y,openKey,forcePie){
  const centre=el("div","slot centre");
  centre.style.cssText=`left:${x-11}px;top:${y-11}px;width:22px;height:22px`;
  centre.append(svg(uiIcon("PieMenuEditMenu")));
- wrap.append(centre);
+ if(S.behav.quick)wrap.append(centre);
 
  const fire=(cmd,i,eff)=>{
   /* a pie is a command: firing it opens that pie at the same cursor spot,
@@ -1539,6 +1646,18 @@ function initPlayground(){
   const r=vp.getBoundingClientRect();
   mousePos={x:e.clientX-r.left,y:e.clientY-r.top};
   if(gestureOn)updateGesture();});
+ /* long right-click: hold RMB for a beat and the workbench's pie opens */
+ vp.addEventListener("contextmenu",e=>{if(S.behav.rclick)e.preventDefault();});
+ let rTimer=null;
+ vp.addEventListener("mousedown",e=>{
+  if(e.button!==2||!S.behav.rclick)return;
+  const r=vp.getBoundingClientRect(), rx=e.clientX-r.left, ry=e.clientY-r.top;
+  rTimer=setTimeout(()=>{rTimer=null;
+   const k=S.keys.find(k2=>pieForKey(k2)); if(!k)return;
+   mousePos={x:rx,y:ry};
+   openLivePie(rx,ry,k);},350);});
+ ["mouseup","mouseleave"].forEach(ev=>vp.addEventListener(ev,()=>{
+  if(rTimer){clearTimeout(rTimer); rTimer=null;}}));
  let lastTap=0, lastKey=null, heldKey=null;
  const openHere=k=>openLivePie(mousePos.x,mousePos.y,k);
  vp.addEventListener("keydown",e=>{
@@ -1549,7 +1668,8 @@ function initPlayground(){
   const p=hit.pie, now=Date.now(), isDouble=(now-lastTap)<350&&lastKey===e.key;
   lastTap=now; lastKey=e.key; heldKey=e.key;
 
-  if(p.openOn==="single"){ livePie?closeLivePie("closed"):openHere(e.key); }
+  if(p.openOn==="single"){
+   livePie?(S.behav.toggle?closeLivePie("closed \u2014 toggle"):openHere(e.key)):openHere(e.key); }
   else if(p.openOn==="double"){ if(isDouble)openHere(e.key);
     else logLine(uiIcon("PieMenuBlank"),"one tap \u2014 tap again to open <i>(double)</i>"); }
   else if(p.openOn==="hold"){ gestureOn=true; openHere(e.key); updateGesture(); }

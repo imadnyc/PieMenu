@@ -28,6 +28,10 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 25 | Arc: free number plus presets, and a facing angle | Arc should be typeable as well as pickable, and needs a direction: a 90° arc must be able to face up, down, left or right rather than always starting from the top. |
 | 24 | Selection chips do not belong on the preview | Previewing against a selection is an occasional action, so it goes in the preview's right-click menu rather than sitting permanently across the top of it. |
 | 21 | A playground under the dialog | A rudimentary viewport: pick a vertex, edge, face or body on a solid, open the pie, and watch which tool each slot resolves to and what firing it does. |
+| 31 | Tool picker: search, recap, live pies as targets | A search box filters every workbench flat; the slot's current bindings are shown while adding; the "Pie menus" group is generated from the live pie list (the stale hardcoded names are gone); the chosen tool + rule are echoed above OK. |
+| 32 | Behaviour toggles explained and wired | Hover-help on all four. Show QuickMenu hides/shows the centre button; Toggle show/hide governs close-on-second-press; Long right-click opens the workbench's pie in the playground (hold RMB ~350ms). Global context stays a placeholder — legacy auto-open-on-selection, an open question under the new model. |
+| 33 | Layout knobs: sliders, ring readout, anchor cross | Radius/Button/Spacing/Offset are slider+number (drag repaints the pie live); Per ring shows the resulting ring count; grid Anchor is a five-button direction cross instead of a dropdown. |
+| 34 | Shortcut rows are deletable | Right-click a keycap in the shortcuts table: record a different key, or remove the key from every workbench at once. |
 | 15 | Dragging must be visible on the pie itself | The dragged tool should follow the cursor on the preview and the landing slot should be indicated, rather than only updating on drop. |
 
 ## Critical design decision — contexts belong to slots, not to shortcuts
