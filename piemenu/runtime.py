@@ -512,8 +512,10 @@ class Runtime:
             try:
                 self.gui.addCommand(model.PIE_PREFIX + name, _PieCommand(name))
                 self._registered.add(name)
-            except Exception:  # noqa: BLE001, S110 -- re-registration is benign
-                pass
+            except Exception as exc:  # noqa: BLE001 -- re-registration is benign
+                if App is not None:
+                    App.Console.PrintWarning(
+                        f"PieMenu: addCommand {name} failed: {exc}\n")
 
     # -- resolution
 

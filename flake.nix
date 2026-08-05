@@ -27,6 +27,7 @@
       };
       pm-launch = mkWrapper "pm-launch" [ freecad ];
       pm-smoke = mkWrapper "pm-smoke" [ freecad ];
+      pm-e2e = mkWrapper "pm-e2e" [ freecad ];
       # pm-watch reuses pm-launch: entr -rd restarts it whenever a .py file changes.
       pm-watch = mkWrapper "pm-watch" [ pkgs.entr pkgs.findutils pm-launch ];
     in {
@@ -38,12 +39,14 @@
           pm-launch
           pm-watch
           pm-smoke
+          pm-e2e
         ];
         shellHook = ''
           echo "PieMenu dev shell (freecad: $(command -v freecad))"
           echo "  pm-watch    auto-relaunch FreeCAD on any .py change   <- the fast loop"
           echo "  pm-launch   isolated FreeCAD GUI, this repo as addon (throwaway config)"
           echo "  pm-smoke    headless smoke test -> SMOKE-PASS"
+          echo "  pm-e2e      offscreen GUI end-to-end -> E2E-PASS"
           echo "  ruff check . ; python -m py_compile InitGui.py"
           echo "  scratch config: ''${PIEMENU_DEV:-/tmp/piemenu-dev}  (rm -rf to reset)"
         '';
@@ -53,6 +56,7 @@
         launch  = { type = "app"; program = "${pm-launch}/bin/pm-launch"; };
         watch   = { type = "app"; program = "${pm-watch}/bin/pm-watch"; };
         smoke   = { type = "app"; program = "${pm-smoke}/bin/pm-smoke"; };
+        e2e     = { type = "app"; program = "${pm-e2e}/bin/pm-e2e"; };
         default = self.apps.${system}.watch;
       };
     };
