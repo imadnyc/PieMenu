@@ -115,7 +115,13 @@ box-shadow:0 8px 22px rgba(0,0,0,.5);padding:3px;min-width:200px}
 .log .e b{color:var(--hi);font-weight:600}
 .log .e span:not(.t){flex:1;min-width:0}
 .log .e span.t{color:var(--dim);font-size:11px;margin-left:auto}/* ---- sub-pie demo ------------------------------------------------------- */
-body{display:block}
+/* these two were dropped by the CSS extractor (it matched "body{" against a
+   selector that has no brace), which is why this page rendered transparent and
+   in Times New Roman */
+*{box-sizing:border-box}
+html{background:#232120}
+body{margin:0;background:#232120;color:var(--text);display:block;min-height:100vh;
+font:13px/1.35 "Segoe UI","Noto Sans","DejaVu Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1220px;margin:0 auto;padding:12px}
 .lede{color:var(--dim);font-size:12px;line-height:1.55;margin:0 0 10px;
 background:var(--base);border:1px solid var(--line);border-left:3px solid var(--hi);
