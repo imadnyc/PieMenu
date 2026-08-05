@@ -1,0 +1,1579 @@
+<meta charset="utf-8">
+<title>PieMenu preferences — mockup v2 (rules + sub-pies)</title>
+<style>
+:root{--win:#3c3836;--base:#32302f;--alt:#3a3735;--text:#ebdbb2;--dim:#a89984;
+--btn:#504945;--btnhi:#5c5449;--line:#5a534c;--hi:#d3869b;--hitext:#282828;
+--canvas:#282828;--slot:#504945;--slotline:#7c6f64;--warn:#fabd2f;--empty:#4a443f}
+*{box-sizing:border-box}
+body{margin:0;background:#232120;color:var(--text);
+font:13px/1.35 "Segoe UI","Noto Sans","DejaVu Sans",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.topbar{display:flex;gap:14px;align-items:center;padding:9px 14px;background:#2b2928;border-bottom:1px solid #1d1b1a;flex-wrap:wrap}
+.topbar h1{font-size:13px;font-weight:600;margin:0;color:var(--dim)}
+.hint{color:var(--dim);font-size:12px}
+.dialog{margin:16px auto;width:1310px;max-width:calc(100% - 24px);background:var(--win);
+border:1px solid #1d1b1a;border-radius:4px;
+box-shadow:0 10px 34px rgba(0,0,0,.5);display:flex;flex-direction:column}
+.body{display:flex;flex-direction:column;gap:8px;padding:8px;height:760px}
+.brow{display:flex;gap:8px;flex:1;min-height:0}
+/* the table is as tall as its rows need; the editor above takes the rest */
+.bshort{flex:0 0 272px;display:flex;flex-direction:column;min-height:0}
+/* the slot's contexts, edited in place beside the preview rather than in a modal */
+.slothead{padding:6px 8px 5px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11px;
+flex:0 0 auto;background:var(--win)}
+.slothead b{color:var(--text);font-weight:600}
+.empt{padding:14px 10px;color:var(--dim);font-size:12px;line-height:1.5}
+/* shortcuts: scope-first key rows, and the cross-workbench grid */
+span.ro{color:var(--text);font-size:12px;align-self:center}
+.krow{display:flex;align-items:center;gap:7px;padding:4px 8px;border-bottom:1px solid #3a3735}
+.krow .kcap{width:30px;flex:0 0 30px;text-align:center;background:var(--btn);
+border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;
+padding:1px 0;font-size:11px;font-family:ui-monospace,monospace}
+.krow.inherit .kcap{background:transparent;border-style:dashed;border-bottom-width:1px;color:var(--dim)}
+.krow .kpie{flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.krow .kpie:hover{color:var(--hi);text-decoration:underline}
+.krow.inherit .kpie{color:var(--dim);font-style:italic}
+.krow .from{color:var(--dim);font-size:10px;white-space:nowrap;flex:0 0 auto;
+border:1px solid var(--empty);border-radius:2px;padding:0 4px}
+.gwrap{overflow:auto;background:var(--base);flex:1;min-height:0}
+table.g{border-collapse:separate;border-spacing:0;font-size:12px}
+table.g th,table.g td{border-right:1px solid #3a3735;border-bottom:1px solid #3a3735;
+padding:5px 9px;text-align:left;white-space:nowrap;background:var(--base)}
+table.g th{background:var(--win);position:sticky;top:0;z-index:2;font-weight:600}
+table.g th .wh{display:flex;align-items:center;gap:6px}
+table.g th .wi{width:14px;height:14px;flex:0 0 14px;opacity:.75}
+table.g th .wn{color:var(--text);font-size:12px;overflow:hidden;text-overflow:ellipsis}
+table.g th,table.g td{min-width:124px}
+/* the key column and the base column stay put while the rest scrolls */
+table.g th.kh,table.g td.k{position:sticky;left:0;z-index:3;width:52px;min-width:52px;
+background:var(--win);text-align:center}
+table.g th.kh{z-index:4;color:var(--dim);font-size:11px}
+table.g th.base,table.g td.base{position:sticky;left:52px;z-index:3;
+border-right:2px solid var(--line)}
+table.g th.base{z-index:4}
+table.g td.base{background:#2e2b29}
+table.g th.kh,table.g td.k{width:118px;min-width:118px}
+table.g td.k{cursor:pointer}
+.combo{display:inline-flex;align-items:center;gap:2px}
+.combo .cap{display:inline-block;min-width:18px;padding:1px 5px;background:var(--btn);
+border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;
+font-family:ui-monospace,monospace;font-size:11px;color:var(--text);text-align:center}
+.combo .plus{color:var(--dim);font-size:10px}
+
+table.g td.inh{color:var(--dim);font-style:italic}
+table.g td.none{color:var(--empty)}
+table.g th.on .wn{color:var(--hi)}
+table.g th.on{box-shadow:inset 0 2px 0 var(--hi)}
+table.g td.on{background:#38322f}
+table.g td.on.base{background:#332f2c}
+table.g td:not(.k){cursor:pointer}
+table.g td:not(.k):hover{outline:1px solid var(--hi);outline-offset:-1px}
+/* the settings column is a panel like the others, so it can say whose settings
+   these are rather than floating unlabelled beside the preview */
+.setbody{overflow-y:auto;padding:0 8px 8px;flex:1;min-height:0}
+/* hover help: what a setting means, and eventually a picture of it doing it */
+.help{position:fixed;z-index:60;width:252px;background:var(--base);border:1px solid var(--line);
+border-radius:3px;box-shadow:0 8px 22px rgba(0,0,0,.55);padding:8px 9px;pointer-events:none;font-size:12px}
+.help h5{margin:0 0 4px;font-size:12px;color:var(--text);font-weight:600}
+.help p{margin:0 0 8px;color:var(--dim);line-height:1.45}
+.help .shot{height:100px;border:1px dashed var(--empty);border-radius:2px;display:flex;
+align-items:center;justify-content:center;color:var(--empty);font-size:11px;
+background:var(--canvas);text-align:center;padding:0 8px}
+.col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+.panel{display:flex;flex-direction:column;min-height:0;flex:1;border:1px solid var(--line);
+border-radius:3px;overflow:hidden;background:var(--base)}
+.phead{display:flex;align-items:center;gap:6px;padding:3px 4px 3px 8px;background:var(--win);
+border-bottom:1px solid var(--line);flex:0 0 auto}
+.phead .ptitle{color:var(--dim);font-size:12px;font-weight:600;white-space:nowrap}
+.phead .pcount{color:var(--dim);font-size:11px;opacity:.7}
+.grow{flex:1}
+.pacts{display:flex;gap:1px;align-items:center}
+.list{background:var(--base);overflow:auto;min-height:0;flex:1}
+.row{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 3px;white-space:nowrap;overflow:hidden}
+.row:nth-child(even){background:var(--alt)}
+.row.sel{background:var(--hi);color:var(--hitext)}
+.row .name{overflow:hidden;text-overflow:ellipsis;flex:1}
+.row .tag{font-size:11px;color:var(--dim)}
+.row.sel .tag{color:var(--hitext)}
+.row.drag{opacity:.3}
+.row.over{box-shadow:inset 0 2px 0 var(--hi)}
+.row.dim .name{color:var(--dim)}
+.grip{display:flex;align-items:center;color:var(--dim);opacity:.45;cursor:grab;flex:0 0 auto}
+.row:hover .grip{opacity:.9}
+.row.sel .grip{opacity:.75;color:var(--hitext)}
+.grip{width:14px;height:14px}
+.grip svg{width:100%;height:100%;display:block}
+svg{max-width:100%;max-height:100%}
+.ico{display:flex;flex:0 0 auto;width:15px;height:15px}
+.ico svg{width:100%;height:100%;display:block}
+.tool{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--text);
+width:26px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.tool:hover{background:var(--btnhi)}
+.tool.sm{width:22px;height:20px;border-color:transparent;background:transparent}
+.tool:disabled{opacity:.3;cursor:default}
+.tool:disabled:hover{background:var(--btn)}
+.tool.sm:disabled:hover{background:transparent}
+.tool.sm:hover{background:var(--btnhi);border-color:var(--line)}
+.tool.sm.on{background:var(--hi);border-color:var(--hi)}
+.tool.sm .ico{width:13px;height:13px}
+.tool .ico{width:14px;height:14px}
+.tools{display:flex;gap:2px;padding-top:2px;align-items:center}
+.sep{width:1px;height:16px;background:var(--line);margin:0 3px}
+.form{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}
+.form label{text-align:right;white-space:nowrap}
+select,input[type=number],input[type=text]{background:var(--btn);color:var(--text);
+border:1px solid var(--line);border-radius:2px;padding:3px 5px;font:inherit;width:100%;min-width:0}
+.check{display:flex;align-items:center;gap:6px;padding:1px 0;cursor:pointer}
+.check input{accent-color:var(--hi)}
+.group{border:1px solid var(--line);border-radius:3px;padding:9px 8px 8px;position:relative;margin-top:9px}
+.group>.title{position:absolute;top:-8px;left:8px;background:var(--win);padding:0 5px;color:var(--dim);font-size:12px}
+.canvas{position:relative;background:var(--canvas);border:1px solid var(--line);border-radius:2px;
+overflow:hidden;min-height:0;flex:1}
+.canvas .lbl{position:absolute;top:6px;left:8px;color:#928374;font-size:12px;pointer-events:none}
+.slot{position:absolute;display:flex;align-items:center;justify-content:center;background:var(--slot);
+border:1px solid var(--slotline);border-radius:4px;cursor:grab;user-select:none;font-size:11px}
+.slot .ico{width:60%;height:60%}
+.slot.empty{background:transparent;border-style:dashed;border-color:var(--empty);cursor:pointer;color:var(--empty)}
+.slot.empty:hover{border-color:var(--hi);color:var(--hi)}
+.slot.sel{box-shadow:0 0 0 2px var(--hi)}
+.slot.dragging{opacity:.22}
+.slot.ghost{z-index:9;pointer-events:none;opacity:.95;box-shadow:0 5px 16px rgba(0,0,0,.6)}
+.slot.target{box-shadow:0 0 0 2px var(--hi)}
+.slot.off{opacity:.32;filter:grayscale(1)}
+.slot.pin,.slot.inherited{border-color:var(--slotline)}
+.pinmark{position:absolute;top:-4px;right:-4px;color:var(--text);pointer-events:none;
+ filter:drop-shadow(0 1px 2px rgba(0,0,0,.8))}
+.pinmark svg{width:11px;height:11px;display:block}
+.pinmark.inh{opacity:.5}
+.plus{font-size:14px;line-height:1}
+.slot{overflow:visible}
+.plegend{position:absolute;left:8px;bottom:6px;display:flex;gap:12px;flex-wrap:wrap;
+ color:#7c6f64;font-size:11px;pointer-events:none}
+.plegend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:4px;
+ border:1px solid var(--slotline);background:var(--slot);vertical-align:-1px}
+.plegend i.pin,.plegend i.inh{position:relative}
+.plegend i.un{opacity:.3;filter:grayscale(1)}
+.plegend i.mu{border-color:var(--hi)}
+.slot.inherited{border-style:dashed}
+.slot.multi::after{content:"";position:absolute;right:2px;bottom:2px;width:0;height:0;
+ border-left:5px solid transparent;border-bottom:5px solid var(--hi)}
+.slot.unbound{opacity:.28;filter:grayscale(1)}
+.chooser{position:absolute;z-index:12;display:flex;gap:3px;padding:3px;background:var(--win);
+ border:1px solid var(--hi);border-radius:4px;box-shadow:0 6px 18px rgba(0,0,0,.6)}
+.chooser .opt{width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+ background:var(--slot);border:1px solid var(--slotline);border-radius:3px;cursor:pointer}
+.chooser .opt.on{border-color:var(--hi);box-shadow:0 0 0 1px var(--hi)}
+.chooser .opt .ico{width:60%;height:60%}
+.selbar{position:absolute;top:6px;right:8px;display:flex;gap:3px;align-items:center;z-index:4}
+.selbar .lab{color:#928374;font-size:11px;margin-right:3px}
+.selchip{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--dim);
+ font-size:11px;padding:2px 7px;cursor:pointer}
+.selchip.on{background:var(--hi);border-color:var(--hi);color:var(--hitext)}
+.row.child2{padding-left:20px}
+.tw{width:12px;color:var(--dim);text-align:center;flex:0 0 auto;cursor:pointer}
+.slot.reg{border-color:var(--hi)}
+.slot.centre{border-radius:50%;background:#413b36;cursor:default;opacity:.85}
+.ring{position:absolute;border:1px solid #423c37;border-radius:50%;pointer-events:none}
+.footer{display:flex;gap:6px;padding:8px;border-top:1px solid var(--line)}
+.btn{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--text);
+padding:5px 14px;font:inherit;cursor:pointer}
+.btn:hover{background:var(--btnhi)}
+.btn.primary{background:var(--hi);color:var(--hitext);font-weight:600}
+.btn.tiny{padding:2px 8px;font-size:11px}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:var(--win);border:1px solid #1d1b1a;border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.6);min-width:380px}
+.modal h2{margin:0;padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line)}
+.modal .content{padding:14px}
+.modal .foot{display:flex;gap:6px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line)}
+.picker{max-height:320px;overflow:auto;border:1px solid var(--line);background:var(--base);border-radius:2px}
+.row.grp{background:var(--btn);font-weight:600;cursor:pointer}
+.row.grp .tw{width:12px;color:var(--dim);text-align:center}
+.row.child{padding-left:18px}
+.pop{position:absolute;z-index:60;background:var(--win);border:1px solid var(--line);border-radius:3px;
+box-shadow:0 8px 22px rgba(0,0,0,.5);padding:3px;min-width:200px}
+.pop .row{padding:5px 9px;border-radius:2px;cursor:pointer;gap:8px}
+.pop .row:hover{background:var(--btnhi)}
+.pop .row:nth-child(even){background:transparent}
+.pop .row.dim{opacity:.4;cursor:default}
+.popsep{height:1px;background:var(--line);margin:3px 6px}
+.note{width:1080px;margin:0 auto 18px;color:var(--dim);font-size:12px;line-height:1.65}
+.note b{color:var(--text)}
+.note code{background:#2b2928;padding:1px 4px;border-radius:2px;color:var(--text)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.legend span{display:flex;align-items:center;gap:5px}
+.sw{width:11px;height:11px;border-radius:2px;border:1px solid var(--slotline);background:var(--slot);display:inline-block}
+.sw.empty{background:transparent;border-style:dashed;border-color:var(--empty)}
+.sw.pin{border-color:var(--warn);border-style:dashed}
+.sw.off{opacity:.32;filter:grayscale(1)}
+.sw.reg{border-color:var(--hi)}
+.sw.pin{border-color:var(--warn);border-style:solid}
+.sheet{width:1080px;margin:0 auto 40px}
+.sheet h3{font-size:13px;color:var(--text);margin:0 0 8px}
+.sheet table{width:100%;border-collapse:collapse;font-size:12px;background:var(--win);
+border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.sheet th{background:var(--btn);color:var(--dim);text-align:left;padding:6px 9px;border-bottom:1px solid var(--line)}
+.sheet td{padding:6px 9px;border-bottom:1px solid #46403b;vertical-align:top}
+.sheet tr:last-child td{border-bottom:0}
+.sheet td:first-child{white-space:nowrap;font-weight:600}
+.sheet td:nth-child(3){color:var(--dim)}
+.play{width:1310px;max-width:calc(100% - 24px);margin:0 auto 26px}
+.play h3{font-size:13px;color:var(--text);margin:0 0 8px}
+.playrow{display:flex;gap:8px}
+.viewport{position:relative;flex:1;height:440px;background:#1f2223;border:1px solid var(--line);
+ border-radius:3px;display:flex;flex-direction:column;overflow:hidden}
+.vpmain{flex:1;display:flex;min-height:0}
+.viewport svg{flex:1;min-width:0}
+.mtree{width:132px;border-right:1px solid var(--line);background:#232627;padding:22px 0 0;overflow:auto}
+.mtree .n{display:flex;align-items:center;gap:5px;padding:3px 7px;cursor:pointer;font-size:12px;color:var(--dim);white-space:nowrap}
+.mtree .n:hover{background:#2b2f30}
+.mtree .n.on{background:var(--hi);color:var(--hitext)}
+.mtree .n .tw{width:10px;font-size:10px}
+.mtree .n .ico{width:13px;height:13px}
+.vplbl{position:absolute;top:6px;left:9px;color:#7c6f64;font-size:11px;pointer-events:none;z-index:1}
+.vpfoot{display:flex;gap:6px;align-items:center;padding:6px 8px;border-top:1px solid var(--line);
+ background:var(--win);font-size:12px;color:var(--dim)}
+.logbox{width:320px;height:440px;display:flex;flex-direction:column;border:1px solid var(--line);
+ border-radius:3px;overflow:hidden;background:var(--base)}
+/* min-height:0 is what actually lets this scroll -- a flex child grows to fit
+   its content otherwise, however it is told to overflow */
+.log{flex:1;min-height:0;overflow-y:auto;padding:4px;font-size:12px}
+.log .e{display:flex;gap:7px;padding:3px 5px;border-bottom:1px solid #3a3735;align-items:center}
+.log .e .ico{width:14px;height:14px}
+.log .e b{color:var(--hi);font-weight:600}
+.log .e span:not(.t){flex:1;min-width:0}
+.log .e span.t{color:var(--dim);font-size:11px;margin-left:auto}
+.hit{cursor:pointer}
+.face{fill:#3f4547;stroke:#5a6265;stroke-width:1}
+.face.on{fill:#6b4a55;stroke:var(--hi);stroke-width:1.5}
+.edge{stroke:#7d878a;stroke-width:2.5;fill:none}
+.edge.on{stroke:var(--hi);stroke-width:4}
+.vert{fill:#9aa4a7;stroke:#1f2223;stroke-width:1}
+.vert.on{fill:var(--hi);r:6}
+.bodyhit{fill:transparent}
+.livepie{position:absolute;z-index:20}
+.livepie .slot{cursor:pointer}
+body{display:flex;align-items:flex-start}
+.side{position:sticky;top:0;width:290px;flex:0 0 290px;height:100vh;overflow-y:auto;
+ background:#1e1c1b;border-right:1px solid #131211;padding:12px 10px 24px;position:sticky}
+.side.shut{width:30px;flex:0 0 30px;padding:10px 4px;overflow:hidden}
+.sidetog{position:absolute;top:8px;right:6px;width:18px;height:18px;padding:0;line-height:1;
+ background:transparent;border:1px solid var(--line);border-radius:2px;color:var(--dim);
+ cursor:pointer;font-size:11px}
+.sidetog:hover{color:var(--text);border-color:var(--slotline)}
+.side.shut .sidetog{right:auto;left:5px}
+.sidev{writing-mode:vertical-rl;margin-top:32px;color:#7c6f64;font-size:11px;
+ letter-spacing:.08em;white-space:nowrap}
+.side h2{font-size:12px;color:var(--text);margin:0 0 2px;letter-spacing:.02em}
+.side .sub{color:#7c6f64;font-size:11px;margin-bottom:10px}
+.side h4{font-size:11px;color:var(--dim);margin:14px 0 5px;text-transform:uppercase;letter-spacing:.06em}
+.pitem{display:flex;gap:7px;padding:5px 6px;border-radius:3px;font-size:12px;line-height:1.35;
+ border-left:2px solid transparent}
+.pitem:hover{background:#262423}
+.pitem .n{color:#7c6f64;font-variant-numeric:tabular-nums;flex:0 0 18px;text-align:right}
+.pitem .t{color:var(--text);flex:1;min-width:0}
+.pitem .t small{display:block;color:#7c6f64;font-size:10.5px;margin-top:1px}
+.pitem.shown{border-left-color:#b8bb26}
+.pitem.todo{border-left-color:var(--warn)}
+.pitem.super{border-left-color:#fb4934}
+.pitem.defer{border-left-color:#7c6f64}
+.st.d{background:#333;color:#a89984}
+.pitem .st{font-size:9.5px;padding:1px 4px;border-radius:2px;height:fit-content;white-space:nowrap}
+.st.a{background:#3a4020;color:#b8bb26}
+.st.b{background:#40371c;color:var(--warn)}
+.st.c{background:#402424;color:#fb4934}
+.main{flex:1;min-width:0}
+.new{color:#b8bb26}.fix{color:#fabd2f}.perf{color:#83a598}.int{color:#a89984}.ui{color:#d3869b}
+/* v2: six-axis rules + sub-pies-as-commands */
+.cond{margin-left:auto;color:var(--dim);font-size:11px;white-space:nowrap;padding-right:4px;cursor:pointer}
+.cond:hover{color:var(--hi)}
+.hint2{color:var(--dim);font-size:11px;margin-top:6px}
+.slot.door{border-radius:50%;border-width:2px;border-color:var(--hi)}
+.slot.door.unbound{border-color:var(--slotline)}
+.slot .chev{position:absolute;right:-4px;bottom:-4px;font-size:10px;color:var(--hi);
+background:var(--canvas);border-radius:50%;width:13px;height:13px;line-height:13px;text-align:center}
+.slot.unbound .chev{color:var(--slotline)}
+.badge{display:inline-block;padding:0 6px;border:1px solid var(--line);border-radius:8px;
+font-size:10px;color:var(--dim);white-space:nowrap;margin-left:4px;flex:0 0 auto}
+.row.link{opacity:.55}
+.row .rf{color:var(--dim);font-size:10px;margin-left:auto;flex:0 0 auto}
+</style>
+
+<div class="side" id="side"></div>
+<div class="main">
+<div class="topbar">
+  <h1>PieMenu preferences · v2 — real rules & sub-pies</h1>
+  <span class="hint">double-click a slot to choose a tool · right-click a slot for its options · drag a slot to move it · drag a pie by its grip to reorder</span>
+</div>
+
+<div class="dialog">
+  <div class="body" id="body"></div>
+  <div class="footer">
+    <button class="btn" id="btnAbout">About</button>
+    <button class="btn" id="btnPrefs">Preferences…</button>
+    <span class="grow"></span>
+    <button class="btn">Close</button>
+  </div>
+</div>
+
+<div class="play">
+  <h3>Playground — does it behave the way you expect?</h3>
+  <div class="playrow">
+    <div class="viewport" id="viewport">
+      <div class="vplbl">Click a vertex, edge or face on the solid, or <b>Body</b> in the tree. Then press a shortcut key here (<b>1</b> <b>2</b> <b>9</b> <b>0</b>), or click <b>Open pie</b>. Ctrl-click adds to the selection.</div>
+      <div class="vpmain">
+        <div class="mtree" id="mtree"></div>
+        <svg id="solid" viewBox="0 0 220 240"></svg>
+      </div>
+      <div class="vpfoot">
+        <span>workbench:</span>
+        <select id="wbPick" style="width:auto;min-width:118px"></select>
+        <span id="selnow">selection: nothing</span>
+        <span class="grow"></span>
+        <button class="btn" id="openPie">Open pie</button>
+        <button class="btn" id="clearSel">Clear selection</button>
+      </div>
+    </div>
+    <div class="logbox">
+      <div class="phead"><span class="ptitle">What happened</span>
+        <span class="pcount" id="logCount">0</span><span class="grow"></span>
+        <button class="btn tiny" id="clearLog" title="Empty the log">Clear log</button></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+
+</div>
+<script>
+const PLAN = __PLAN__;
+const ICONS = __ICONS__;            /* the addon's own SVGs, inlined as markup */
+
+/* Stand-ins for FreeCAD's per-command icons, which live in FreeCAD's compiled
+   resources rather than in this repository. */
+const G=d=>'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" '
+ +'stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>';
+const T={
+ new:G('<path d="M4 2.5h5l3 3v8h-8z"/><path d="M9 2.5v3h3"/>'),
+ open:G('<path d="M2.5 12.5v-8h4l1.5 2h5.5v6z"/>'),
+ save:G('<path d="M2.5 3.5h9l2 2v8h-11z"/><rect x="5" y="9" width="6" height="4.5"/>'),
+ undo:G('<path d="M3 8h7a3 3 0 0 1 0 6H7"/><path d="M5.5 5.5L3 8l2.5 2.5"/>'),
+ redo:G('<path d="M13 8H6a3 3 0 0 0 0 6h3"/><path d="M10.5 5.5L13 8l-2.5 2.5"/>'),
+ refresh:G('<path d="M13 8a5 5 0 1 1-1.6-3.7"/><path d="M13.5 2.5v3h-3"/>'),
+ cut:G('<circle cx="4.5" cy="12" r="1.6"/><circle cx="11.5" cy="12" r="1.6"/><path d="M5.6 10.9L12 2.5M10.4 10.9L4 2.5"/>'),
+ paste:G('<rect x="3.5" y="3" width="9" height="10.5" rx="1"/><path d="M6 3V1.8h4V3"/>'),
+ trash:G('<path d="M3.5 4.5h9M6 4.5V3h4v1.5M4.5 4.5l.7 9h5.6l.7-9"/>'),
+ fit:G('<rect x="2.5" y="3.5" width="11" height="9" rx="1"/><path d="M5.5 6.5h5v3h-5z"/>'),
+ front:G('<rect x="3.5" y="3.5" width="9" height="9"/>'),
+ top:G('<path d="M8 2.5l5.5 3-5.5 3-5.5-3z"/><path d="M2.5 5.5v5l5.5 3 5.5-3v-5"/>'),
+ right:G('<path d="M3.5 4l4-1.5 5 2.5v7l-5 1.5-4-2z"/>'),
+ axo:G('<path d="M8 2.5l5.5 3v5L8 13.5l-5.5-3v-5z"/><path d="M8 8.5l5.5-3M8 8.5v5M8 8.5l-5.5-3"/>'),
+ wire:G('<path d="M8 2.5l5.5 3v5L8 13.5l-5.5-3v-5z"/><path d="M2.5 5.5L8 8.5l5.5-3"/>'),
+ eye:G('<path d="M1.5 8S4 4 8 4s6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4z"/><circle cx="8" cy="8" r="1.8"/>'),
+ pad:G('<path d="M4 13.5V7l4-2 4 2v6.5z"/><path d="M8 5V1.5M6 3L8 1l2 2"/>'),
+ pocket:G('<path d="M3 3.5h10v9H3z"/><path d="M6 3.5v4h4v-4"/>'),
+ revolve:G('<ellipse cx="8" cy="4.5" rx="4.5" ry="2"/><path d="M3.5 4.5v7c0 1.1 2 2 4.5 2s4.5-.9 4.5-2v-7"/>'),
+ groove:G('<ellipse cx="8" cy="4.5" rx="4.5" ry="2"/><path d="M3.5 4.5v7M12.5 4.5v7"/>'),
+ fillet:G('<path d="M3 13V7a4 4 0 0 1 4-4h6"/><path d="M3 13h10"/>'),
+ chamfer:G('<path d="M3 13V7l4-4h6"/><path d="M3 13h10"/>'),
+ draft:G('<path d="M4 13L7 3h2l3 10z"/>'),
+ thick:G('<rect x="2.5" y="2.5" width="11" height="11" rx="1"/><rect x="5" y="5" width="6" height="6"/>'),
+ mirror:G('<path d="M8 1.5v13"/><path d="M6 4.5L2.5 8 6 11.5z"/><path d="M10 4.5L13.5 8 10 11.5z"/>'),
+ linpat:G('<rect x="2" y="6" width="3.2" height="3.2"/><rect x="6.4" y="6" width="3.2" height="3.2"/><rect x="10.8" y="6" width="3.2" height="3.2"/>'),
+ polpat:G('<circle cx="8" cy="8" r="5.2"/><rect x="6.6" y="1.4" width="2.8" height="2.8"/><rect x="11.8" y="6.6" width="2.8" height="2.8"/>'),
+ sketch:G('<path d="M2.5 13.5L5 7l6-4.5 2.5 2.5L9 11z"/>'),
+ line:G('<path d="M3 13L13 3"/><circle cx="3" cy="13" r="1.3"/><circle cx="13" cy="3" r="1.3"/>'),
+ circle:G('<circle cx="8" cy="8" r="5"/><circle cx="8" cy="8" r="1"/>'),
+ arc:G('<path d="M2.5 12a6 6 0 0 1 11-3"/><circle cx="2.5" cy="12" r="1.2"/>'),
+ rect:G('<rect x="2.5" y="4.5" width="11" height="7"/>'),
+ poly:G('<path d="M2.5 11L6 5l4 4 3.5-6"/>'),
+ trim:G('<path d="M2.5 8h4M9.5 8h4"/><path d="M6 5l4 6"/>'),
+ dim:G('<path d="M2.5 5v6M13.5 5v6M2.5 8h11"/>'),
+ box:G('<path d="M8 2l5.5 3v6L8 14l-5.5-3V5z"/><path d="M8 8l5.5-3M8 8v6M8 8L2.5 5"/>'),
+ cyl:G('<ellipse cx="8" cy="4" rx="4.5" ry="1.8"/><path d="M3.5 4v8c0 1 2 1.8 4.5 1.8s4.5-.8 4.5-1.8V4"/>'),
+ sphere:G('<circle cx="8" cy="8" r="5.4"/><ellipse cx="8" cy="8" rx="5.4" ry="2.2"/>'),
+ cone:G('<path d="M8 2l4.5 10H3.5z"/><ellipse cx="8" cy="12" rx="4.5" ry="1.6"/>'),
+ bool:G('<circle cx="6" cy="8" r="3.8"/><circle cx="10" cy="8" r="3.8"/>'),
+ extrude:G('<rect x="3" y="8" width="7" height="5"/><path d="M3 8l3-3h7v5l-3 3"/>'),
+ asm:G('<rect x="2" y="2.5" width="5.5" height="5.5"/><rect x="8.5" y="8" width="5.5" height="5.5"/>'),
+ link:G('<path d="M6.5 9.5a2.5 2.5 0 0 1 0-3.5l2-2a2.5 2.5 0 0 1 3.5 3.5l-1 1"/><path d="M9.5 6.5a2.5 2.5 0 0 1 0 3.5l-2 2a2.5 2.5 0 0 1-3.5-3.5l1-1"/>'),
+ solve:G('<circle cx="8" cy="8" r="2"/><path d="M8 1.5v2M8 12.5v2M1.5 8h2M12.5 8h2"/>'),
+ pin:G('<path d="M6 2.5h4l-.7 4 2.2 2.2H4.5L6.7 6.5z"/><path d="M8 8.7V13.5"/>'),
+ grip:'<svg viewBox="0 0 16 16" fill="currentColor">'
+  +'<circle cx="6" cy="3.5" r="1.15"/><circle cx="10" cy="3.5" r="1.15"/>'
+  +'<circle cx="6" cy="8" r="1.15"/><circle cx="10" cy="8" r="1.15"/>'
+  +'<circle cx="6" cy="12.5" r="1.15"/><circle cx="10" cy="12.5" r="1.15"/></svg>',
+ dot:G('<circle cx="8" cy="8" r="2.2"/>'),
+};
+const MAP={Std_New:"new",Std_Open:"open",Std_Save:"save",Std_Undo:"undo",Std_Redo:"redo",
+Std_Refresh:"refresh",Std_Cut:"cut",Std_Paste:"paste",Std_Delete:"trash",Std_ToggleVisibility:"eye",
+View_Fit:"fit",View_Front:"front",View_Top:"top",View_Right:"right",View_Axo:"axo",
+View_Wireframe:"wire",View_Shaded:"sphere",PartDesign_Pad:"pad",PartDesign_Pocket:"pocket",
+PartDesign_Revolution:"revolve",PartDesign_Groove:"groove",PartDesign_Fillet:"fillet",
+PartDesign_Chamfer:"chamfer",PartDesign_Draft:"draft",PartDesign_Thickness:"thick",
+PartDesign_Mirrored:"mirror",PartDesign_LinearPattern:"linpat",PartDesign_PolarPattern:"polpat",
+Sketcher_NewSketch:"sketch",Sketcher_EditSketch:"sketch",Sketcher_Line:"line",Sketcher_Circle:"circle",
+Sketcher_Arc:"arc",Sketcher_Rectangle:"rect",Sketcher_Polyline:"poly",Sketcher_Trimming:"trim",
+Sketcher_ConstrainDistance:"dim",Part_Box:"box",Part_Cylinder:"cyl",Part_Sphere:"sphere",
+Part_Cone:"cone",Part_Cut:"bool",Part_Fuse:"bool",Part_Common:"bool",Part_Extrude:"extrude",
+Assembly_CreateAssembly:"asm",Assembly_InsertLink:"link",Assembly_SolveAssembly:"solve"};
+const toolIcon=c=>c&&c.startsWith("PieMenu_")?ICONS.PieMenu_Logo:(T[MAP[c]]||T.dot);
+const uiIcon=n=>ICONS[n]||T.dot;
+
+const CATALOG={
+ "FreeCAD":["Std_New","Std_Open","Std_Save","Std_Undo","Std_Redo","Std_Refresh","Std_Cut","Std_Paste","Std_Delete"],
+ "View":["View_Fit","View_Front","View_Top","View_Right","View_Axo","View_Wireframe","View_Shaded","Std_ToggleVisibility"],
+ "PartDesign":["PartDesign_Pad","PartDesign_Pocket","PartDesign_Revolution","PartDesign_Groove","PartDesign_Fillet","PartDesign_Chamfer","PartDesign_Draft","PartDesign_Thickness","PartDesign_Mirrored","PartDesign_LinearPattern","PartDesign_PolarPattern"],
+ "Sketcher":["Sketcher_NewSketch","Sketcher_EditSketch","Sketcher_Line","Sketcher_Circle","Sketcher_Arc","Sketcher_Rectangle","Sketcher_Polyline","Sketcher_Trimming","Sketcher_ConstrainDistance"],
+ "Part":["Part_Box","Part_Cylinder","Part_Sphere","Part_Cone","Part_Cut","Part_Fuse","Part_Common","Part_Extrude"],
+ "Assembly":["Assembly_CreateAssembly","Assembly_InsertLink","Assembly_SolveAssembly"],
+ "PieMenus":["PieMenu_Sketcher","PieMenu_PartDesign","PieMenu_View"],
+};
+const AXES=["Vertex","Edge","Face","Object","Axis","Plane"];
+const SIGNS=["<","<=","==","!=",">",">="];
+const CORNERS=["TopLeft","TopRight","BottomLeft","BottomRight"];
+
+/* A slot is null, or a set of conditional bindings: {b:[{cmd, rule}]}.
+   A rule is the six-axis condition InitGui.py:matchesContext already
+   evaluates -- a sparse map of axis to [sign, value]; an axis the rule does
+   not name is "don't care". {Face:[">=",1],Edge:[">=",1]} is "a face and an
+   edge", {Face:[">=",2]} is "two or more faces". Which binding a slot shows
+   depends on the selection counts; none matching greys the slot, several
+   matching offers the chooser. */
+const OPS={"<":(a,b)=>a<b,"<=":(a,b)=>a<=b,"==":(a,b)=>a===b,
+           "!=":(a,b)=>a!==b,">":(a,b)=>a>b,">=":(a,b)=>a>=b};
+const NICE={Vertex:"vertex",Edge:"edge",Face:"face",Object:"body",Axis:"axis",Plane:"plane"};
+const PLURAL={vertex:"vertices",edge:"edges",face:"faces",body:"bodies",axis:"axes",plane:"planes"};
+const cnt=(c,a)=>(c&&c[a])||0;
+const matchRule=(r,c)=>Object.keys(r||{}).every(a=>OPS[r[a][0]](cnt(c,a),r[a][1]));
+const PRETTY=x=>x.replace("<=","\u2264").replace(">=","\u2265");
+const ruleText=r=>{const k=Object.keys(r||{});
+ return k.length?k.map(a=>a+" "+PRETTY(r[a][0])+" "+r[a][1]).join(" \u00b7 "):"always";};
+const ruleKey=r=>JSON.stringify(Object.keys(r||{}).sort().map(a=>[a,r[a][0],r[a][1]]));
+const PRESETS=[
+ ["always",{}],
+ ["a vertex",{Vertex:[">=",1]}],
+ ["an edge",{Edge:[">=",1]}],
+ ["a face",{Face:[">=",1]}],
+ ["two or more faces",{Face:[">=",2]}],
+ ["a face and an edge",{Face:[">=",1],Edge:[">=",1]}],
+ ["a whole body",{Object:[">=",1]}],
+ ["nothing selected",{Vertex:["==",0],Edge:["==",0],Face:["==",0],Object:["==",0]}],
+];
+/* the shorthand the seed data is written in */
+const WHEN={any:{},vertex:{Vertex:[">=",1]},edge:{Edge:[">=",1]},
+            face:{Face:[">=",1]},body:{Object:[">=",1]}};
+const cloneRule=r=>{const o={}; Object.keys(r||{}).forEach(a=>o[a]=[r[a][0],r[a][1]]); return o;};
+const slot=bindings=>({b:bindings.map(x=>typeof x==="string"
+ ? {cmd:x,rule:{}}
+ : {cmd:x.cmd,rule:x.rule?cloneRule(x.rule):cloneRule(WHEN[x.when]||{})})});
+const sameCounts=(a,b)=>AXES.every(x=>cnt(a,x)===cnt(b,x));
+const describe=c=>{const q=AXES.filter(a=>cnt(c,a)>0).map(a=>{
+  const n=cnt(c,a),w=NICE[a]; return n+" "+(n>1?PLURAL[w]:w);});
+ return q.length?q.join(" + "):"nothing";};
+/* a pie is a command like any other -- PieMenu_<name> opens that pie */
+const isPie=c=>!!c&&c.startsWith("PieMenu_");
+const pieTarget=c=>c.slice(8);
+
+function mkPie(name,items,o={}){return Object.assign({
+ name,def:false,family:"circle",
+ slots:8,perRing:8,radius:80,arc:360,arcFace:-90,stagger:false,
+ cols:3,rows:2,anchor:"Center",split:false,
+ button:34,spacing:6,sel:0,items:items.slice(),
+ names:false,openOn:"single",runOn:"click",delay:250,
+ regions:[],toolRegion:{},
+},o);}
+
+const S={pies:[
+ mkPie("Main",[
+   slot(["Std_New"]),slot(["Std_Open"]),
+   slot(["Std_Save"]),
+   null,
+   slot([{cmd:"PartDesign_Pad",when:"face"},
+         {cmd:"PartDesign_Fillet",when:"edge"},
+         {cmd:"PartDesign_Chamfer",when:"edge"}]),           /* conditional, two on edge */
+   slot(["View_Fit"]),slot(["PieMenu_View"]),
+   /* one slot, two pies: which sub-pie opens depends on the selection */
+   slot([{cmd:"PieMenu_Modelling",when:"face"},
+         {cmd:"PieMenu_Sketching",when:"edge"}]),
+  ]),
+ mkPie("Modelling",[
+   /* two peers on one rule -- a genuine choice, the chooser appears */
+   slot([{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Pocket",when:"face"}]),
+   /* one slot, count rules: an edge, or two-or-more faces */
+   slot([{cmd:"PartDesign_Fillet",when:"edge"},
+         {cmd:"PartDesign_Thickness",rule:{Face:[">=",2]}}]),
+   /* a boolean needs two solids */
+   slot([{cmd:"Part_Cut",rule:{Object:[">=",2]}}]),
+   /* both axes at once */
+   slot([{cmd:"PartDesign_Draft",rule:{Face:[">=",1],Edge:[">=",1]}}]),
+   slot([{cmd:"PartDesign_Revolution",when:"face"}]),
+   slot(["Std_Undo"]),slot(["PieMenu_View"]),null,
+  ],{openOn:"hold",runOn:"release"}),
+ mkPie("Sketching",[
+   slot(["Sketcher_NewSketch"]),slot(["Sketcher_Line"]),
+   null,slot(["Sketcher_Circle"]),slot(["Sketcher_Rectangle"]),null,
+  ],{family:"grid",cols:3,rows:2}),
+ mkPie("View",[slot(["View_Fit"]),slot(["View_Front"]),slot(["View_Top"]),
+               slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"])],
+   {def:true,slots:12,perRing:6,radius:56}),
+], cur:0,
+ /* the current selection, as counts per axis -- "2 faces + 1 edge" is real */
+ counts:{Face:1},
+ /* Shortcuts are scoped by workbench. ANY holds the context-less bindings and,
+    following AutoHotkey's rule, is the LOWEST priority: it answers only when
+    the active workbench has no binding of its own for that key. Two levels
+    only, so there is no layer-stack to reason about. That dissolves the
+    global/direct split -- a "direct" key is one bound under ANY, a "global"
+    key is one bound under a workbench. */
+ scope:"PartDesign",
+ /* A shortcut answers ONE question: which pie opens. Its only axes are the
+    workbench and the base -- selection plays no part here. See the design
+    decision in UI-FEEDBACK.md: what a slot does with the selection belongs to
+    the slot, inside the pie editor. */
+ binds:{"Any workbench":{"9":"Sketching","0":"View"},
+        "PartDesign":{"1":"Main","2":"Modelling"},
+        "Sketcher":{"1":"Main","2":"Sketching"}},
+ keys:["1","2","3","4","9","0"]};
+
+/* ---- shortcut resolution -------------------------------------------------
+   The whole rule: a workbench binding beats ANY; if neither has the key, the
+   key does nothing. Returns {pie, from, inherited}. */
+const ANY="Any workbench";
+const pieByName=n=>S.pies.find(p=>p.name===n);
+const defaultPie=()=>S.pies.find(p=>p.def)||S.pies[0];
+const scopeNames=()=>[ANY].concat(WORKBENCHES.filter(w=>w!=="None"));
+/* a scope with no bindings yet is just an empty map, not a missing column */
+const bindsOf=sc=>(S.binds[sc]||(S.binds[sc]={}));
+function resolveKey(key,wb){
+ const own=S.binds[wb]&&S.binds[wb][key];
+ if(own&&pieByName(own))return {pie:pieByName(own),from:wb,inherited:false};
+ const any=S.binds[ANY][key];
+ if(any&&pieByName(any))return {pie:pieByName(any),from:ANY,inherited:true};
+ return {pie:null,from:null,inherited:false};
+}
+/* every way a given pie can be reached, for its settings panel */
+function waysTo(name){
+ const out=[];
+ Object.keys(S.binds).forEach(sc=>Object.keys(S.binds[sc]).forEach(k=>{
+  if(S.binds[sc][k]===name)out.push({key:k,scope:sc});}));
+ return out;
+}
+const nameTaken=(n,skip)=>S.pies.some(p=>p.name===n&&p!==skip);
+
+/* Pinning and slot inheritance are deferred -- see UI-FEEDBACK.md #17/#18.
+   A slot belongs to its own pie for now. */
+function effectiveSlot(p,i){return {slot:p.items[i],inherited:null};}
+/* which bindings of a slot apply to the current selection counts */
+const matches=sl=>!sl?[]:sl.b.filter(x=>matchRule(x.rule,S.counts));
+/* anything actually usable in that pie right now? recursive, visited-set,
+   so cycles terminate */
+function pieLive(name,seen){
+ const p=pieByName(name); if(!p)return false;
+ seen=seen||new Set(); if(seen.has(name))return false; seen.add(name);
+ return p.items.some(sl=>matches(sl).some(b=>
+   isPie(b.cmd)?pieLive(pieTarget(b.cmd),seen):true));
+}
+const pie=()=>S.pies[S.cur];
+const slotCount=p=>p.family==="circle"?p.slots:p.cols*p.rows;
+const filled=p=>p.items.filter(Boolean);
+function normalise(p){const n=slotCount(p);
+ while(p.items.length<n)p.items.push(null);
+ if(p.items.length>n){const extra=p.items.splice(n).filter(Boolean);
+  extra.forEach(c=>{const i=p.items.indexOf(null); if(i>-1)p.items[i]=c;});}
+ if(p.sel>=n)p.sel=0;}
+
+const el=(t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+const svg=(h,c)=>{const s=el("span",c||"ico"); s.innerHTML=h; return s;};
+const shortName=c=>c.replace(/^PieMenu_/,"▤ ").replace(/^[A-Za-z]+_/,"").replace(/([a-z])([A-Z])/g,"$1 $2");
+
+function modal(title,content,onOk,okLabel){
+ const scrim=el("div","scrim"),m=el("div","modal");
+ m.append(el("h2",null,title));
+ const c=el("div","content"); c.append(content); m.append(c);
+ const f=el("div","foot"),cancel=el("button","btn","Cancel"),ok=el("button","btn primary",okLabel||"OK");
+ cancel.onclick=()=>scrim.remove();
+ ok.onclick=()=>{if(onOk()!==false){scrim.remove(); render();}};
+ f.append(cancel,ok); m.append(f); scrim.append(m); document.body.append(scrim);
+ scrim.tabIndex=0; scrim.focus();
+ scrim.onkeydown=e=>{if(e.key==="Escape")scrim.remove(); if(e.key==="Enter")ok.click();};
+ return {scrim,ok};
+}
+function askText(t,l,v,cb){const w=el("div","form"),i=el("input"); i.type="text"; i.value=v||"";
+ w.append(el("label",null,l),i); modal(t,w,()=>{if(!i.value.trim())return false; cb(i.value.trim());});
+ setTimeout(()=>i.focus(),0);}
+function ctxMenu(ev,items){
+ ev.preventDefault(); ev.stopPropagation();
+ document.querySelectorAll(".pop").forEach(n=>n.remove());
+ const pop=el("div","pop");
+ items.forEach(it=>{
+  if(it==="-"){pop.append(el("div","popsep"));return;}
+  const [icon,label,fn,dis]=it;
+  const r=el("div","row"+(dis?" dim":""));
+  r.append(svg(icon),el("span","name",label));
+  if(!dis)r.onclick=()=>{pop.remove(); fn();};
+  pop.append(r);});
+ document.body.append(pop);
+ pop.style.left=Math.min(ev.clientX,innerWidth-pop.offsetWidth-8)+"px";
+ pop.style.top=Math.min(ev.clientY,innerHeight-pop.offsetHeight-8)+"px";
+ setTimeout(()=>document.addEventListener("mousedown",function h(e){
+  if(!pop.contains(e.target)){pop.remove(); document.removeEventListener("mousedown",h);}}),0);
+ return false;}
+const uniqueName=b=>{const n=S.pies.map(p=>p.name); if(!n.includes(b))return b;
+ let i=2; while(n.includes(b+"-"+i))i++; return b+"-"+i;};
+
+const pieAdd=()=>askText("New PieMenu","Name:","",n=>{
+ S.pies.push(mkPie(uniqueName(n),[])); S.cur=S.pies.length-1;});
+const pieRename=()=>askText("Rename PieMenu","Name:",pie().name,n=>{pie().name=uniqueName(n);});
+const pieCopy=()=>{const c=JSON.parse(JSON.stringify(pie())); c.name=uniqueName(pie().name); c.def=false;
+ S.pies.splice(S.cur+1,0,c); S.cur++; render();};
+const pieDelete=()=>{if(S.pies.length<2)return; S.pies.splice(S.cur,1); S.cur=Math.max(0,S.cur-1); render();};
+const pieDefault=()=>{S.pies.forEach(p=>p.def=false); pie().def=true; render();};
+const pieMove=d=>{const i=S.cur,j=i+d; if(j<0||j>=S.pies.length)return;
+ [S.pies[i],S.pies[j]]=[S.pies[j],S.pies[i]]; S.cur=j; render();};
+
+/* the global tool list, folded by workbench -- reached by double-clicking a slot */
+function chooseTool(idx,bindingIdx){
+ const box=el("div","picker"); box.style.minWidth="430px";
+ let chosen=null; const open={};
+ const draw=()=>{box.innerHTML="";
+  Object.entries(CATALOG).forEach(([wb,cmds])=>{
+   const h=el("div","row grp");
+   h.append(el("span","tw",open[wb]?"\u25be":"\u25b8"),el("span","name",wb),el("span","tag",cmds.length+""));
+   h.onclick=()=>{open[wb]=!open[wb]; draw();};
+   box.append(h);
+   if(!open[wb])return;
+   cmds.forEach(c=>{
+    const r=el("div","row child2"+(chosen===c?" sel":""));
+    r.append(svg(toolIcon(c)),el("span","name",shortName(c)));
+    r.onclick=()=>{chosen=c; draw();};
+    r.ondblclick=()=>{chosen=c; m.ok.click();};
+    box.append(r);});});};
+ draw();
+ const p0=pie(),ex=(bindingIdx!=null&&p0.items[idx])?p0.items[idx].b[bindingIdx]:null;
+ const rule=ex?cloneRule(ex.rule):{};
+ const wrap=el("div"); wrap.append(box);
+ const f=el("div","form"); f.style.marginTop="10px";
+ f.append(el("label",null,"Applies when:"),ruleField(rule));
+ wrap.append(f);
+ const m=modal("Tool for slot "+(idx+1),wrap,()=>{
+  if(chosen==null)return false;
+  const p=pie(); normalise(p);
+  if(!p.items[idx])p.items[idx]=slot([]);
+  const b={cmd:chosen,rule:cloneRule(rule)};
+  if(bindingIdx==null)p.items[idx].b.push(b); else p.items[idx].b[bindingIdx]=b;
+  p.sel=idx;},"Use tool");
+}
+const clearSlot=i=>{const p=pie(); p.items[i]=null; render();};
+/* The contexts of whichever slot is selected, as a column of its own. Selecting
+   a slot in the preview retargets it, so there is no dialog to open or dismiss. */
+/* Presets in front, the six raw axes behind Custom -- only the axes a rule
+   actually constrains are shown, so most rules read as one line. */
+function ruleField(rule){
+ const w=el("div"),pick=el("select"),rows=el("div");
+ rows.style.marginTop="6px";
+ PRESETS.forEach(([label],i)=>{const o=el("option",null,label); o.value=String(i); pick.append(o);});
+ const c=el("option",null,"Custom\u2026"); c.value="c"; pick.append(c);
+ const drawRows=()=>{
+  rows.innerHTML="";
+  Object.keys(rule).forEach(ax=>{
+   const r=el("div","form"); r.style.marginTop="4px";
+   const a=el("select"); a.style.width="80px";
+   AXES.forEach(x=>{const o=el("option",null,x); if(x===ax)o.selected=true;
+    if(x!==ax&&(x in rule))o.disabled=true; a.append(o);});
+   const sg=el("select"); sg.style.width="58px";
+   SIGNS.forEach(x=>{const o=el("option",null,x); if(x===rule[ax][0])o.selected=true; sg.append(o);});
+   const n=el("input"); n.type="number"; n.min="0"; n.value=rule[ax][1]; n.style.width="58px";
+   a.onchange=()=>{const v=rule[ax]; delete rule[ax]; rule[a.value]=v; sync();};
+   sg.onchange=()=>{rule[ax][0]=sg.value; sync();};
+   n.onchange=()=>{rule[ax][1]=Math.max(0,+n.value||0); sync();};
+   const del=el("button","tool sm"); del.append(svg(uiIcon("PieMenuRemove")));
+   del.title="Drop this condition";
+   del.onclick=()=>{delete rule[ax]; sync();};
+   r.append(a,sg,n,del); rows.append(r);});
+  const free=AXES.find(x=>!(x in rule));
+  if(free){const add=el("button","btn","Add a condition"); add.style.marginTop="5px";
+   add.onclick=()=>{rule[free]=[">=",1]; sync();}; rows.append(add);}
+  rows.append(el("div","hint2","reads as: "+ruleText(rule)));
+ };
+ const sync=()=>{
+  const i=PRESETS.findIndex(([,r])=>ruleKey(r)===ruleKey(rule));
+  pick.value=i>-1?String(i):"c";
+  rows.style.display=i>-1?"none":"";
+  drawRows();
+ };
+ pick.onchange=()=>{
+  if(pick.value==="c"){if(!Object.keys(rule).length)rule.Face=[">=",1];}
+  else{Object.keys(rule).forEach(k=>delete rule[k]);
+   Object.entries(PRESETS[+pick.value][1]).forEach(([k,v])=>rule[k]=[v[0],v[1]]);}
+  sync();};
+ w.append(pick,rows); sync(); return w;
+}
+function editRule(binding,after){
+ const rule=cloneRule(binding.rule);
+ const w=el("div");
+ w.append(el("div","hint2",shortName(binding.cmd)+" applies when:"),ruleField(rule));
+ modal("When does this apply?",w,()=>{binding.rule=cloneRule(rule); if(after)after();},"Apply");
+}
+function contextsPanel(){
+ const p=pie(),i=p.sel|0,sl=p.items[i];
+ const list=el("div","list");
+ const head=el("div","slothead"); list.append(head);
+ const bindingMove=d=>{const j=p.bsel|0,k=j+d;
+  if(!sl||k<0||k>=sl.b.length)return;
+  [sl.b[j],sl.b[k]]=[sl.b[k],sl.b[j]]; p.bsel=k; render();};
+ if(!sl){
+  head.innerHTML="<b>Contexts</b> \u2014 nothing bound";
+  const e=el("div","empt");
+  e.textContent="Nothing is bound here yet. Add a tool, or double-click the slot in the preview.";
+  list.append(e);
+ }else{
+  head.innerHTML="<b>Contexts</b> \u2014 "+sl.b.length
+   +(sl.b.length===1?" tool":" tools, first match wins");
+  sl.b.forEach((b,j)=>{
+   const r=el("div","row"+(j===(p.bsel|0)?" sel":""));
+   r.append(svg(toolIcon(b.cmd)),el("span","name",shortName(b.cmd)));
+   const cond=el("span","cond",ruleText(b.rule));
+   cond.title="When this applies \u2014 click to edit";
+   cond.onclick=e=>{e.stopPropagation(); editRule(b,()=>render());};
+   r.append(cond);
+   r.onclick=()=>{p.bsel=j; render();};
+   r.oncontextmenu=e=>{p.bsel=j; render(); return ctxMenu(e,[
+    [uiIcon("PieMenuAddCommand"),"Replace tool\u2026",()=>chooseTool(i,j)],
+    [uiIcon("PieMenuAddCommand"),"Add another tool\u2026",()=>chooseTool(i)],
+    "-",
+    [uiIcon("PieMenuUp"),"Move up",()=>bindingMove(-1),j===0],
+    [uiIcon("PieMenuDown"),"Move down",()=>bindingMove(1),j===sl.b.length-1],
+    "-",
+    [uiIcon("PieMenuRemove"),"Remove",()=>{sl.b.splice(j,1);
+      if(!sl.b.length)p.items[i]=null; p.bsel=0; render();}],
+   ]);};
+   list.append(r);});
+ }
+ /* ordering only means something once a slot holds more than one tool */
+ const mv=(icon,title,d)=>{
+  const b=iconBtn(uiIcon(icon),title,()=>bindingMove(d),false,true);
+  b.disabled=!sl||sl.b.length<2; return b;};
+ return panel("Slot "+(i+1)+" of "+p.name,sl?sl.b.length:0,[
+  iconBtn(uiIcon("PieMenuAddCommand"),"Add a tool to this slot",()=>chooseTool(i),false,true),
+  mv("PieMenuUp","Move up",-1),
+  mv("PieMenuDown","Move down",1),
+ ],list);
+}
+/* Two families only: circle and grid. */
+function positions(p){
+ const out=[],n=slotCount(p),step=p.button+p.spacing;
+ if(p.family==="circle"){
+  const per=Math.max(1,Math.min(p.perRing,n)),span=p.arc*Math.PI/180;
+  const face=(p.arcFace==null?-90:p.arcFace)*Math.PI/180;
+  /* a full circle starts at the facing angle; a partial arc is centred on it,
+     so a 90 degree arc facing right sits either side of the 3 o'clock line */
+  const start=p.arc>=360?face:face-span/2;
+  for(let i=0;i<n;i++){
+   const ring=Math.floor(i/per),k=i%per,inRing=Math.min(per,n-ring*per);
+   const div=p.arc>=360?inRing:Math.max(1,inRing-1);
+   const a=start+(span/div)*k;
+   let r=p.radius+ring*(p.button+p.spacing+10);
+   if(p.stagger&&k%2)r+=p.button*0.55;
+   out.push([Math.cos(a)*r,Math.sin(a)*r]);}
+  return out;}
+ const cols=Math.max(1,p.cols),rows=Math.max(1,p.rows);
+ for(let i=0;i<n;i++){
+  let x=((i%cols)-(cols-1)/2)*step,y,ry=Math.floor(i/cols);
+  if(p.split){const half=Math.ceil(rows/2);
+   y=ry<half?-(p.radius/2+(half-1-ry)*step):(p.radius/2+(ry-half)*step);}
+  else{y=(ry-(rows-1)/2)*step;
+   if(p.anchor==="Top")y-=p.radius/2+((rows-1)/2)*step;
+   if(p.anchor==="Bottom")y+=p.radius/2+((rows-1)/2)*step;
+   if(p.anchor==="Left")x-=p.radius/2+((cols-1)/2)*step;
+   if(p.anchor==="Right")x+=p.radius/2+((cols-1)/2)*step;}
+  out.push([x,y]);}
+ return out;}
+
+function setCounts(c){S.counts={...c}; chooserPick={};
+ if(typeof picks!=="undefined")picks.length=0;
+ render(); if(typeof drawSolid==="function")drawSolid();}
+function pieListEl(){
+ const l=el("div","list");
+ /* The map is derived from PieMenu_* bindings -- every route that can exist,
+    labelled with its condition. It only changes when bindings are edited,
+    never with the selection. A pie referenced from several places is ONE pie:
+    drawn once under its shallowest parent, other references as dim rows. */
+ const edgeMapOf=name=>{const m={};
+  (pieByName(name)||{items:[]}).items.forEach(sl=>(sl?sl.b:[]).forEach(b=>{
+   if(isPie(b.cmd)){const t=pieTarget(b.cmd);(m[t]=m[t]||[]).push(ruleText(b.rule));}}));
+  return m;};
+ const parentsOf=name=>S.pies.filter(q=>q.name!==name&&edgeMapOf(q.name)[name]).map(q=>q.name);
+ const row=(name,depth,conds,link)=>{
+  const q=pieByName(name); if(!q)return;
+  const i=S.pies.indexOf(q);
+  const r=el("div","row"+(link?" link":"")+(i===S.cur?" sel":""));
+  r.style.paddingLeft=(6+depth*13)+"px";
+  r.append(svg(q.def?uiIcon("PieMenu_Logo"):uiIcon("PieMenuEditMenu")),el("span","name",name));
+  [...new Set(conds||[])].forEach(w=>{if(w!=="always")r.append(el("span","badge",w));});
+  const ps=parentsOf(name);
+  if(link)r.append(el("span","rf","\u21a9 same pie"));
+  else if(ps.length>1)r.append(el("span","rf","\u00d7"+ps.length+" refs"));
+  if(ps.length>1)r.title="one pie \u2014 reached from "+ps.join(", ")+"; editing it anywhere edits the one pie";
+  if(q.def)r.append(el("span","tag","default"));
+  r.onclick=()=>{S.cur=i; render();};
+  r.ondblclick=()=>{S.cur=i; pieRename();};
+  r.oncontextmenu=e=>{S.cur=i; render(); return ctxMenu(e,[
+   [uiIcon("PieMenuRename"),"Rename\u2026",pieRename],
+   [uiIcon("PieMenuCopy"),"Duplicate",pieCopy],
+   [uiIcon("PieMenuRemove"),"Delete",pieDelete,S.pies.length<2],
+   "-",
+   [uiIcon("PieMenu_Logo"),"Use when no workbench matches",pieDefault,q.def],
+  ]);};
+  l.append(r);
+ };
+ let roots=S.pies.map(q=>q.name).filter(n=>!parentsOf(n).length);
+ if(!roots.length)roots=[S.pies[0].name];
+ const owner={}; const bfs=[...roots]; roots.forEach(n=>owner[n]=null);
+ while(bfs.length){const n=bfs.shift();
+  Object.keys(edgeMapOf(n)).forEach(k=>{if(!(k in owner)&&pieByName(k)){owner[k]=n; bfs.push(k);}});}
+ S.pies.forEach(q=>{if(!(q.name in owner)){owner[q.name]=null; roots.push(q.name);}});
+ const walk=(name,depth)=>{
+  const em=edgeMapOf(name);
+  Object.keys(em).forEach(k=>{ if(!pieByName(k))return;
+   if(owner[k]===name){row(k,depth,em[k],false); walk(k,depth+1);}
+   else row(k,depth,em[k],true);});
+ };
+ roots.forEach(n=>{row(n,0,null,false); walk(n,1);});
+ return l;
+}
+function iconBtn(icon,title,fn,active,small){
+ const b=el("button","tool"+(small?" sm":"")+(active?" on":""));
+ b.title=title; b.append(svg(icon)); b.onclick=fn; return b;}
+function panel(title,count,actions,listNode){
+ const p=el("div","panel"),h=el("div","phead");
+ h.append(el("span","ptitle",title));
+ if(count!=null)h.append(el("span","pcount",count));
+ h.append(el("span","grow"));
+ const a=el("div","pacts"); actions.forEach(x=>a.append(x==="|"?el("div","sep"):x));
+ h.append(a); p.append(h,listNode); return p;}
+
+/* ---- shortcuts ----------------------------------------------------------
+   Scope-first, which is how every shipping GUI does it (Blender keymaps, Maya
+   hotkey sets, SolidWorks gesture guides, Stream Deck profiles). The scope is
+   named after something FreeCAD users already have -- a workbench -- so there
+   is no new noun to learn. */
+function pickPieFor(sc,k){
+ const m=bindsOf(sc), list=el("div","list");
+ S.pies.forEach(pp=>{
+  const r=el("div","row"+(m[k]===pp.name?" sel":""));
+  r.append(svg(uiIcon("PieMenuEditMenu")),el("span","name",pp.name));
+  r.onclick=()=>{m[k]=pp.name; document.querySelector(".scrim").remove(); render();};
+  list.append(r);});
+ modal("Key "+k+" in "+(sc===ANY?"any workbench":sc),list,()=>{});
+}
+
+/* A workbench icon per column, so columns are told apart by shape not by
+   reading a repeated sentence. */
+const WBICON={PartDesign:"pad",Part:"box",Sketcher:"sketch",Draft:"line",BIM:"rect",
+ FEM:"polpat",CAM:"trim",Mesh:"wire",Points:"dot",Surface:"sphere",TechDraw:"front",
+ Spreadsheet:"dim",Inspection:"eye",Material:"paste",Assembly:"asm",OpenSCAD:"bool",
+ "Reverse Engineering":"revolve",Robot:"link",Start:"new","Test Framework":"solve"};
+const wbIcon=w=>T[WBICON[w]]||T.dot;
+/* a keybind, drawn as caps: Ctrl+1 is two caps and a plus */
+function keyCapsEl(combo){
+ const w=el("span","combo");
+ String(combo).split("+").forEach((part,i)=>{
+  if(i)w.append(el("span","plus","+"));
+  w.append(el("span","cap",part));});
+ return w;
+}
+function captureKey(cur,onOk){
+ const box=el("div"); box.style.cssText="padding:18px;text-align:center";
+ const shown=el("div"); shown.style.marginBottom="8px"; shown.append(keyCapsEl(cur||"?"));
+ box.append(shown,el("div","empt","Press a key. Modifiers are included."));
+ let got=cur;
+ const scrim=el("div","scrim"), m=el("div","modal");
+ m.append(el("h2",null,"Shortcut key"),box);
+ const f=el("div","foot"),c=el("button","btn","Cancel"),o=el("button","btn primary","OK");
+ c.onclick=()=>{scrim.remove(); document.removeEventListener("keydown",h,true);};
+ o.onclick=()=>{scrim.remove(); document.removeEventListener("keydown",h,true); onOk(got);};
+ f.append(c,o); m.append(f); scrim.append(m); document.body.append(scrim);
+ function h(e){
+  e.preventDefault(); e.stopPropagation();
+  if(["Control","Shift","Alt","Meta"].includes(e.key))return;
+  const mods=[]; if(e.ctrlKey)mods.push("Ctrl"); if(e.altKey)mods.push("Alt");
+  if(e.shiftKey)mods.push("Shift");
+  got=mods.concat([e.key===" "?"Space":e.key]).join("+");
+  shown.innerHTML=""; shown.append(keyCapsEl(got));
+ }
+ document.addEventListener("keydown",h,true);
+}
+
+/* Keys are rows, workbenches are columns, and it scrolls sideways. The key and
+   base columns stay pinned so a column is always read against what it overrides.
+   There is deliberately no selection axis here -- a shortcut only decides WHICH
+   PIE opens. What each slot does with the selection lives in the pie editor. */
+function shortcutsTableEl(){
+ const wrap=el("div","gwrap"), t=el("table","g");
+ const cols=scopeNames();
+
+ const hr=el("tr");
+ hr.append(el("th","kh","key"));
+ cols.forEach(w=>{
+  const base=w===ANY;
+  const th=el("th",(base?"base":"")+(w===playWb?" on":""));
+  const top=el("span","wh");
+  top.append(svg(base?uiIcon("PieMenu_Logo"):wbIcon(w),"wi"),
+             el("span","wn",base?"Any workbench":w));
+  th.append(top);
+  th.title=base?"the base — applies everywhere unless a workbench overrides it"
+               :w+" — overrides the base";
+  hr.append(th);});
+ t.append(hr);
+
+ S.keys.forEach(k=>{
+  const tr=el("tr");
+  const kc=el("td","k");
+  kc.append(keyCapsEl(k));
+  kc.title="click to record a different key";
+  kc.onclick=()=>captureKey(k,v=>{
+   if(!v||S.keys.includes(v))return;
+   S.keys[S.keys.indexOf(k)]=v;
+   Object.keys(S.binds).forEach(sc=>{if(S.binds[sc][k]!==undefined){
+    S.binds[sc][v]=S.binds[sc][k]; delete S.binds[sc][k];}});
+   render();});
+  tr.append(kc);
+
+  cols.forEach(w=>{
+   const base=w===ANY, own=(S.binds[w]||{})[k];
+   const r=base?{pie:pieByName(own),inherited:false}:resolveKey(k,w);
+   const cls=[]; if(base)cls.push("base");
+   if(w===playWb)cls.push("on");
+   if(!r.pie)cls.push("none"); else if(r.inherited)cls.push("inh");
+   const td=el("td",cls.join(" "));
+   td.append(el("span","cv",r.pie?r.pie.name:"\u2014"));
+   td.title=(r.pie?"click to open "+r.pie.name+" in the editor\n":"")
+    +"double-click to bind\u2026 · right-click for options"
+    +(r.inherited?"\ninherited from "+ANY:"");
+   if(r.pie)td.onclick=()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}};
+   td.ondblclick=()=>pickPieFor(w,k);
+   td.oncontextmenu=e=>ctxMenu(e,[
+    [uiIcon("PieMenuEditMenu"),r.pie?"Open "+r.pie.name+" in the editor":"\u2014",
+      ()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}},!r.pie],
+    [uiIcon("PieMenuAddCommand"),"Bind this key here\u2026",()=>pickPieFor(w,k)],
+    "-",
+    [uiIcon("PieMenuAdd"),"Override the base here",
+      ()=>{bindsOf(w)[k]=S.binds[ANY][k]; render();},base||!!own||!S.binds[ANY][k]],
+    [uiIcon("PieMenuRemove"),(!base&&S.binds[ANY][k])?"Revert to "+ANY:"Clear this binding",
+      ()=>{delete bindsOf(w)[k]; render();},own===undefined],
+   ]);
+   tr.append(td);});
+  t.append(tr);});
+ wrap.append(t);
+
+ const addKey=iconBtn(uiIcon("PieMenuAdd"),"Add another key",
+  ()=>captureKey("",v=>{if(v&&!S.keys.includes(v)){S.keys.push(v); render();}}),false,true);
+ const jump=iconBtn(uiIcon("PieMenuArrowDown"),"Scroll to the active workbench",()=>{
+  const i=cols.indexOf(playWb); if(i<1)return;
+  const th=wrap.querySelectorAll("th")[i+1];
+  if(th)wrap.scrollTo({left:th.offsetLeft-260,behavior:"smooth"});},false,true);
+ return panel("Shortcuts",null,[jump,addKey],wrap);
+}
+
+function canvasEl(){
+ const c=el("div","canvas");
+ c.append(el("div","lbl","Double-click a slot to choose a tool · right-click for options"));
+ c.oncontextmenu=e=>ctxMenu(e,[
+   ["nothing",{}],["a vertex",{Vertex:1}],["an edge",{Edge:1}],["a face",{Face:1}],
+   ["2 faces",{Face:2}],["a face + an edge",{Face:1,Edge:1}],["a body",{Object:1}],
+  ].map(([label,cts])=>[uiIcon(sameCounts(cts,S.counts)?"PieMenu_Logo":"PieMenuBlank"),
+   "Preview with "+label+" selected",()=>setCounts(cts)]));
+ requestAnimationFrame(()=>paint(c));
+ return c;}
+let chooserPick={};
+function showChooser(canvas,node,idx,hits){
+ canvas.querySelectorAll(".chooser").forEach(n=>n.remove());
+ const box=el("div","chooser");
+ hits.forEach((b,j)=>{
+  const o=el("div","opt"+((chooserPick[idx]||0)===j?" on":""));
+  o.append(svg(toolIcon(b.cmd))); o.title=ruleText(b.rule)+" \u2192 "+shortName(b.cmd);
+  o.onclick=e=>{e.stopPropagation(); chooserPick[idx]=j; box.remove(); paint(canvas);};
+  box.append(o);});
+ canvas.append(box);
+ const nb=node.getBoundingClientRect(),cb=canvas.getBoundingClientRect();
+ box.style.left=Math.max(2,Math.min(nb.left-cb.left+nb.width/2-box.offsetWidth/2,
+                                    cb.width-box.offsetWidth-2))+"px";
+ box.style.top=(nb.top-cb.top+nb.height+5)+"px";
+ node.onmouseleave=e=>{ if(!box.contains(e.relatedTarget))
+   setTimeout(()=>{if(!box.matches(":hover"))box.remove();},250); };
+ box.onmouseleave=()=>box.remove();
+}
+function paint(c){
+ [...c.querySelectorAll(".slot,.ring")].forEach(n=>n.remove());
+ const p=pie(); normalise(p);
+ const w=c.clientWidth,h=c.clientHeight; if(!w||!h)return;
+ const cx=w/2,cy=h/2,pos=positions(p);
+ if(p.family==="circle"){
+  const rings=Math.ceil(slotCount(p)/Math.max(1,p.perRing));
+  for(let r=0;r<rings;r++){
+   const rad=p.radius+r*(p.button+p.spacing+10),ring=el("div","ring");
+   ring.style.cssText=`left:${cx-rad}px;top:${cy-rad}px;width:${rad*2}px;height:${rad*2}px`;
+   c.append(ring);}}
+ const mk=(cmd,idx,x,y,size,cls)=>{
+  const s=el("div","slot"+(cmd?"":" empty")+(cls?" "+cls:"")
+            +(idx===p.sel&&idx!=null?" sel":""));
+  s.style.cssText=`left:${x-size/2}px;top:${y-size/2}px;width:${size}px;height:${size}px`;
+  if(idx!=null)s.dataset.idx=idx;
+  if(cmd){
+   if(p.names)s.textContent=shortName(cmd).split(" ")[0];
+   else s.append(svg(toolIcon(cmd)));
+   if(isPie(cmd)){s.classList.add("door"); s.append(el("span","chev","\u203a"));
+    if(!pieLive(pieTarget(cmd)))s.classList.add("unbound");}
+  }else{
+   s.title="Empty slot \u2014 double-click to choose a tool";
+   s.append(el("span","plus","+"));
+  }
+
+  if(idx!=null){
+   s.onclick=()=>{p.sel=idx; p.bsel=0; render();};
+   s.ondblclick=()=>chooseTool(idx);
+   s.oncontextmenu=e=>{p.sel=idx; p.bsel=0; render(); return ctxMenu(e,[
+    [uiIcon("PieMenuAddCommand"),
+     (p.items[idx]&&p.items[idx].b.length===1)?"Replace tool\u2026":"Add a tool to this slot\u2026",
+     ()=>chooseTool(idx,(p.items[idx]&&p.items[idx].b.length===1)?0:null)],
+    [uiIcon("PieMenuAddCommand"),"Add another tool\u2026",()=>chooseTool(idx),
+     !(p.items[idx]&&p.items[idx].b.length===1)],
+    "-",
+    [uiIcon("PieMenuRemoveCommand"),"Clear this slot",()=>clearSlot(idx),!p.items[idx]],
+   ]);};
+   if(cmd) s.onmousedown=ev=>{
+    if(ev.button!==0)return;
+    ev.preventDefault(); p.sel=idx;
+    const rect=c.getBoundingClientRect(),ghost=s.cloneNode(true);
+    ghost.classList.add("ghost"); c.append(ghost); s.classList.add("dragging");
+    let over=null;
+    const move=e2=>{
+     ghost.style.left=(e2.clientX-rect.left-size/2)+"px";
+     ghost.style.top=(e2.clientY-rect.top-size/2)+"px";
+     let best=null,bd=1e9;
+     c.querySelectorAll(".slot:not(.ghost):not(.centre)").forEach(o=>{
+      if(o===s)return;
+      const b=o.getBoundingClientRect();
+      const d=Math.hypot(b.left+b.width/2-e2.clientX,b.top+b.height/2-e2.clientY);
+      if(d<bd){bd=d;best=o;}});
+     if(over&&over!==best)over.classList.remove("target");
+     over=bd<size*1.5?best:null;
+     if(over)over.classList.add("target");};
+    const up=()=>{
+     document.removeEventListener("mousemove",move);
+     document.removeEventListener("mouseup",up);
+     ghost.remove(); s.classList.remove("dragging");
+     if(over){over.classList.remove("target"); swapSlots(idx,+over.dataset.idx);} else render();};
+    document.addEventListener("mousemove",move);
+    document.addEventListener("mouseup",up);};}
+  c.append(s); return s;};
+ /* Each slot resolves against the current selection: nothing matching greys it
+    out, several matching offers a chooser on hover. */
+ p.items.forEach((_,i)=>{
+  const eff=effectiveSlot(p,i), sl=eff.slot, hits=matches(sl);
+  const cls=[];
+  if(sl&&!hits.length)cls.push("unbound");
+  if(hits.length>1)cls.push("multi");
+  const pick=hits.length?hits[Math.min(chooserPick[i]||0,hits.length-1)].cmd:null;
+  const node=mk(sl?(pick||sl.b[0].cmd):null,i,cx+pos[i][0],cy+pos[i][1],p.button,cls.join(" "));
+  if(sl){
+   node.title=(pick?shortName(pick):"nothing here applies to this selection")
+
+    +(hits.length>1?"  \u00b7 "+hits.length+" apply, hover to choose":"")
+    +"\n"+sl.b.map(b=>ruleText(b.rule)+" \u2192 "+shortName(b.cmd)).join("\n");
+   if(hits.length>1)node.onmouseenter=()=>showChooser(c,node,i,hits);
+  }});
+ const seen=[];
+ if(c.querySelector(".slot.unbound"))seen.push(["un","nothing applies to this selection"]);
+ if(c.querySelector(".slot.multi"))seen.push(["mu","several apply — hover to choose"]);
+ if(seen.length){
+  const lg=el("div","plegend");
+  seen.forEach(([k,label])=>{const e2=el("span");
+   e2.innerHTML='<i class="'+k+'"></i>'+label; lg.append(e2);});
+  c.append(lg);
+ }
+ const inner=el("div","slot centre"),isz=Math.max(24,Math.round(p.button*0.72));
+ inner.style.cssText=`left:${cx-isz/2}px;top:${cy-isz/2}px;width:${isz}px;height:${isz}px`;
+ inner.title="QuickMenu — switch pie, open preferences";
+ inner.append(svg(uiIcon("PieMenuEditMenu"))); c.append(inner);}
+
+const comboNum=(v,presets,on,mn,mx)=>{
+ const wrap=el("div"); wrap.style.cssText="display:flex;gap:4px;min-width:0";
+ const id="dl"+Math.abs(presets.join("").length*31+v);
+ const i=el("input"); i.type="number"; i.value=v; i.min=mn??0; i.max=mx??360;
+ i.setAttribute("list",id); i.style.flex="1";
+ const dl=document.createElement("datalist"); dl.id=id;
+ presets.forEach(([val,label])=>{const o=el("option"); o.value=val; o.label=label||String(val); dl.append(o);});
+ const pick=el("select"); pick.style.width="34px"; pick.title="Presets";
+ pick.append(el("option",null,"\u25be"));
+ presets.forEach(([val,label])=>{const o=el("option",null,label||String(val)); o.value=val; pick.append(o);});
+ pick.onchange=()=>{if(pick.selectedIndex>0){on(+pick.value); render();}};
+ i.onchange=()=>{on(+i.value); render();};
+ wrap.append(i,dl,pick); return wrap;};
+const sel=(v,o,on)=>{const s=el("select"); o.forEach(x=>{const p=el("option",null,x); if(x===v)p.selected=true; s.append(p);});
+ s.onchange=()=>{on(s.value); render();}; return s;};
+const num=(v,on,mn,mx)=>{const i=el("input"); i.type="number"; i.value=v; i.min=mn??0; i.max=mx??999;
+ i.onchange=()=>{on(+i.value); render();}; return i;};
+const check=(l,v,on)=>{const w=el("label","check"),i=el("input"); i.type="checkbox"; i.checked=v;
+ i.onchange=()=>{on(i.checked); render();}; w.append(i,el("span",null,l)); return w;};
+/* What each setting means. The picture is deliberately a placeholder -- these
+   get shot once the design settles, and the frame is here so the copy is
+   written against the space it will actually occupy. */
+const HELP={
+ "Family":"Circle arranges the slots around the cursor; grid stacks them into rows and columns. These two replace the eleven separate shapes.",
+ "Slots":"How many positions this pie has. Slots you leave empty stay empty — tools no longer fill positions in list order.",
+ "Per ring":"How many slots go in each ring before a new one starts further out.",
+ "Radius":"Distance from the cursor to the first ring. Smaller is faster to reach and harder to aim.",
+ "Arc":"How much of the circle the slots span. 360 is the full circle; 90 is a quarter, which keeps the pie off screen edges.",
+ "Facing":"Which way a partial arc points. A 90° arc facing right sits either side of the 3 o'clock line.",
+ "Stagger":"Push every other slot slightly further out, so neighbours are easier to tell apart.",
+ "Columns":"Slots across.",
+ "Rows":"Slots down.",
+ "Anchor":"Which side of the cursor the block sits on.",
+ "Split":"Divide the rows either side of the cursor rather than putting them all together.",
+ "Offset":"Gap between the cursor and the block.",
+ "Button":"Size of each slot, in pixels.",
+ "Spacing":"Gap between neighbouring slots.",
+ "Open on":"The gesture that opens this pie. Double tap and press-and-hold both make it much harder to open by accident.",
+ "Run on":"How a tool fires once the pie is open. Release is the marking-menu gesture: flick and let go without ever stopping.",
+ "Delay":"Milliseconds to wait before a hold counts as a hold, or before hovering fires a tool.",
+   "Command names":"Write each tool's name in its slot instead of showing only its icon.",
+};
+let helpTimer=null,helpBox=null;
+const hideHelp=()=>{if(helpTimer){clearTimeout(helpTimer); helpTimer=null;}
+ if(helpBox){helpBox.remove(); helpBox=null;}};
+function attachHelp(node,label){
+ const key=String(label).replace(/:$/,"").trim();
+ const text=HELP[key]; if(!text||!node||!node.addEventListener)return node;
+ node.addEventListener("mouseenter",e=>{
+  hideHelp();
+  const r=node.getBoundingClientRect();
+  helpTimer=setTimeout(()=>{
+   helpBox=el("div","help");
+   helpBox.append(el("h5",null,key),el("p",null,text));
+   const shot=el("div","shot","screenshot of “"+key+"” to come");
+   helpBox.append(shot);
+   document.body.append(helpBox);
+   const w=helpBox.offsetWidth,h=helpBox.offsetHeight;
+   /* these sit on the right edge, so open to the left and clamp vertically */
+   let x=r.left-w-10; if(x<8)x=Math.min(r.right+10,innerWidth-w-8);
+   let y=Math.min(Math.max(8,r.top-6),innerHeight-h-8);
+   helpBox.style.left=x+"px"; helpBox.style.top=y+"px";
+  },350);
+ });
+ node.addEventListener("mouseleave",hideHelp);
+ return node;
+}
+const formGrid=r=>{const f=el("div","form");
+ r.forEach(([l,n])=>{const lab=el("label",null,l);
+  attachHelp(lab,l); attachHelp(n,l); f.append(lab,n);});
+ return f;};
+const group=(t,n)=>{const g=el("div","group"); g.append(el("span","title",t),n); return g;};
+
+function build(){
+ const p=pie(); normalise(p);
+ const b=el("div","body");
+ const c1=el("div","col"); c1.style.width="212px";
+ c1.append(panel("Pies",S.pies.length,[
+  iconBtn(uiIcon("PieMenuAdd"),"Add a new PieMenu",pieAdd,false,true),
+  iconBtn(uiIcon("PieMenuUp"),"Move up",()=>pieMove(-1),false,true),
+  iconBtn(uiIcon("PieMenuDown"),"Move down",()=>pieMove(1),false,true),
+ ],pieListEl()));
+
+ const c2=el("div","col"); c2.style.flex="1"; c2.append(canvasEl());
+
+ const c2b=el("div","col"); c2b.style.width="234px"; c2b.append(contextsPanel());
+
+ const c3=el("div","col"); c3.style.width="252px";
+ const set=el("div","setbody");
+ const rows=[["Family:",sel(p.family,["circle","grid"],v=>{p.family=v; normalise(p);})]];
+ if(p.family==="circle")rows.push(
+  ["Slots:",num(p.slots,v=>{p.slots=v; normalise(p);},1,24)],
+  ["Per ring:",num(p.perRing,v=>p.perRing=v,1,24)],
+  ["Radius:",num(p.radius,v=>p.radius=v,20,300)],
+  ["Arc:",comboNum(p.arc,[[360,"360 full"],[270,"270"],[180,"180 half"],
+                          [120,"120"],[90,"90 quarter"],[60,"60"]],v=>p.arc=v,10,360)],
+  ["Facing:",comboNum(p.arcFace,[[-90,"up"],[0,"right"],[90,"down"],[180,"left"]],
+                      v=>p.arcFace=v,-180,360)],
+  ["Stagger:",check("alternate radius",p.stagger,v=>p.stagger=v)]);
+ else rows.push(
+  ["Columns:",num(p.cols,v=>{p.cols=v; normalise(p);},1,10)],
+  ["Rows:",num(p.rows,v=>{p.rows=v; normalise(p);},1,10)],
+  ["Anchor:",sel(p.anchor,["Center","Top","Bottom","Left","Right"],v=>p.anchor=v)],
+  ["Split:",check("either side of centre",p.split,v=>p.split=v)],
+  ["Offset:",num(p.radius,v=>p.radius=v,0,300)]);
+ rows.push(["Button:",num(p.button,v=>p.button=v,16,96)],["Spacing:",num(p.spacing,v=>p.spacing=v,0,60)]);
+ set.append(group("Layout",formGrid(rows)));
+ set.append(group("Trigger",formGrid([
+  ["Open on:",sel(p.openOn,["single","double","hold","double-hold"],v=>p.openOn=v)],
+  ["Run on:",sel(p.runOn,["click","hover","release"],v=>p.runOn=v)],
+  ["Delay:",num(p.delay,v=>p.delay=v,0,1000)],
+ ])));
+ /* Read-only: a pie does not declare how it is reached -- shortcuts do, and
+    they are scoped by workbench. This reports every scope that names this pie
+    so the relationship is still visible from here. */
+ const ways=waysTo(p.name);
+ const opened=el("div");
+ if(!ways.length)opened.append(el("div","empt","No shortcut reaches this pie yet."));
+ else opened.append(formGrid(ways.map(w=>["key "+w.key+":",
+   el("span","ro",w.scope===ANY?"in every workbench":"in "+w.scope)])));
+ set.append(group("Opened by",opened));
+ const show=el("div");
+ show.append(attachHelp(check("Command names",p.names,v=>p.names=v),"Command names"));
+ set.append(group("Show",show));
+ c3.append(panel(p.name+"\u2019s settings",null,[],set));
+ const top=el("div","brow"); top.append(c1,c2,c2b,c3);
+ const sc=el("div","bshort"); sc.append(shortcutsTableEl());
+ b.append(top,sc); return b;}
+
+function render(){
+ const host=document.getElementById("body"),fresh=build();
+ host.replaceWith(fresh); fresh.id="body";
+ /* paint now -- rAF is throttled in a background tab and leaves the pie blank */
+ const c=fresh.querySelector(".canvas");
+ if(c)paint(c);
+}
+document.getElementById("btnAbout").onclick=()=>{
+ const d=el("div"); d.innerHTML="<b>PieMenu 1.13</b><br>Interactive mockup.";
+ modal("About",d,()=>{});};
+document.getElementById("btnPrefs").onclick=()=>{
+ const w=el("div");
+ w.append(group("Appearance",formGrid([["Theme:",sel("Legacy",["Legacy","Dark","Light"],()=>{})]])));
+
+ const beh=el("div");
+ beh.append(check("Show QuickMenu",true,()=>{}),check("Global context",false,()=>{}),
+            check("Toggle show/hide",true,()=>{}),check("Long right-click to open",false,()=>{}));
+ w.append(group("Behaviour",beh));
+ const bk=el("div"); bk.style.cssText="display:flex;gap:6px";
+ bk.append(el("button","btn","Export all settings…"),el("button","btn","Import all settings…"));
+ w.append(group("Backup",bk));
+ modal("PieMenu Preferences — applies to every pie",w,()=>{});};
+/* ------------------------------------------------------------- playground */
+const V={a:[100,40],b:[170,78],c:[100,116],d:[30,78],e:[30,158],f:[100,196],g:[170,158]};
+const FACES=[["top",[V.a,V.b,V.c,V.d]],["left",[V.d,V.c,V.f,V.e]],["right",[V.b,V.c,V.f,V.g]]];
+const EDGES=[[V.a,V.b],[V.b,V.c],[V.c,V.d],[V.d,V.a],[V.d,V.e],[V.c,V.f],[V.b,V.g],
+             [V.e,V.f],[V.f,V.g]];
+/* Selection is a list -- ctrl or shift adds -- so "a face and an edge" and
+   "two faces" are reachable here, not only single kinds. */
+let picks=[];
+const isPicked=(kind,idx)=>picks.some(q=>q.kind===kind&&q.idx===idx);
+const AXOF={vertex:"Vertex",edge:"Edge",face:"Face",body:"Object"};
+const countsOf=ps=>{const c={};
+ ps.forEach(q=>{const a=AXOF[q.kind]; c[a]=(c[a]||0)+1;}); return c;};
+
+function drawSolid(){
+ const svg=document.getElementById("solid"); if(!svg)return;
+ svg.innerHTML="";
+ const ns="http://www.w3.org/2000/svg";
+ const node=(t,attrs,cls)=>{const n=document.createElementNS(ns,t);
+  Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v)); if(cls)n.setAttribute("class",cls); return n;};
+ const more=e=>e.ctrlKey||e.shiftKey||e.metaKey;
+ const body=node("polygon",{points:[V.a,V.b,V.g,V.f,V.e,V.d].map(q=>q.join(",")).join(" ")},
+                 "bodyhit hit"+(isPicked("body",-1)?" on":""));
+ body.onclick=e=>{e.stopPropagation(); select("body",-1,more(e));};
+ svg.append(body);
+ FACES.forEach(([name,pts],i)=>{
+  const f=node("polygon",{points:pts.map(q=>q.join(",")).join(" ")},
+               "face hit"+(isPicked("face",i)?" on":""));
+  f.onclick=e=>{e.stopPropagation(); select("face",i,more(e));};
+  svg.append(f);});
+ EDGES.forEach(([p1,p2],i)=>{
+  const l=node("line",{x1:p1[0],y1:p1[1],x2:p2[0],y2:p2[1]},
+               "edge hit"+(isPicked("edge",i)?" on":""));
+  l.onclick=e=>{e.stopPropagation(); select("edge",i,more(e));};
+  svg.append(l);});
+ Object.values(V).forEach((q,i)=>{
+  const c=node("circle",{cx:q[0],cy:q[1],r:isPicked("vertex",i)?6:4},
+               "vert hit"+(isPicked("vertex",i)?" on":""));
+  c.onclick=e=>{e.stopPropagation(); select("vertex",i,more(e));};
+  svg.append(c);});
+ svg.onclick=()=>select("none",-1);
+ drawTree();
+ const lbl=document.getElementById("selnow");
+ if(lbl)lbl.textContent="selection: "+describe(S.counts);
+}
+function drawTree(){
+ const t=document.getElementById("mtree"); if(!t)return;
+ t.innerHTML="";
+ const rows=[
+  [0,"Body","body",uiIcon("PieMenuEditMenu"),e=>select("body",-1,e.ctrlKey||e.shiftKey)],
+  [1,"Pad","feature",uiIcon("PieMenuBlank"),e=>select("body",-1,e.ctrlKey||e.shiftKey)],
+  [2,"Sketch","sketch",uiIcon("PieMenuBlank"),e=>select("body",-1,e.ctrlKey||e.shiftKey)],
+ ];
+ rows.forEach(([depth,label,kind,icon,fn])=>{
+  const n=el("div","n"+(isPicked("body",-1)&&label==="Body"?" on":""));
+  n.style.paddingLeft=(7+depth*12)+"px";
+  n.append(el("span","tw",depth===0?"\u25be":""),svg(icon),el("span",null,label));
+  n.onclick=fn; t.append(n);});
+}
+function select(kind,idx,add){
+ if(kind==="none")picks=[];
+ else{
+  const at=picks.findIndex(q=>q.kind===kind&&q.idx===idx);
+  if(add){ if(at>-1)picks.splice(at,1); else picks.push({kind,idx}); }
+  else picks=[{kind,idx}];
+ }
+ S.counts=countsOf(picks); chooserPick={};
+ drawSolid(); render();
+ logLine(uiIcon("PieMenuEditMenu"),"selection: <b>"+describe(S.counts)+"</b>");}
+
+function logLine(icon,html){
+ const box=document.getElementById("log"); if(!box)return;
+ const e=el("div","e"); e.append(svg(icon));
+ const t=el("span"); t.innerHTML=html; e.append(t);
+ const when=el("span","t",new Date().toLocaleTimeString().slice(0,8)); e.append(when);
+ box.prepend(e);
+ while(box.children.length>200)box.lastChild.remove();
+ const c=document.getElementById('logCount'); if(c)c.textContent=box.children.length;
+}
+let livePie=null, hoverTimer=null, gestureOn=false, mousePos={x:0,y:0};
+
+function closeLivePie(reason){
+ if(!livePie)return;
+ if(hoverTimer){clearTimeout(hoverTimer); hoverTimer=null;}
+ livePie.remove(); livePie=null;
+ if(reason)logLine(uiIcon("PieMenuClose"),reason);
+}
+
+function openLivePie(x,y,openKey,forcePie){
+ const vp=document.getElementById("viewport"); if(!vp)return;
+ closeLivePie(null);
+ const hit=(openKey!=null&&!forcePie)?pieForKey(openKey):null;
+ const p=forcePie||(hit?hit.pie:pie());
+ const n=slotCount(p), pos=positions(p), size=p.button;
+ const wrap=el("div","livepie"); livePie=wrap;
+ wrap.dataset.cx=x; wrap.dataset.cy=y;
+ wrap.style.cssText="left:0;top:0;width:100%;height:100%";
+
+ /* Gesture mode draws a line from the centre to the pointer -- the first
+    painted element in the addon (F10b). */
+ const line=document.createElementNS("http://www.w3.org/2000/svg","svg");
+ line.setAttribute("class","gline");
+ line.style.cssText="position:absolute;inset:0;width:100%;height:100%;pointer-events:none";
+ wrap.append(line);
+
+ const centre=el("div","slot centre");
+ centre.style.cssText=`left:${x-11}px;top:${y-11}px;width:22px;height:22px`;
+ centre.append(svg(uiIcon("PieMenuEditMenu")));
+ wrap.append(centre);
+
+ const fire=(cmd,i,eff)=>{
+  /* a pie is a command: firing it opens that pie at the same cursor spot,
+     exactly what NestedPieMenu.Activated does in the addon */
+  if(isPie(cmd)){
+   const t=pieByName(pieTarget(cmd));
+   if(t){logLine(toolIcon(cmd),"opened sub-pie <b>"+t.name+"</b> from "+p.name);
+    openLivePie(x,y,null,t); return;}
+  }
+  logLine(toolIcon(cmd),"ran <b>"+shortName(cmd)+"</b> on "+describe(S.counts)
+   +" <i>("+p.runOn+")</i>"
+);
+  closeLivePie(null);
+ };
+
+ const nodes=[];
+ for(let i=0;i<n;i++){
+  const eff=effectiveSlot(p,i), sl=eff.slot, hits=matches(sl);
+  const s2=el("div","slot"+(sl?"":" empty")+(sl&&!hits.length?" unbound":"")
+            +(hits.length>1?" multi":""));
+  s2.style.cssText=`left:${x+pos[i][0]-size/2}px;top:${y+pos[i][1]-size/2}px;width:${size}px;height:${size}px`;
+  const cmd=hits.length?hits[Math.min(chooserPick[i]||0,hits.length-1)].cmd:null;
+  if(cmd)s2.append(svg(toolIcon(cmd)));
+  if(cmd&&isPie(cmd)){s2.classList.add("door"); s2.append(el("span","chev","\u203a"));
+   if(!pieLive(pieTarget(cmd)))s2.classList.add("unbound");}
+
+  s2.title=cmd?shortName(cmd):"nothing here applies to "+describe(S.counts);
+  s2._cmd=cmd; s2._i=i; s2._eff=eff;
+  nodes.push(s2);
+
+  if(p.runOn==="click"){
+   s2.onclick=ev=>{ev.stopPropagation();
+    if(cmd)fire(cmd,i,eff);
+    else logLine(uiIcon("PieMenuRemove"),"slot "+(i+1)+" is greyed \u2014 nothing bound for <b>"+describe(S.counts)+"</b>");};
+  }
+  if(p.runOn==="hover"&&cmd){
+   s2.onmouseenter=()=>{ if(hoverTimer)clearTimeout(hoverTimer);
+    s2.style.boxShadow="0 0 0 2px var(--hi)";
+    hoverTimer=setTimeout(()=>fire(cmd,i,eff),p.delay);};
+   s2.onmouseleave=()=>{s2.style.boxShadow=""; if(hoverTimer){clearTimeout(hoverTimer); hoverTimer=null;}};
+  }
+  if(hits.length>1){
+   const showIt=()=>{
+    wrap.querySelectorAll(".chooser").forEach(q=>q.remove());
+    const box=el("div","chooser");
+    hits.forEach((b,j)=>{
+     const o=el("div","opt"+((chooserPick[i]||0)===j?" on":""));
+     o.append(svg(toolIcon(b.cmd))); o.title=ruleText(b.rule)+" \u2192 "+shortName(b.cmd);
+     o.onclick=ev=>{ev.stopPropagation(); chooserPick[i]=j;
+      logLine(toolIcon(b.cmd),"chose <b>"+shortName(b.cmd)+"</b> of "+hits.length+" candidates");
+      openLivePie(+wrap.dataset.cx,+wrap.dataset.cy);};
+     box.append(o);});
+    box.style.cssText=`left:${x+pos[i][0]-32}px;top:${y+pos[i][1]+size/2+5}px`;
+    wrap.append(box);
+    box.onmouseleave=()=>box.remove();
+   };
+   const prev=s2.onmouseenter;
+   s2.onmouseenter=e=>{ if(prev)prev(e); showIt(); };
+  }
+  wrap.append(s2);
+ }
+ wrap._nodes=nodes;
+
+ if(p.runOn==="click")
+  wrap.onclick=()=>closeLivePie("closed without running anything");
+
+ vp.append(wrap);
+ const usable=nodes.filter(q=>q._cmd).length;
+ logLine(uiIcon("PieMenu_Logo"),"opened <b>"+p.name+"</b>"
+   +(hit?" \u2014 key "+openKey+" \u2192 "+(hit.via?ANY:playWb)
+        +" \u2192 <b>"+p.name+"</b>":"")
+   +" \u2014 "+usable+" of "+n+" slots usable <i>(open: "+p.openOn+", run: "+p.runOn+")</i>");
+ wrap._pie=p;
+ return wrap;
+}
+
+/* Gesture: the line follows the pointer, and releasing the key runs whatever it
+   points at -- nearest slot if not exactly over one. */
+function updateGesture(){
+ if(!livePie||(livePie._pie||pie()).runOn!=="release")return;
+ const cx=+livePie.dataset.cx, cy=+livePie.dataset.cy;
+ const svgEl=livePie.querySelector(".gline");
+ svgEl.innerHTML='<line x1="'+cx+'" y1="'+cy+'" x2="'+mousePos.x+'" y2="'+mousePos.y
+  +'" stroke="var(--hi)" stroke-width="2" stroke-linecap="round"/>'
+  +'<circle cx="'+cx+'" cy="'+cy+'" r="3" fill="var(--hi)"/>';
+ let best=null,bd=1e9;
+ const vpr=document.getElementById("viewport").getBoundingClientRect();
+ livePie._nodes.forEach(q=>{
+  q.style.boxShadow="";
+  const b=q.getBoundingClientRect();
+  const d=Math.hypot(b.left-vpr.left+b.width/2-mousePos.x,
+                     b.top-vpr.top+b.height/2-mousePos.y);
+  if(d<bd){bd=d;best=q;}});
+ if(best&&bd<120&&best._cmd)best.style.boxShadow="0 0 0 2px var(--hi)";
+ livePie._aim = (best&&bd<120)?best:null;
+}
+function commitGesture(){
+ if(!livePie)return;
+ const aim=livePie._aim;
+ if(aim&&aim._cmd&&isPie(aim._cmd)){
+  const t=pieByName(pieTarget(aim._cmd));
+  if(t){logLine(toolIcon(aim._cmd),"opened sub-pie <b>"+t.name+"</b> <i>(gesture)</i>");
+   openLivePie(+livePie.dataset.cx,+livePie.dataset.cy,null,t); return;}
+ }
+ if(aim&&aim._cmd){
+  logLine(toolIcon(aim._cmd),"ran <b>"+shortName(aim._cmd)+"</b> on "+describe(S.counts)+" <i>(gesture)</i>");
+  closeLivePie(null);
+ }else if(aim){
+  closeLivePie("released over a greyed slot \u2014 nothing ran");
+ }else{
+  closeLivePie("released away from the pie \u2014 nothing ran");
+ }
+}
+/* A realistic FreeCAD 1.1 install. The table shows every one of them as a
+   column and scrolls sideways; the key and base columns stay pinned. */
+const WORKBENCHES=["None","PartDesign","Part","Sketcher","Draft","BIM","FEM","CAM",
+ "Mesh","Points","Surface","TechDraw","Spreadsheet","Inspection","Material","Assembly",
+ "OpenSCAD","Reverse Engineering","Robot","Start","Test Framework"];
+let playWb="PartDesign";
+/* The active workbench decides: its own binding first, then Any workbench. */
+function pieForKey(k){
+ const r=resolveKey(k,playWb);
+ return r.pie?{pie:r.pie,via:r.inherited?ANY:null,from:r.from}:null;
+}
+function initPlayground(){
+ const wbSel=document.getElementById("wbPick");
+ WORKBENCHES.forEach(w=>{const o=el("option",null,w); if(w===playWb)o.selected=true; wbSel.append(o);});
+ wbSel.onchange=()=>{playWb=wbSel.value; render();
+  logLine(uiIcon("PieMenuEditMenu"),"workbench \u2192 <b>"+playWb+"</b>; keys now "
+    +S.keys.map(k=>{const r=pieForKey(k);
+       return r?(k+"\u2192"+r.pie.name):null;}).filter(Boolean).join(", "));};
+ drawSolid();
+ const vp=document.getElementById("viewport");
+ vp.tabIndex=0;
+ vp.addEventListener("mousemove",e=>{
+  const r=vp.getBoundingClientRect();
+  mousePos={x:e.clientX-r.left,y:e.clientY-r.top};
+  if(gestureOn)updateGesture();});
+ let lastTap=0, lastKey=null, heldKey=null;
+ const openHere=k=>openLivePie(mousePos.x,mousePos.y,k);
+ vp.addEventListener("keydown",e=>{
+  const hit=pieForKey(e.key);
+  if(!hit)return;
+  e.preventDefault();
+  if(e.repeat)return;                       // auto-repeat is not a second tap
+  const p=hit.pie, now=Date.now(), isDouble=(now-lastTap)<350&&lastKey===e.key;
+  lastTap=now; lastKey=e.key; heldKey=e.key;
+
+  if(p.openOn==="single"){ livePie?closeLivePie("closed"):openHere(e.key); }
+  else if(p.openOn==="double"){ if(isDouble)openHere(e.key);
+    else logLine(uiIcon("PieMenuBlank"),"one tap \u2014 tap again to open <i>(double)</i>"); }
+  else if(p.openOn==="hold"){ gestureOn=true; openHere(e.key); updateGesture(); }
+  else if(p.openOn==="double-hold"){
+    if(isDouble){ gestureOn=true; openHere(e.key); updateGesture(); }
+    else logLine(uiIcon("PieMenuBlank"),"one tap \u2014 tap again and hold <i>(double-hold)</i>"); }
+ });
+ vp.addEventListener("keyup",e=>{
+  if(!pieForKey(e.key))return;
+  const hit=pieForKey(heldKey); const p=hit?hit.pie:pie();
+  if(!gestureOn)return;
+  gestureOn=false;
+  if(p.runOn==="release")commitGesture();
+  else if(livePie)closeLivePie("released the key \u2014 pie closed");
+ });
+ document.getElementById("openPie").onclick=()=>{
+  vp.focus();
+  const r=vp.getBoundingClientRect();
+  if(!mousePos.x&&!mousePos.y)mousePos={x:r.width/2,y:r.height/2-20};
+  openLivePie(mousePos.x,mousePos.y,S.keys.find(k=>pieForKey(k))||null);};
+ document.getElementById("clearSel").onclick=()=>select("none",-1);
+ document.getElementById("clearLog").onclick=()=>{
+  document.getElementById("log").innerHTML="";
+  document.getElementById("logCount").textContent="0";};
+}
+let planShut=false;
+function drawPlan(){
+ const box=document.getElementById("side"); if(!box)return;
+ const shown=PLAN.filter(p=>p.shown&&!p.supersedes&&!p.deferred);
+ const supers=PLAN.filter(p=>p.supersedes);
+ const todo=PLAN.filter(p=>!p.shown&&!p.supersedes&&!p.deferred);
+ box.innerHTML="";
+ box.className="side"+(planShut?" shut":"");
+ const tog=el("button","sidetog",planShut?"›":"‹");
+ tog.title=planShut?"Show the running plan":"Hide the running plan";
+ tog.onclick=()=>{planShut=!planShut; drawPlan();};
+ box.append(tog);
+ if(planShut){
+  const v=el("div","sidev","Running plan · "+PLAN.length);
+  box.append(v); return;
+ }
+ box.append(el("h2","","Running plan"));
+ const sub=el("div","sub");
+ sub.textContent=PLAN.length+" items · from UI-FEEDBACK.md";
+ box.append(sub);
+ const section=(title,arr,cls,st,stcls)=>{
+  if(!arr.length)return;
+  box.append(el("h4","",title));
+  arr.forEach(p=>{
+   const r=el("div","pitem "+cls);
+   r.append(el("span","n",p.n));
+   const t=el("span","t"); t.textContent=p.title;
+   if(p.supersedes){const sm=el("small"); sm.textContent="replaces "+p.supersedes; t.append(sm);}
+   else if(p.note){const sm=el("small"); sm.textContent=p.note; t.append(sm);}
+   r.append(t); r.append(el("span","st "+stcls,st));
+   r.title=p.note||p.title;
+   box.append(r);});
+ };
+ const deferred=PLAN.filter(p=>p.deferred);
+ section("Shown in this mockup",shown.filter(p=>!p.deferred),"shown","mockup","a");
+ section("Deferred — decide later",deferred,"defer","later","d");
+ section("Replaces shipped code",supers,"super","revert","c");
+ section("Still to build",todo,"todo","todo","b");
+ const foot=el("div","sub"); foot.style.marginTop="14px";
+ foot.innerHTML="Everything here is still <b style='color:#ebdbb2'>unbuilt in the addon</b> \u2014 "
+  +"the mockup only demonstrates the intent.";
+ box.append(foot);
+}
+drawPlan();
+render();
+initPlayground();
+window.addEventListener("resize",()=>render());
+</script>

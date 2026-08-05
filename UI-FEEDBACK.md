@@ -95,7 +95,14 @@ Everything else is **derived from the bindings, never declared**:
   nothing inside the target is live for the current selection (recursive,
   visited-set, so cycles terminate). No per-pie declaration needed.
 
-Built as `mockups/subpies.html`.
+Folded into **`mockups/preferences2.html`** — a full copy of the main dialog kept
+beside the stable `preferences.html` for side-by-side review. The standalone
+`subpies.html` page is gone. The v2 copy also replaces the toy per-binding
+`when: face/edge` enum with the real six-axis count rules everywhere (Contexts
+panel, tool picker, tooltips), so conditions like `Face ≥ 2` or
+`Face ≥ 1 · Edge ≥ 1` are first-class, and the playground builds real counts by
+ctrl-clicking ("1 edge + 2 faces"). The pie list is the derived map; the old
+`parent` field is gone.
 
 ## Decisions that change shipped work
 

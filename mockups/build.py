@@ -71,21 +71,22 @@ def plan_items():
 
 def main():
     icons = json.dumps(inline_icons())
+    plan = json.dumps(plan_items())
 
-    tpl = open(os.path.join(HERE, "preferences.template.html"), encoding="utf-8").read()
-    out = tpl.replace("__ICONS__", icons)
-    out = out.replace("__PLAN__", json.dumps(plan_items()))
-    dest = os.path.join(HERE, "preferences.html")
-    open(dest, "w", encoding="utf-8").write(out)
-    print("wrote", dest)
-
-    # Single-question pages: same icons, no plan sidebar. Each explores one
-    # decision rather than the whole dialog.
-    for name in ("shortcuts", "subpies"):
+    # preferences = the stable view; preferences2 = its evolving copy
+    # (real six-axis rules, sub-pies as commands), kept side by side to compare.
+    for name in ("preferences", "preferences2"):
         tpl = open(os.path.join(HERE, name + ".template.html"), encoding="utf-8").read()
+        out = tpl.replace("__ICONS__", icons).replace("__PLAN__", plan)
         dest = os.path.join(HERE, name + ".html")
-        open(dest, "w", encoding="utf-8").write(tpl.replace("__ICONS__", icons))
+        open(dest, "w", encoding="utf-8").write(out)
         print("wrote", dest)
+
+    # Single-question page kept as the shortcuts explainer.
+    tpl = open(os.path.join(HERE, "shortcuts.template.html"), encoding="utf-8").read()
+    dest = os.path.join(HERE, "shortcuts.html")
+    open(dest, "w", encoding="utf-8").write(tpl.replace("__ICONS__", icons))
+    print("wrote", dest)
 
 
 if __name__ == "__main__":
