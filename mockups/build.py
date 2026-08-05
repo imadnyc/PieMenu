@@ -79,12 +79,13 @@ def main():
     open(dest, "w", encoding="utf-8").write(out)
     print("wrote", dest)
 
-    # The shortcut-model comparison page (UI-FEEDBACK #27). Same icons, no plan
-    # sidebar -- it is one question, not the whole dialog.
-    tpl = open(os.path.join(HERE, "shortcuts.template.html"), encoding="utf-8").read()
-    dest = os.path.join(HERE, "shortcuts.html")
-    open(dest, "w", encoding="utf-8").write(tpl.replace("__ICONS__", icons))
-    print("wrote", dest)
+    # Single-question pages: same icons, no plan sidebar. Each explores one
+    # decision rather than the whole dialog.
+    for name in ("shortcuts", "subpies"):
+        tpl = open(os.path.join(HERE, name + ".template.html"), encoding="utf-8").read()
+        dest = os.path.join(HERE, name + ".html")
+        open(dest, "w", encoding="utf-8").write(tpl.replace("__ICONS__", icons))
+        print("wrote", dest)
 
 
 if __name__ == "__main__":

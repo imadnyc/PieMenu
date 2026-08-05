@@ -1,0 +1,446 @@
+<meta charset="utf-8">
+<title>Sub-pies — structure static, behaviour contextual</title>
+<style>
+:root{--win:#3c3836;--base:#32302f;--alt:#3a3735;--text:#ebdbb2;--dim:#a89984;
+--btn:#504945;--btnhi:#5c5449;--line:#5a534c;--hi:#d3869b;--hitext:#282828;
+--canvas:#282828;--slot:#504945;--slotline:#7c6f64;--warn:#fabd2f;--empty:#4a443f}
+.topbar{display:flex;gap:14px;align-items:center;padding:9px 14px;background:#2b2928;border-bottom:1px solid #1d1b1a;flex-wrap:wrap}
+.topbar h1{font-size:13px;font-weight:600;margin:0;color:var(--dim)}
+.hint{color:var(--dim);font-size:12px}
+.slothead{padding:6px 8px 5px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11px;
+flex:0 0 auto;background:var(--win)}
+.slothead b{color:var(--text);font-weight:600}
+.empt{padding:14px 10px;color:var(--dim);font-size:12px;line-height:1.5}
+.col{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:0}
+.panel{display:flex;flex-direction:column;min-height:0;flex:1;border:1px solid var(--line);
+border-radius:3px;overflow:hidden;background:var(--base)}
+.phead{display:flex;align-items:center;gap:6px;padding:3px 4px 3px 8px;background:var(--win);
+border-bottom:1px solid var(--line);flex:0 0 auto}
+.phead .ptitle{color:var(--dim);font-size:12px;font-weight:600;white-space:nowrap}
+.phead .pcount{color:var(--dim);font-size:11px;opacity:.7}
+.grow{flex:1}
+.pacts{display:flex;gap:1px;align-items:center}
+.list{background:var(--base);overflow:auto;min-height:0;flex:1}
+.row{display:flex;align-items:center;gap:6px;padding:4px 8px 4px 3px;white-space:nowrap;overflow:hidden}
+.row:nth-child(even){background:var(--alt)}
+.row.sel{background:var(--hi);color:var(--hitext)}
+.row .name{overflow:hidden;text-overflow:ellipsis;flex:1}
+.row .tag{font-size:11px;color:var(--dim)}
+.row.sel .tag{color:var(--hitext)}
+.row.drag{opacity:.3}
+.row.over{box-shadow:inset 0 2px 0 var(--hi)}
+.row.dim .name{color:var(--dim)}
+.grip{display:flex;align-items:center;color:var(--dim);opacity:.45;cursor:grab;flex:0 0 auto}
+.row:hover .grip{opacity:.9}
+.row.sel .grip{opacity:.75;color:var(--hitext)}
+.grip{width:14px;height:14px}
+.grip svg{width:100%;height:100%;display:block}
+.ico{display:flex;flex:0 0 auto;width:15px;height:15px}
+.ico svg{width:100%;height:100%;display:block}
+.tool{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--text);
+width:26px;height:24px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.tool:hover{background:var(--btnhi)}
+.tool.sm{width:22px;height:20px;border-color:transparent;background:transparent}
+.tool:disabled{opacity:.3;cursor:default}
+.tool:disabled:hover{background:var(--btn)}
+.tool.sm:disabled:hover{background:transparent}
+.tool.sm:hover{background:var(--btnhi);border-color:var(--line)}
+.tool.sm.on{background:var(--hi);border-color:var(--hi)}
+.tool.sm .ico{width:13px;height:13px}
+.tool .ico{width:14px;height:14px}
+.tools{display:flex;gap:2px;padding-top:2px;align-items:center}
+.sep{width:1px;height:16px;background:var(--line);margin:0 3px}
+.form{display:grid;grid-template-columns:auto 1fr;gap:4px 8px;align-items:center}
+.form label{text-align:right;white-space:nowrap}
+select,input[type=number],input[type=text]{background:var(--btn);color:var(--text);
+border:1px solid var(--line);border-radius:2px;padding:3px 5px;font:inherit;width:100%;min-width:0}
+.group{border:1px solid var(--line);border-radius:3px;padding:9px 8px 8px;position:relative;margin-top:9px}
+.group>.title{position:absolute;top:-8px;left:8px;background:var(--win);padding:0 5px;color:var(--dim);font-size:12px}
+.canvas{position:relative;background:var(--canvas);border:1px solid var(--line);border-radius:2px;
+overflow:hidden;min-height:0;flex:1}
+.canvas .lbl{position:absolute;top:6px;left:8px;color:#928374;font-size:12px;pointer-events:none}
+.slot{position:absolute;display:flex;align-items:center;justify-content:center;background:var(--slot);
+border:1px solid var(--slotline);border-radius:4px;cursor:grab;user-select:none;font-size:11px}
+.slot .ico{width:60%;height:60%}
+.slot.empty{background:transparent;border-style:dashed;border-color:var(--empty);cursor:pointer;color:var(--empty)}
+.slot.empty:hover{border-color:var(--hi);color:var(--hi)}
+.slot.sel{box-shadow:0 0 0 2px var(--hi)}
+.slot.dragging{opacity:.22}
+.slot.ghost{z-index:9;pointer-events:none;opacity:.95;box-shadow:0 5px 16px rgba(0,0,0,.6)}
+.slot.target{box-shadow:0 0 0 2px var(--hi)}
+.slot.off{opacity:.32;filter:grayscale(1)}
+.slot.pin,.slot.inherited{border-color:var(--slotline)}
+.slot{overflow:visible}
+.plegend{position:absolute;left:8px;bottom:6px;display:flex;gap:12px;flex-wrap:wrap;
+ color:#7c6f64;font-size:11px;pointer-events:none}
+.plegend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:4px;
+ border:1px solid var(--slotline);background:var(--slot);vertical-align:-1px}
+.plegend i.pin,.plegend i.inh{position:relative}
+.plegend i.un{opacity:.3;filter:grayscale(1)}
+.plegend i.mu{border-color:var(--hi)}
+.slot.inherited{border-style:dashed}
+.slot.multi::after{content:"";position:absolute;right:2px;bottom:2px;width:0;height:0;
+ border-left:5px solid transparent;border-bottom:5px solid var(--hi)}
+.slot.unbound{opacity:.28;filter:grayscale(1)}
+.row.child2{padding-left:20px}
+.tw{width:12px;color:var(--dim);text-align:center;flex:0 0 auto;cursor:pointer}
+.slot.reg{border-color:var(--hi)}
+.slot.centre{border-radius:50%;background:#413b36;cursor:default;opacity:.85}
+.ring{position:absolute;border:1px solid #423c37;border-radius:50%;pointer-events:none}
+.btn{background:var(--btn);border:1px solid var(--line);border-radius:2px;color:var(--text);
+padding:5px 14px;font:inherit;cursor:pointer}
+.btn:hover{background:var(--btnhi)}
+.btn.primary{background:var(--hi);color:var(--hitext);font-weight:600}
+.btn.tiny{padding:2px 8px;font-size:11px}
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;z-index:50}
+.modal{background:var(--win);border:1px solid #1d1b1a;border-radius:4px;box-shadow:0 12px 40px rgba(0,0,0,.6);min-width:380px}
+.modal h2{margin:0;padding:10px 14px;font-size:13px;border-bottom:1px solid var(--line)}
+.modal .content{padding:14px}
+.modal .foot{display:flex;gap:6px;justify-content:flex-end;padding:10px 14px;border-top:1px solid var(--line)}
+.row.grp{background:var(--btn);font-weight:600;cursor:pointer}
+.row.grp .tw{width:12px;color:var(--dim);text-align:center}
+.row.child{padding-left:18px}
+.pop{position:absolute;z-index:60;background:var(--win);border:1px solid var(--line);border-radius:3px;
+box-shadow:0 8px 22px rgba(0,0,0,.5);padding:3px;min-width:200px}
+.pop .row{padding:5px 9px;border-radius:2px;cursor:pointer;gap:8px}
+.pop .row:hover{background:var(--btnhi)}
+.pop .row:nth-child(even){background:transparent}
+.pop .row.dim{opacity:.4;cursor:default}
+.popsep{height:1px;background:var(--line);margin:3px 6px}
+.logbox{width:320px;height:440px;display:flex;flex-direction:column;border:1px solid var(--line);
+ border-radius:3px;overflow:hidden;background:var(--base)}
+.log{flex:1;min-height:0;overflow-y:auto;padding:4px;font-size:12px}
+.log .e{display:flex;gap:7px;padding:3px 5px;border-bottom:1px solid #3a3735;align-items:center}
+.log .e .ico{width:14px;height:14px}
+.log .e b{color:var(--hi);font-weight:600}
+.log .e span:not(.t){flex:1;min-width:0}
+.log .e span.t{color:var(--dim);font-size:11px;margin-left:auto}/* ---- sub-pie demo ------------------------------------------------------- */
+body{display:block}
+.wrap{max-width:1220px;margin:0 auto;padding:12px}
+.lede{color:var(--dim);font-size:12px;line-height:1.55;margin:0 0 10px;
+background:var(--base);border:1px solid var(--line);border-left:3px solid var(--hi);
+border-radius:3px;padding:9px 11px}
+.lede b{color:var(--text)} .lede code{background:var(--win);padding:1px 5px;border-radius:2px;color:var(--text)}
+.cols{display:flex;gap:8px;height:430px}
+.c-tree{width:250px;display:flex;flex-direction:column}
+.c-pie{flex:1;display:flex;flex-direction:column;min-width:0}
+.c-insp{width:280px;display:flex;flex-direction:column}
+.crumb{display:flex;align-items:center;gap:5px;padding:5px 8px;background:var(--win);
+border-bottom:1px solid var(--line);font-size:12px;flex:0 0 auto}
+.crumb a{color:var(--hi);cursor:pointer}
+.crumb .sepc{color:var(--empty)}
+.crumb .cur{color:var(--text)}
+/* a doorway never changes kind: always a ring-edged slot with a chevron */
+.slot.door{border-style:solid;border-width:2px;border-color:var(--hi);border-radius:50%}
+.slot.door .chev{position:absolute;right:-3px;bottom:-3px;font-size:10px;color:var(--hi);
+background:var(--canvas);border-radius:50%;width:13px;height:13px;line-height:13px;text-align:center}
+.slot.dead{opacity:.45}
+.slot.dead.door{border-color:var(--empty)}
+.slot.dead .chev{color:var(--empty)}
+.slot .lbl{position:absolute;top:100%;margin-top:3px;left:50%;transform:translateX(-50%);
+font-size:11px;color:var(--dim);white-space:nowrap;pointer-events:none}
+.slot.door .lbl{color:var(--hi)}
+.slot.dead .lbl{color:var(--empty)}
+.selbar{display:flex;gap:6px;align-items:center;padding:6px 8px;background:var(--win);
+border-top:1px solid var(--line);flex:0 0 auto;flex-wrap:wrap}
+.selbar .seg{display:flex;border:1px solid var(--line);border-radius:3px;overflow:hidden}
+.selbar .seg button{background:var(--btn);border:0;border-right:1px solid var(--line);
+color:var(--dim);padding:3px 9px;cursor:pointer;font-size:12px}
+.selbar .seg button:last-child{border-right:0}
+.selbar .seg button.on{background:var(--hi);color:var(--hitext)}
+.ibody{padding:9px;overflow:auto;flex:1;min-height:0}
+.kindrow{display:flex;gap:6px;align-items:center;margin-bottom:9px}
+.kind{padding:2px 8px;border-radius:10px;font-size:11px;border:1px solid var(--line);color:var(--dim)}
+.kind.on{background:var(--hi);color:var(--hitext);border-color:var(--hi)}
+.brow{display:flex;gap:6px;align-items:center;padding:3px 0;font-size:12px;border-bottom:1px solid #3a3735}
+.brow .when{color:var(--dim);font-size:11px;margin-left:auto}
+.brow.live{color:var(--text)} .brow.off{color:var(--empty)}
+.note{color:var(--dim);font-size:11.5px;line-height:1.5;margin-top:9px;
+border-left:2px solid var(--line);padding-left:8px}
+.warn{color:var(--warn)}
+.treerow .rf{color:var(--dim);font-size:10px;margin-left:auto}
+</style>
+
+<div class="topbar">
+  <h1>Sub-pies</h1>
+  <span class="hint">structure is static, behaviour is contextual · click a doorway to descend · click any slot to inspect it</span>
+</div>
+
+<div class="wrap">
+  <p class="lede">
+    Two rules. <b>A slot's kind never changes</b> — it is an action or a doorway, forever, so
+    <i>flick and keep going</i> always means the same thing. <b>Doorways carry no conditions</b>;
+    only action slots do. So the graph is static, and instead of one doorway that changes target,
+    you spend <b>two</b> — each greying itself out when its pie says it is irrelevant.
+    Change the selection below and watch: <b>nothing moves</b>.
+  </p>
+
+  <div class="cols">
+    <div class="c-tree"><div class="panel" id="treePanel"></div></div>
+    <div class="c-pie"><div class="panel" id="piePanel"></div></div>
+    <div class="c-insp"><div class="panel" id="inspPanel"></div></div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-top:8px;height:150px">
+    <div class="logbox" style="width:100%;height:150px">
+      <div class="phead"><span class="ptitle">What happened</span>
+        <span class="pcount" id="logCount">0</span><span class="grow"></span>
+        <button class="btn tiny" id="clearLog">Clear</button></div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const ICONS = __ICONS__;
+const el=(t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
+const svg=(h,c)=>{const s=el("span",c||"ico"); s.innerHTML=h; return s;};
+const uiIcon=n=>ICONS[n]||"";
+const shortName=c=>c.replace(/^[A-Za-z]+_/,"").replace(/([a-z])([A-Z])/g,"$1 $2");
+
+const SELS=["none","vertex","edge","face","body"];
+
+/* A pie may declare what it expects. That one line is what lets a doorway grey
+   itself out without putting a condition on the edge, and it gives the editor a
+   definite context to preview an interior pie under. */
+const PIES={
+ "Main":{expects:null,slots:8,radius:96,items:[
+   {kind:"action",b:[{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Fillet",when:"edge"}]},
+   {kind:"action",b:[{cmd:"Std_Save",when:"any"}]},
+   {kind:"door",pie:"Surface tools"},
+   {kind:"door",pie:"Edge tools"},
+   {kind:"action",b:[{cmd:"Std_Undo",when:"any"}]},
+   null,
+   {kind:"door",pie:"View"},
+   null]},
+ "Surface tools":{expects:"face",slots:4,radius:74,items:[
+   {kind:"action",b:[{cmd:"PartDesign_Pad",when:"face"}]},
+   {kind:"action",b:[{cmd:"PartDesign_Pocket",when:"face"}]},
+   {kind:"action",b:[{cmd:"PartDesign_Draft",when:"face"}]},
+   {kind:"door",pie:"View"}]},
+ "Edge tools":{expects:"edge",slots:6,radius:80,items:[
+   {kind:"action",b:[{cmd:"PartDesign_Fillet",when:"edge"}]},
+   {kind:"action",b:[{cmd:"PartDesign_Chamfer",when:"edge"}]},
+   null,null,
+   {kind:"action",b:[{cmd:"Std_Undo",when:"any"}]},
+   {kind:"door",pie:"View"}]},
+ "View":{expects:null,slots:4,radius:70,items:[
+   {kind:"action",b:[{cmd:"View_Fit",when:"any"}]},
+   {kind:"action",b:[{cmd:"View_Front",when:"any"}]},
+   {kind:"action",b:[{cmd:"View_Top",when:"any"}]},
+   null]},
+};
+
+const S={sel:"face",path:["Main"],slot:null};
+const cur=()=>PIES[S.path[S.path.length-1]];
+const curName=()=>S.path[S.path.length-1];
+
+/* an action slot resolves against the selection; a doorway never does */
+const matches=b=>b.when==="any"||b.when===S.sel;
+const liveCmd=it=>{const h=(it.b||[]).filter(matches); return h.length?h[0].cmd:null;};
+/* a doorway is live when the pie it opens says it is relevant */
+const doorLive=it=>{const p=PIES[it.pie]; return !p.expects||p.expects===S.sel;};
+const slotLive=it=>!it?false:(it.kind==="door"?doorLive(it):!!liveCmd(it));
+/* one level of lookahead: is there anything to do in there? */
+const childHasSomething=name=>PIES[name].items.some(x=>x&&slotLive(x));
+
+/* structure is derived from doorways, and does not depend on the selection */
+function edgesFrom(name){return PIES[name].items.filter(x=>x&&x.kind==="door").map(x=>x.pie);}
+function reachedFrom(name){
+ return Object.keys(PIES).filter(p=>edgesFrom(p).includes(name));}
+
+function positions(p){
+ const out=[],n=p.slots,step=2*Math.PI/n,start=-Math.PI/2;
+ for(let i=0;i<n;i++)out.push([Math.cos(start+step*i)*p.radius,Math.sin(start+step*i)*p.radius]);
+ return out;}
+
+/* ---- the pie ------------------------------------------------------------- */
+function pieEl(){
+ const p=cur(), body=el("div");
+ body.style.cssText="display:flex;flex-direction:column;flex:1;min-height:0";
+
+ const cr=el("div","crumb");
+ S.path.forEach((n,i)=>{
+  if(i)cr.append(el("span","sepc","›"));
+  if(i<S.path.length-1){const a=el("a",null,n);
+   a.onclick=()=>{S.path=S.path.slice(0,i+1); S.slot=null; draw();}; cr.append(a);}
+  else cr.append(el("span","cur",n));});
+ if(p.expects){cr.append(el("span","grow"));
+  cr.append(el("span","hint","expects a "+p.expects));}
+ body.append(cr);
+
+ const c=el("div","canvas"); c.style.flex="1";
+ body.append(c);
+
+ const bar=el("div","selbar");
+ bar.append(el("span","hint","selection:"));
+ const seg=el("div","seg");
+ SELS.forEach(s=>{const b=el("button",s===S.sel?"on":null,s);
+  b.onclick=()=>{S.sel=s; log(uiIcon("PieMenuEditMenu"),"selection → <b>"+s+"</b>"); draw();};
+  seg.append(b);});
+ bar.append(seg);
+ bar.append(el("span","grow"));
+ const back=el("button","btn tiny","Back to Main");
+ back.onclick=()=>{S.path=["Main"]; S.slot=null; draw();};
+ bar.append(back);
+ body.append(bar);
+
+ body._canvas=c;
+ return panel("Pie — "+curName(),null,[],body);
+}
+
+function paint(c){
+ [...c.querySelectorAll(".slot")].forEach(n=>n.remove());
+ const p=cur(), w=c.clientWidth, h=c.clientHeight; if(!w||!h)return;
+ const cx=w/2, cy=h/2-4, pos=positions(p), size=42;
+ pos.forEach(([x,y],i)=>{
+  const it=p.items[i];
+  const live=slotLive(it);
+  const cls=["slot"];
+  if(!it)cls.push("empty");
+  else{ if(it.kind==="door")cls.push("door"); if(!live)cls.push("dead"); }
+  if(i===S.slot)cls.push("sel");
+  const s=el("div",cls.join(" "));
+  s.style.cssText=`left:${cx+x-size/2}px;top:${cy+y-size/2}px;width:${size}px;height:${size}px`;
+  if(it){
+   if(it.kind==="door"){
+    s.append(svg(uiIcon("PieMenu_Logo")));
+    s.append(el("span","chev","›"));
+    s.append(el("span","lbl",it.pie));
+   }else{
+    const cmd=liveCmd(it);
+    s.append(el("span",null,cmd?shortName(cmd).split(" ")[0]:"—"));
+    if(cmd)s.append(el("span","lbl",shortName(cmd)));
+   }
+  }else s.append(el("span",null,"+"));
+  s.onclick=()=>{S.slot=i; draw();};
+  s.ondblclick=()=>{ if(it&&it.kind==="door"&&live)enter(it.pie); };
+  c.append(s);
+ });
+ const centre=el("div","slot"); centre.style.cssText=
+  `left:${cx-17}px;top:${cy-17}px;width:34px;height:34px;border-radius:50%`;
+ centre.append(svg(uiIcon("PieMenuEditMenu"))); c.append(centre);
+}
+
+function enter(name){
+ if(!childHasSomething(name))
+  log(uiIcon("PieMenuRemove"),"<b>"+name+"</b> has nothing live for <b>"+S.sel+"</b>");
+ S.path=S.path.concat([name]); S.slot=null;
+ log(uiIcon("PieMenu_Logo"),"entered <b>"+name+"</b>");
+ draw();
+}
+
+/* ---- derived structure --------------------------------------------------- */
+function treeEl(){
+ const list=el("div","list");
+ const seen={};
+ const walk=(name,depth)=>{
+  const row=el("div","row treerow"+(name===curName()?" sel":""));
+  row.style.paddingLeft=(6+depth*13)+"px";
+  row.append(svg(uiIcon("PieMenu_Logo")),el("span","name",name));
+  const rf=reachedFrom(name);
+  if(rf.length>1)row.append(el("span","rf","from "+rf.length));
+  if(PIES[name].expects)row.append(el("span","tag",PIES[name].expects));
+  row.onclick=()=>{S.path=[name]; S.slot=null; draw();};
+  list.append(row);
+  if(seen[name])return;                  // draw a shared pie's children once
+  seen[name]=1;
+  edgesFrom(name).forEach(ch=>walk(ch,depth+1));
+ };
+ Object.keys(PIES).filter(n=>!reachedFrom(n).length).forEach(n=>walk(n,0));
+ const note=el("div","note");
+ note.textContent="Drawn from doorway slots, not from a parent field. It does not "
+  +"change when the selection changes — only what is live inside does.";
+ const w=el("div"); w.style.cssText="display:flex;flex-direction:column;flex:1;min-height:0";
+ w.append(list,note);
+ return panel("Structure",Object.keys(PIES).length,[],w);
+}
+
+/* ---- inspector ----------------------------------------------------------- */
+function inspEl(){
+ const p=cur(), body=el("div","ibody");
+ if(S.slot==null||!p.items[S.slot]){
+  body.append(el("div","empt",S.slot==null
+   ? "Click a slot to see what it is and why it looks the way it does."
+   : "Slot "+(S.slot+1)+" is empty."));
+  return panel("Slot",null,[],body);
+ }
+ const it=p.items[S.slot];
+ const kr=el("div","kindrow");
+ kr.append(el("span","kind"+(it.kind==="action"?" on":""),"action"),
+           el("span","kind"+(it.kind==="door"?" on":""),"doorway"));
+ body.append(kr);
+
+ if(it.kind==="door"){
+  const ch=PIES[it.pie], live=doorLive(it);
+  body.append(el("div","brow live","opens "+it.pie));
+  body.append(el("div","brow"+(live?" live":" off"),
+    ch.expects?(it.pie+" expects a "+ch.expects):(it.pie+" expects nothing in particular")));
+  body.append(el("div","brow"+(live?" live":" off"),
+    live?"live for "+S.sel:"greyed for "+S.sel));
+  if(live&&!childHasSomething(it.pie))
+   body.append(el("div","brow off warn","⚠ nothing inside is live either"));
+  const b=el("button","btn tiny","Enter "+it.pie); b.style.marginTop="8px";
+  b.disabled=!live; b.onclick=()=>enter(it.pie);
+  body.append(b);
+  const n=el("div","note");
+  n.textContent="A doorway carries no condition of its own. It greys because the pie "
+   +"it opens says it is irrelevant — declared once, on that pie, not on every edge "
+   +"pointing at it.";
+  body.append(n);
+ }else{
+  it.b.forEach(b=>{
+   const on=matches(b);
+   const r=el("div","brow"+(on?" live":" off"));
+   r.append(el("span",null,shortName(b.cmd)),el("span","when",b.when));
+   body.append(r);});
+  const n=el("div","note");
+  n.textContent="Conditions live here, in the action slot, and nowhere else. "
+   +"This is the only kind of slot that reads the selection.";
+  body.append(n);
+ }
+
+ const t=el("button","btn tiny",it.kind==="door"
+   ? "Try to add a command here" : "Try to make this a doorway");
+ t.style.marginTop="10px";
+ t.onclick=()=>{
+  log(uiIcon("PieMenuRemove"),"refused — slot "+(S.slot+1)+" is "
+   +(it.kind==="door"?"a doorway":"an action")
+   +", and a slot's kind never changes. <i>Flick and keep going</i> has to mean "
+   +"the same thing every time.");
+ };
+ body.append(t);
+ return panel("Slot "+(S.slot+1)+" of "+curName(),null,[],body);
+}
+
+function panel(title,count,actions,body){
+ const p=el("div","panel"),h=el("div","phead");
+ h.append(el("span","ptitle",title));
+ if(count!=null)h.append(el("span","pcount",count));
+ h.append(el("span","grow"));
+ const a=el("div","pacts"); (actions||[]).forEach(x=>a.append(x));
+ h.append(a); p.append(h,body); return p;}
+
+function log(icon,html){
+ const box=document.getElementById("log");
+ const e=el("div","e"); e.append(svg(icon));
+ const s=el("span"); s.innerHTML=html; e.append(s);
+ box.prepend(e);
+ document.getElementById("logCount").textContent=box.children.length;}
+
+function draw(){
+ const swap=(id,node)=>{const o=document.getElementById(id); node.id=id; o.replaceWith(node);};
+ swap("treePanel",treeEl());
+ swap("piePanel",pieEl());
+ swap("inspPanel",inspEl());
+ /* paint once the node is in the document -- rAF is throttled in a background
+    tab, which would leave the pie blank */
+ const c=document.querySelector("#piePanel .canvas");
+ if(c)paint(c);
+}
+document.getElementById("clearLog").onclick=()=>{
+ document.getElementById("log").innerHTML="";
+ document.getElementById("logCount").textContent="0";};
+addEventListener("resize",()=>draw());
+draw();
+</script>

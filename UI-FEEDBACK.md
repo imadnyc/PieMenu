@@ -63,6 +63,37 @@ conditions it actually cares about, and unrelated slots stay silent.
 - Anything already built that splits a pie per selection should be treated as a
   mistake and folded back into one pie with conditional slots.
 
+## Open — sub-pies, and how they survive contextual slots
+
+Slots that open other pies already exist in the addon (`InitGui.py:2523` registers
+every pie as a `PieMenu_<name>` command via `NestedPieMenu`), so a graph edge and
+a conditional binding are the same object. That collides with the decision above:
+if edges carry conditions, the pie graph becomes a function of the selection --
+a slot changes *kind* between contexts (fatal for gesture memory), doorways can
+lead to entirely dead pies, an interior pie has no fixed context to be previewed
+under, the "tree" is really a selection-dependent DAG, and pinning would have to
+flow along edges that come and go.
+
+**Proposed, and built as `mockups/subpies.html`:**
+
+1. **A slot's kind is fixed.** Action or doorway, permanently. *Flick and keep
+   going* must mean the same thing every time. Enforced -- trying to mix them is
+   refused.
+2. **Doorways carry no conditions; only action slots do.** So the graph is static:
+   drawable, walkable, and safe for pinning to flow along.
+3. **Don't overload a doorway -- spend a second slot.** Two doorways, each greying
+   itself out when irrelevant, instead of one that changes target. Position stays
+   honest, and the two children keep different layouts and slot counts, which
+   merging them into one child would have forced you to give up.
+4. **A pie declares what it expects** (optional, one line). That is what greys a
+   doorway -- declared once on the pie, not repeated on every edge pointing at it
+   -- and it gives the editor a definite context to preview an interior pie under.
+
+The structure panel is drawn from doorway bindings rather than a `parent` field,
+so it cannot go stale; a pie reached from several parents is tagged with how many.
+Open question: whether spending a slot per contextual child stays acceptable on a
+genuinely crowded pie.
+
 ## Decisions that change shipped work
 
 | # | Decision | Consequence |
