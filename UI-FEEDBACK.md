@@ -247,13 +247,14 @@ Why it is likely better than D:
 - Copy a binding to another scope is offered in the right-click menu rather than
   drag-only (NN/g flags drag-only as an accessibility failure).
 
-As integrated into the main dialog: the left column carries the pie tree above and
-a **Shortcuts** panel below -- "what exists" over "how you reach it". The panel
-header holds the scope dropdown (workbench, or Any workbench), an add button, and
-a button opening the cross-workbench grid. Each row names the **pie**, and
-**clicking that name loads the pie into the editor**, so the shortcut list doubles
-as navigation. Inherited rows are dashed + italic with an `Any` chip. A pie's
-settings panel reports the reverse direction under "Opened by".
+As integrated into the main dialog: the whole table is **permanently visible** as
+a full-width row under the editor -- no scope dropdown, nothing behind a modal.
+Columns are the scopes, so the hierarchy reads directly: **Any workbench** is the
+first column, tinted and rule-separated as the base, and each workbench column
+either overrides it (solid) or inherits it (dim italic + a `↳` mark). Cells name
+the **pie**; **clicking a cell opens that pie in the editor**, double-click binds,
+right-click gives override / revert / copy-to-workbench. A pie's settings panel
+reports the reverse direction under "Opened by".
 
 Still missing: binding a key from the pie itself (Blender's right-click -> Assign
 Shortcut, the escape hatch that means most users never open this dialog at all).
