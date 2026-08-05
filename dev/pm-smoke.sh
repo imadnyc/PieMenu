@@ -17,4 +17,5 @@ export XDG_CONFIG_HOME="$dev/config"
 export XDG_CACHE_HOME="$dev/cache"
 mkdir -p "$XDG_CONFIG_HOME"
 
-exec freecadcmd -u "$XDG_CONFIG_HOME/smoke-user.cfg" "$repo/dev/smoke_freecad.py"
+freecadcmd -u "$XDG_CONFIG_HOME/smoke-user.cfg" "$repo/dev/smoke_freecad.py"
+exec freecadcmd -u "$XDG_CONFIG_HOME/model-user.cfg" "$repo/dev/test_model.py"
