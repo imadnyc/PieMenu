@@ -39,7 +39,7 @@ def inline_icons():
     return icons
 
 
-DEMOED = {1,2,3,4,5,6,7,8,9,10,11,12,14,15,16,19,20,21,22,23,24,25,31,32,33,34}
+DEMOED = {1,2,3,4,5,6,7,8,9,10,11,12,14,15,16,19,20,21,22,23,24,25,31,32,33,34,35,36}
 DEFERRED = {17, 18}   # pinning: revisit once the model is settled
 SUPERSEDES = {13: "F9.2 · bc3df9c", 17: "F8.c · b619aed", 18: "F8.c · b619aed",
               16: "F6.0 · 2b75adc", 19: "F3 · dded196", 22: "F10a · cb443f3"}

@@ -506,7 +506,7 @@ const pieTarget=c=>c.slice(8);
 function mkPie(name,items,o={}){return Object.assign({
  name,def:false,family:"circle",
  slots:8,perRing:8,radius:80,arc:360,arcFace:-90,stagger:false,
- cols:3,rows:2,anchor:"Center",split:false,
+ cols:3,rows:2,anchors:["Center"],staggerBy:18,
  button:34,spacing:6,sel:0,items:items.slice(),
  names:false,openOn:"single",runOn:"click",delay:250,
  regions:[],toolRegion:{},
@@ -644,7 +644,8 @@ function pieLive(name,seen){
    isPie(b.cmd)?pieLive(pieTarget(b.cmd),seen):true));
 }
 const pie=()=>S.pies[S.cur];
-const slotCount=p=>p.family==="circle"?p.slots:p.cols*p.rows;
+const slotCount=p=>p.family==="circle"?p.slots
+ :p.cols*p.rows*Math.max(1,(p.anchors||["Center"]).length);
 const filled=p=>p.items.filter(Boolean);
 function normalise(p){const n=slotCount(p);
  while(p.items.length<n)p.items.push(null);
@@ -898,19 +899,23 @@ function positions(p){
    const div=p.arc>=360?inRing:Math.max(1,inRing-1);
    const a=start+(span/div)*k;
    let r=p.radius+ring*(p.button+p.spacing+10);
-   if(p.stagger&&k%2)r+=p.button*0.55;
+   if(p.stagger&&k%2)r+=(p.staggerBy??18);
    out.push([Math.cos(a)*r,Math.sin(a)*r]);}
   return out;}
- const cols=Math.max(1,p.cols),rows=Math.max(1,p.rows);
+ /* one cols-by-rows block per active anchor, filled in a fixed order, so
+    "a grid above, below and to the right" is one pie with three anchors */
+ const cols=Math.max(1,p.cols),rows=Math.max(1,p.rows),per=cols*rows;
+ const order=["Top","Left","Center","Right","Bottom"]
+   .filter(a=>(p.anchors||["Center"]).includes(a));
  for(let i=0;i<n;i++){
-  let x=((i%cols)-(cols-1)/2)*step,y,ry=Math.floor(i/cols);
-  if(p.split){const half=Math.ceil(rows/2);
-   y=ry<half?-(p.radius/2+(half-1-ry)*step):(p.radius/2+(ry-half)*step);}
-  else{y=(ry-(rows-1)/2)*step;
-   if(p.anchor==="Top")y-=p.radius/2+((rows-1)/2)*step;
-   if(p.anchor==="Bottom")y+=p.radius/2+((rows-1)/2)*step;
-   if(p.anchor==="Left")x-=p.radius/2+((cols-1)/2)*step;
-   if(p.anchor==="Right")x+=p.radius/2+((cols-1)/2)*step;}
+  const blk=Math.min(Math.floor(i/per),Math.max(0,order.length-1)),k=i%per;
+  const a=order[blk]||"Center";
+  let x=((k%cols)-(cols-1)/2)*step;
+  let y=(Math.floor(k/cols)-(rows-1)/2)*step;
+  if(a==="Top")y-=p.radius/2+((rows-1)/2)*step;
+  if(a==="Bottom")y+=p.radius/2+((rows-1)/2)*step;
+  if(a==="Left")x-=p.radius/2+((cols-1)/2)*step;
+  if(a==="Right")x+=p.radius/2+((cols-1)/2)*step;
   out.push([x,y]);}
  return out;}
 
@@ -1213,30 +1218,31 @@ const sliderNum=(v,on,mn,mx)=>{
  n.onchange=()=>{sl.value=n.value; on(+n.value); render();};
  w.append(sl,n); return w;};
 /* where the block sits, relative to the cursor -- five buttons beat a dropdown */
-const anchorPick=(v,on)=>{
+/* toggles: several anchors at once means one block per side */
+const anchorPick=(list,on)=>{
  const g=el("div","anchorgrid");
  const side={Top:"above",Bottom:"below",Left:"left of",Right:"right of",Center:"centred on"};
  const glyph={Top:"\u25b2",Bottom:"\u25bc",Left:"\u25c0",Right:"\u25b6",Center:"\u25cf"};
  [[null,"Top",null],["Left","Center","Right"],[null,"Bottom",null]].flat().forEach(a=>{
-  const b=el("button","abtn"+(a?"":" blank")+(a===v?" on":""),a?glyph[a]:"");
-  if(a){b.title="the block sits "+side[a]+" the cursor";
+  const b=el("button","abtn"+(a?"":" blank")+(a&&list.includes(a)?" on":""),a?glyph[a]:"");
+  if(a){b.title="a block "+side[a]+" the cursor \u2014 toggle; several at once is fine";
    b.onclick=()=>{on(a); render();};}
   else b.disabled=true;
   g.append(b);});
  return g;};
-const comboNum=(v,presets,on,mn,mx)=>{
- const wrap=el("div"); wrap.style.cssText="display:flex;gap:4px;min-width:0";
- const id="dl"+Math.abs(presets.join("").length*31+v);
- const i=el("input"); i.type="number"; i.value=v; i.min=mn??0; i.max=mx??360;
- i.setAttribute("list",id); i.style.flex="1";
- const dl=document.createElement("datalist"); dl.id=id;
- presets.forEach(([val,label])=>{const o=el("option"); o.value=val; o.label=label||String(val); dl.append(o);});
- const pick=el("select"); pick.style.width="34px"; pick.title="Presets";
+/* slider + number + preset dropdown in one row */
+const sliderCombo=(v,presets,on,mn,mx)=>{
+ const w=el("div"); w.style.cssText="display:flex;gap:5px;align-items:center;min-width:0";
+ const sl=el("input"); sl.type="range"; sl.min=mn; sl.max=mx; sl.value=v; sl.style.flex="1";
+ const n=el("input"); n.type="number"; n.min=mn; n.max=mx; n.value=v; n.style.width="50px";
+ const pick=el("select"); pick.style.width="30px"; pick.title="Presets";
  pick.append(el("option",null,"\u25be"));
  presets.forEach(([val,label])=>{const o=el("option",null,label||String(val)); o.value=val; pick.append(o);});
- pick.onchange=()=>{if(pick.selectedIndex>0){on(+pick.value); render();}};
- i.onchange=()=>{on(+i.value); render();};
- wrap.append(i,dl,pick); return wrap;};
+ sl.oninput=()=>{n.value=sl.value; on(+sl.value); livePaint();};
+ n.onchange=()=>{sl.value=n.value; on(+n.value); render();};
+ pick.onchange=()=>{if(pick.selectedIndex>0){sl.value=pick.value; n.value=pick.value;
+  on(+pick.value); render();}};
+ w.append(sl,n,pick); return w;};
 const sel=(v,o,on)=>{const s=el("select"); o.forEach(x=>{const p=el("option",null,x); if(x===v)p.selected=true; s.append(p);});
  s.onchange=()=>{on(s.value); render();}; return s;};
 const num=(v,on,mn,mx)=>{const i=el("input"); i.type="number"; i.value=v; i.min=mn??0; i.max=mx??999;
@@ -1253,12 +1259,12 @@ const HELP={
  "Radius":"Distance from the cursor to the first ring. Smaller is faster to reach and harder to aim.",
  "Arc":"How much of the circle the slots span. 360 is the full circle; 90 is a quarter, which keeps the pie off screen edges.",
  "Facing":"Which way a partial arc points. A 90° arc facing right sits either side of the 3 o'clock line.",
- "Stagger":"Push every other slot slightly further out, so neighbours are easier to tell apart.",
+ "Stagger":"Push every other slot outward (or inward), so neighbours are easier to tell apart. Turn it on and a Stagger-by slider appears.",
+ "Stagger by":"How far the alternate slots move, in pixels. Negative pulls them inward.",
  "Columns":"Slots across.",
  "Rows":"Slots down.",
- "Anchor":"Which side of the cursor the block sits on.",
- "Split":"Divide the rows either side of the cursor rather than putting them all together.",
- "Offset":"Gap between the cursor and the block.",
+ "Anchors":"Which sides of the cursor carry a block \u2014 toggle several for a block per side. Slots fill Top, Left, Center, Right, Bottom in that order.",
+  "Offset":"Gap between the cursor and the block.",
  "Button":"Size of each slot, in pixels.",
  "Spacing":"Gap between neighbouring slots.",
  "Open on":"The gesture that opens this pie. Double tap and press-and-hold both make it much harder to open by accident.",
@@ -1315,7 +1321,7 @@ function build(){
 
  const c2b=el("div","col"); c2b.style.width="234px"; c2b.append(contextsPanel());
 
- const c3=el("div","col"); c3.style.width="252px";
+ const c3=el("div","col"); c3.style.width="292px";
  const set=el("div","setbody");
  const rows=[["Family:",sel(p.family,["circle","grid"],v=>{p.family=v; normalise(p);})]];
  if(p.family==="circle"){
@@ -1329,17 +1335,32 @@ function build(){
    ["Slots:",num(p.slots,v=>{p.slots=v; normalise(p);},1,24)],
    ["Per ring:",perWrap],
    ["Radius:",sliderNum(p.radius,v=>p.radius=v,20,300)],
-   ["Arc:",comboNum(p.arc,[[360,"360 full"],[270,"270"],[180,"180 half"],
+   ["Arc:",sliderCombo(p.arc,[[360,"360 full"],[270,"270"],[180,"180 half"],
                            [120,"120"],[90,"90 quarter"],[60,"60"]],v=>p.arc=v,10,360)],
-   ["Facing:",comboNum(p.arcFace,[[-90,"up"],[0,"right"],[90,"down"],[180,"left"]],
-                       v=>p.arcFace=v,-180,360)],
+   ["Facing:",sliderCombo(p.arcFace,[[-90,"up"],[0,"right"],[90,"down"],[180,"left"]],
+                       v=>p.arcFace=v,-180,180)],
    ["Stagger:",check("alternate radius",p.stagger,v=>p.stagger=v)]);
- }else rows.push(
-  ["Columns:",num(p.cols,v=>{p.cols=v; normalise(p);},1,10)],
-  ["Rows:",num(p.rows,v=>{p.rows=v; normalise(p);},1,10)],
-  ["Anchor:",anchorPick(p.anchor,v=>p.anchor=v)],
-  ["Split:",check("either side of centre",p.split,v=>p.split=v)],
-  ["Offset:",sliderNum(p.radius,v=>p.radius=v,0,300)]);
+  if(p.stagger)rows.push(
+   ["Stagger by:",sliderNum(p.staggerBy??18,v=>p.staggerBy=v,-40,60)]);
+ }else{
+  if(!p.anchors)p.anchors=["Center"];
+  const aw=el("div"); aw.style.cssText="display:flex;gap:8px;align-items:center";
+  aw.append(anchorPick(p.anchors,a=>{
+   const i=p.anchors.indexOf(a);
+   if(i>-1){if(p.anchors.length>1)p.anchors.splice(i,1);}
+   else p.anchors.push(a);
+   normalise(p);}));
+  const blocks=p.anchors.length;
+  const ar=el("span",null,"\u2192 "+blocks+" block"+(blocks>1?"s":"")
+    +" \u00b7 "+slotCount(p)+" slots");
+  ar.style.cssText="color:var(--dim);font-size:11px;white-space:nowrap";
+  aw.append(ar);
+  rows.push(
+   ["Columns:",num(p.cols,v=>{p.cols=v; normalise(p);},1,10)],
+   ["Rows:",num(p.rows,v=>{p.rows=v; normalise(p);},1,10)],
+   ["Anchors:",aw],
+   ["Offset:",sliderNum(p.radius,v=>p.radius=v,0,300)]);
+ }
  rows.push(["Button:",sliderNum(p.button,v=>p.button=v,16,96)],
            ["Spacing:",sliderNum(p.spacing,v=>p.spacing=v,0,60)]);
  set.append(group("Layout",formGrid(rows)));

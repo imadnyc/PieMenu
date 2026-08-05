@@ -32,6 +32,8 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 32 | Behaviour toggles explained and wired | Hover-help on all four. Show QuickMenu hides/shows the centre button; Toggle show/hide governs close-on-second-press; Long right-click opens the workbench's pie in the playground (hold RMB ~350ms). Global context stays a placeholder — legacy auto-open-on-selection, an open question under the new model. |
 | 33 | Layout knobs: sliders, ring readout, anchor cross | Radius/Button/Spacing/Offset are slider+number (drag repaints the pie live); Per ring shows the resulting ring count; grid Anchor is a five-button direction cross instead of a dropdown. |
 | 34 | Shortcut rows are deletable | Right-click a keycap in the shortcuts table: record a different key, or remove the key from every workbench at once. |
+| 35 | Arc, Facing and Stagger get real knobs | Arc and Facing are slider + number + presets (drag live-rotates the pie); Stagger, when on, reveals a Stagger-by slider in pixels — negative pulls alternate slots inward. |
+| 36 | Multiple grid blocks per pie | Anchor became **Anchors**: the direction cross toggles, one cols×rows block per active side, slots filling Top → Left → Center → Right → Bottom. "A grid above, below and to the right" is one pie with three anchors; the readout says "→ 3 blocks · 18 slots". The Split checkbox is gone — Top+Bottom expresses it. |
 | 15 | Dragging must be visible on the pie itself | The dragged tool should follow the cursor on the preview and the landing slot should be indicated, rather than only updating on drop. |
 
 ## Critical design decision — contexts belong to slots, not to shortcuts
