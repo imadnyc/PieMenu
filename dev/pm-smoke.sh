@@ -19,4 +19,5 @@ mkdir -p "$XDG_CONFIG_HOME"
 
 freecadcmd -u "$XDG_CONFIG_HOME/smoke-user.cfg" "$repo/dev/smoke_freecad.py"
 freecadcmd -u "$XDG_CONFIG_HOME/model-user.cfg" "$repo/dev/test_model.py"
-exec freecadcmd -u "$XDG_CONFIG_HOME/migrate-user.cfg" "$repo/dev/test_migrate.py"
+freecadcmd -u "$XDG_CONFIG_HOME/migrate-user.cfg" "$repo/dev/test_migrate.py"
+exec freecadcmd -u "$XDG_CONFIG_HOME/runtime-user.cfg" "$repo/dev/test_runtime.py"
