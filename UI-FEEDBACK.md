@@ -250,22 +250,17 @@ Why it is likely better than D:
 As integrated into the main dialog: the whole table is **permanently visible** as
 a full-width row under the editor -- no scope dropdown, nothing behind a modal.
 
-**Scopes are rows and keys are columns**, which is what makes it survive a real
-install. `Gui.listWorkbenches()` returns 15-20 workbenches; as columns that would
-force horizontal scrolling, which is unusable, whereas rows scroll vertically with
-the header pinned. Two things keep the table short anyway:
+**Keys are rows and workbenches are columns, and it scrolls sideways.** A real
+install has 20-odd workbenches, so every one of them gets a column and the table
+is wider than the dialog on purpose. What makes that work is that the **key
+column and the `Any workbench` base column are pinned left**: whatever you scroll
+to is always read against the base it overrides. (A transposed version was tried
+-- scopes as rows -- and rejected; scrolling sideways past workbench columns is
+easier to follow than hunting rows.)
 
-- **Only workbenches you have actually bound get a row.** Every other workbench
-  inherits the base and needs no row at all -- the same thing Wacom does with
-  "All other applications" plus the handful you customised, and Stream Deck and
-  BetterTouchTool with profiles/apps. A footer names the rest
-  (*"13 other workbenches (Part, Draft, BIM, FEM, …) use the base"*) so a sparse
-  table never reads as "these are the only workbenches that work".
-- **Add a workbench** is an explicit action in the panel header; removing a row
-  drops its overrides back to the base.
-
-The base row sits on top, tinted and rule-separated; every row below either
-overrides it (solid) or inherits it (dim italic). Cells name the **pie**;
+The base column sits first, tinted and rule-separated; every workbench column
+either overrides it (solid) or inherits it (dim italic). The active workbench's
+column is tinted and its header marked. Cells name the **pie**;
 **clicking a cell opens that pie in the editor**, double-click binds, right-click
 gives override / revert / copy-to-workbench. A pie's settings panel reports the
 reverse direction under "Opened by".
