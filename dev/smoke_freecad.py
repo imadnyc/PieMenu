@@ -1,45 +1,65 @@
-"""Headless smoke test: load the PieMenu addon under freecadcmd and assert the
-parameter-tree migration + IndexList dedupe. Run via `nix run .#smoke`."""
-# ruff: noqa: F401, I001  -- imports are deliberately interleaved with the sys.path
-#   setup below, and InitGui / FreeCADGui are imported for their side effects.
+"""Headless smoke test: the v2 startup end to end under freecadcmd.
+
+Seeds a legacy v1 tree in the isolated config, imports InitGui (with the
+console-mode FreeCADGui shimmed), and asserts that the migration ran, the
+runtime came up with the migrated pies, and the legacy shortcut resolves.
+Run via ``nix run .#smoke``.
+"""
+# ruff: noqa: F401, I001  -- imports are deliberately interleaved with the
+#   sys.path setup, and InitGui / FreeCADGui are imported for side effects.
 import os
 import sys
 from unittest.mock import MagicMock
 
-# Live working tree (default matches this machine). PIEMENU_REPO lets pm-smoke override.
 sys.path.insert(0, os.environ.get("PIEMENU_REPO", "/home/dre/Projects/PieMenu"))
 
 from PySide import QtWidgets
+
 app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
 
 import FreeCAD as App
-import FreeCADGui                        # exists in console mode but half-empty
+import FreeCADGui  # exists in console mode but half-empty
+
 _mw = QtWidgets.QMainWindow()
-class _GuiShim:                          # auto-stub every missing GUI symbol
-    def __getattr__(self, n): return MagicMock()
-    def getMainWindow(self): return _mw
+
+
+class _GuiShim:  # auto-stub every missing GUI symbol
+    def __getattr__(self, name):
+        return MagicMock()
+
+    def getMainWindow(self):
+        return _mw
+
+
 sys.modules["FreeCADGui"] = _GuiShim()
 
-# Pre-migration state in the ISOLATED tree: SchemaVersion unset + duplicated IndexList
-App.ParamGet("User parameter:BaseApp/PieMenu").SetInt("SchemaVersion", 0)
-App.ParamGet("User parameter:BaseApp/PieMenu/Index").SetString(
-    "IndexList", "3.,.2.,.4.,.1.,.0.,.1.,.2")
+# a legacy tree that must migrate at startup (duplicate index on purpose)
+root = App.ParamGet("User parameter:BaseApp/PieMenu")
+root.RemGroup("V2")
+index = App.ParamGet("User parameter:BaseApp/PieMenu/Index")
+index.SetString("IndexList", "0.,.0")
+index.SetString("0", "LegacyPie")
+index.GetGroup("0").SetString("ToolList", "Std_New.,.Std_Save")
+root.SetString("GlobalShortcutKey", "TAB")
+root.SetString("CurrentPie", "LegacyPie")
 
-import InitGui                          # runs pieMenuStart() -> legacyFix() -> migrateToolModel()
-assert "InitGui" in sys.modules, "addon module did not import"
+import InitGui
 
-# migration ran: SchemaVersion bumped to TOOL_MODEL_VERSION (1)
-sv = App.ParamGet("User parameter:BaseApp/PieMenu").GetInt("SchemaVersion", -1)
-assert sv == 1, f"migration did not run, SchemaVersion={sv}"
+from piemenu import model
+from piemenu import runtime as rt
 
-# dedupe invariant on the real isolated tree (mirrors getIndexList, InitGui.py:2397)
-raw = App.ParamGet("User parameter:BaseApp/PieMenu/Index").GetString("IndexList")
-seen, uniq = set(), []
-for v in raw.split(".,."):
-    i = int(v)
-    if i not in seen:
-        seen.add(i)
-        uniq.append(i)
-assert uniq == [3, 2, 4, 1, 0], uniq
+assert model.get_schema_version() == 2, model.get_schema_version()
+pies = model.load_pies()
+assert "LegacyPie" in pies, list(pies)
+assert pies["LegacyPie"].items[0][0].cmd == "Std_New"
+assert rt.runtime is not None, "runtime did not start"
+assert "LegacyPie" in rt.runtime.pies
+binds = model.load_binds()
+assert model.resolve_key("TAB", "AnyWorkbenchAtAll", binds)[0] == "LegacyPie"
 
-print("SMOKE-PASS: addon loaded, migration ran (SchemaVersion=1), dedupe ok")
+# a second start must be a no-op (the re-entrancy guard)
+before = rt.runtime
+InitGui.pieMenuStart()
+assert rt.runtime is before
+
+print("SMOKE-PASS: v2 startup — migration ran, runtime up, TAB resolves")
