@@ -23,7 +23,7 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 14 | A distinct icon per tool | Currently every tool row shows the same dot, so the list reads as undifferentiated. |
 | 20 | Replace, not delete-then-add | A filled slot's right-click menu needs **Replace tool…**, so changing what is in a slot is one step rather than clearing it and adding again. |
 | 23 | Playground needs a workbench switch | Changing workbench there must resolve which pie opens through the Assignment setting, so the workbench-to-pie mapping can actually be tried. |
-| 27 | Global vs direct shortcuts | **Open — undecided.** A first attempt was built and reverted (`7181ec8` / `ea66c16`). See the note below. |
+| 27 | Global vs direct shortcuts | **Direction D built** — every key addresses one target; a target is a pie or a *router* that picks a pie by workbench. See the note below. |
 | 26 | Any number of global shortcuts, not four | F2 capped the slots at four for no reason beyond having to pick a number. The list should grow and shrink, so a pie's "on shortcut" is bounded by how many you have defined rather than a constant. In the demo the keys are 1-4 so several can be tried quickly. |
 | 25 | Arc: free number plus presets, and a facing angle | Arc should be typeable as well as pickable, and needs a direction: a 90° arc must be able to face up, down, left or right rather than always starting from the top. |
 | 24 | Selection chips do not belong on the preview | Previewing against a selection is an occasional action, so it goes in the preview's right-click menu rather than sitting permanently across the top of it. |
@@ -174,8 +174,37 @@ One line rather than two groups.
 **C. Key column in the pie list.** The list grows a Key column edited inline, so
 every pie and its key are visible together, the kind shown by styling.
 
-Whichever wins, a direct key must be refused when it collides with a global key
-or another pie's direct key. Nothing is built for this -- decide first.
+Whichever of A/B/C wins, a direct key must be refused when it collides with a
+global key or another pie's direct key.
+
+**D. Make the router a first-class object — BUILT, awaiting verdict.** A, B and C
+all try to fit two different relationships into one control: a global key is
+many-to-one (several pies compete, workbench arbitrates) while a direct key is
+one-to-one. D dissolves the split rather than presenting it. Every key addresses
+exactly *one* target, so every key is an address and none can be contested. A
+target is either a pie or a **router**: a named object holding the workbench
+table. Key 2 does not mean "the modelling role", it means "open
+`Modelling (auto)`", and that object owns the per-workbench mapping.
+
+    Key | Opens              Modelling (auto)
+    ----+-----------------     PartDesign  -> Modelling
+     1  | Main                 Sketcher    -> Sketching
+     2  | Modelling (auto) --> (otherwise) -> the default pie
+     9  | Sketching
+     0  | View
+
+Consequences:
+
+- The shortcut UI is one row per key. The only conflict left is a duplicate
+  key, refused on entry.
+- Pies stop carrying `Shortcut` / `Workbench` / `On shortcut`. Their settings
+  panel instead *reports* every way the pie can be opened, read-only.
+- Routers live in the pie list, since a shortcut can address either, and open
+  into an editor of their rules.
+- "Use this pie when no workbench matches" stops being a special case: it is
+  the router's last row (`otherwise -> ...`), falling back to the pie marked
+  default when unset.
+- Cost: one new concept (routers) in the pie list.
 
 ## Notes
 
