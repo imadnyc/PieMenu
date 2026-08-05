@@ -13,10 +13,10 @@ font:13px/1.35 "Segoe UI","Noto Sans","DejaVu Sans",system-ui,sans-serif;-webkit
 .dialog{margin:16px auto;width:1310px;max-width:calc(100% - 24px);background:var(--win);
 border:1px solid #1d1b1a;border-radius:4px;
 box-shadow:0 10px 34px rgba(0,0,0,.5);display:flex;flex-direction:column}
-.body{display:flex;flex-direction:column;gap:8px;padding:8px;height:812px}
+.body{display:flex;flex-direction:column;gap:8px;padding:8px;height:760px}
 .brow{display:flex;gap:8px;flex:1;min-height:0}
 /* the table is as tall as its rows need; the editor above takes the rest */
-.bshort{flex:0 0 324px;display:flex;flex-direction:column;min-height:0}
+.bshort{flex:0 0 272px;display:flex;flex-direction:column;min-height:0}
 /* the slot's contexts, edited in place beside the preview rather than in a modal */
 .slothead{padding:6px 8px 5px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11px;
 flex:0 0 auto;background:var(--win)}
@@ -53,18 +53,12 @@ table.g th.base{z-index:4}
 table.g td.base{background:#2e2b29}
 table.g th.kh,table.g td.k{width:118px;min-width:118px}
 table.g td.k{cursor:pointer}
-table.g td.k .tw{display:inline-block;width:11px;color:var(--dim);font-size:9px;cursor:pointer}
 .combo{display:inline-flex;align-items:center;gap:2px}
 .combo .cap{display:inline-block;min-width:18px;padding:1px 5px;background:var(--btn);
 border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;
 font-family:ui-monospace,monospace;font-size:11px;color:var(--text);text-align:center}
 .combo .plus{color:var(--dim);font-size:10px}
-/* a selection sub-row: the second context axis, indented under its key */
-table.g tr.subrow td{background:#2b2927}
-table.g tr.subrow td.base{background:#292624}
-table.g td.k.sub{padding-left:24px;cursor:default}
-table.g td.k .selname{color:var(--dim);font-size:11px;font-style:italic}
-table.g th.base .wn,table.g td.base{}
+
 table.g td.inh{color:var(--dim);font-style:italic}
 table.g td.none{color:var(--empty)}
 table.g th.on .wn{color:var(--hi)}
@@ -462,12 +456,6 @@ const S={pies:[
    slot(["Sketcher_NewSketch"]),slot(["Sketcher_Line"]),
    null,slot(["Sketcher_Circle"]),slot(["Sketcher_Rectangle"]),null,
   ],{parent:"Main",family:"grid",cols:3,rows:2}),
- mkPie("Main (face)",[slot([{cmd:"PartDesign_Pad",when:"face"}]),
-   slot([{cmd:"PartDesign_Pocket",when:"face"}]),slot(["View_Fit"]),null],
-   {parent:"Main",slots:4,perRing:4,radius:62}),
- mkPie("Main (edge)",[slot([{cmd:"PartDesign_Fillet",when:"edge"}]),
-   slot([{cmd:"PartDesign_Chamfer",when:"edge"}]),null,null,null,null],
-   {parent:"Main",slots:6,perRing:6,radius:62}),
  mkPie("View",[slot(["View_Fit"]),slot(["View_Front"]),slot(["View_Top"]),
                slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"])],
    {def:true,slots:12,perRing:6,radius:56}),
@@ -479,17 +467,14 @@ const S={pies:[
     global/direct split -- a "direct" key is one bound under ANY, a "global"
     key is one bound under a workbench. */
  scope:"PartDesign",
- /* binds[scope][key] is a map of SELECTION -> pie, "any" being the fallback.
-    So a key resolves along two independent axes: the workbench (columns, base
-    at the left) and the selection (rows, "any" at the top). Precedence is
-    this workbench's selection, then this workbench's any, then the base's
-    selection, then the base's any. */
- binds:{"Any workbench":{"9":{any:"Sketching"},"0":{any:"View"}},
-        "PartDesign":{"1":{any:"Main",face:"Main (face)",edge:"Main (edge)"},
-                      "2":{any:"Modelling"}},
-        "Sketcher":{"1":{any:"Main"},"2":{any:"Sketching"}}},
- keys:["1","2","3","4","9","0"],
- expand:{"1":true}};
+ /* A shortcut answers ONE question: which pie opens. Its only axes are the
+    workbench and the base -- selection plays no part here. See the design
+    decision in UI-FEEDBACK.md: what a slot does with the selection belongs to
+    the slot, inside the pie editor. */
+ binds:{"Any workbench":{"9":"Sketching","0":"View"},
+        "PartDesign":{"1":"Main","2":"Modelling"},
+        "Sketcher":{"1":"Main","2":"Sketching"}},
+ keys:["1","2","3","4","9","0"]};
 
 /* ---- shortcut resolution -------------------------------------------------
    The whole rule: a workbench binding beats ANY; if neither has the key, the
@@ -500,32 +485,18 @@ const defaultPie=()=>S.pies.find(p=>p.def)||S.pies[0];
 const scopeNames=()=>[ANY].concat(WORKBENCHES.filter(w=>w!=="None"));
 /* a scope with no bindings yet is just an empty map, not a missing column */
 const bindsOf=sc=>(S.binds[sc]||(S.binds[sc]={}));
-const bindAt=(sc,key,sel)=>{const m=S.binds[sc]&&S.binds[sc][key];
- return m?m[sel]:undefined;};
-/* the two axes, in precedence order */
-function resolveKey(key,wb,sel){
- sel=sel||"any";
- const tries=[[wb,sel],[wb,"any"],[ANY,sel],[ANY,"any"]];
- for(const [sc,sl] of tries){
-  const n=bindAt(sc,key,sl);
-  if(n&&pieByName(n))return {pie:pieByName(n),from:sc,forSel:sl,
-    exact:(sc===wb&&sl===sel),inherited:sc!==wb,bySel:sl!=="any"};
- }
- return {pie:null,from:null,exact:false,inherited:false};
-}
-/* which selections this key mentions anywhere -- these become its sub-rows */
-function selsUsed(key){
- const out=[];
- scopeNames().forEach(sc=>{const m=S.binds[sc]&&S.binds[sc][key];
-  if(m)Object.keys(m).forEach(sl=>{if(sl!=="any"&&!out.includes(sl))out.push(sl);});});
- return CONDS.filter(c=>c!=="any"&&out.includes(c));
+function resolveKey(key,wb){
+ const own=S.binds[wb]&&S.binds[wb][key];
+ if(own&&pieByName(own))return {pie:pieByName(own),from:wb,inherited:false};
+ const any=S.binds[ANY][key];
+ if(any&&pieByName(any))return {pie:pieByName(any),from:ANY,inherited:true};
+ return {pie:null,from:null,inherited:false};
 }
 /* every way a given pie can be reached, for its settings panel */
 function waysTo(name){
  const out=[];
  Object.keys(S.binds).forEach(sc=>Object.keys(S.binds[sc]).forEach(k=>{
-  const m=S.binds[sc][k];
-  Object.keys(m).forEach(sl=>{if(m[sl]===name)out.push({key:k,scope:sc,sel:sl});});}));
+  if(S.binds[sc][k]===name)out.push({key:k,scope:sc});}));
  return out;
 }
 const nameTaken=(n,skip)=>S.pies.some(p=>p.name===n&&p!==skip);
@@ -776,19 +747,14 @@ function panel(title,count,actions,listNode){
    hotkey sets, SolidWorks gesture guides, Stream Deck profiles). The scope is
    named after something FreeCAD users already have -- a workbench -- so there
    is no new noun to learn. */
-function pickPieFor(sc,k,sel){
- sel=sel||"any";
- const m=(S.binds[sc]||(S.binds[sc]={}));
- const cur=(m[k]||{})[sel];
- const list=el("div","list");
+function pickPieFor(sc,k){
+ const m=bindsOf(sc), list=el("div","list");
  S.pies.forEach(pp=>{
-  const r=el("div","row"+(cur===pp.name?" sel":""));
+  const r=el("div","row"+(m[k]===pp.name?" sel":""));
   r.append(svg(uiIcon("PieMenuEditMenu")),el("span","name",pp.name));
-  r.onclick=()=>{(m[k]||(m[k]={}))[sel]=pp.name;
-   document.querySelector(".scrim").remove(); render();};
+  r.onclick=()=>{m[k]=pp.name; document.querySelector(".scrim").remove(); render();};
   list.append(r);});
- modal("Key "+k+" in "+(sc===ANY?"any workbench":sc)
-   +(sel==="any"?"":" \u2014 when a "+sel+" is selected"),list,()=>{});
+ modal("Key "+k+" in "+(sc===ANY?"any workbench":sc),list,()=>{});
 }
 
 /* A workbench icon per column, so columns are told apart by shape not by
@@ -830,8 +796,8 @@ function captureKey(cur,onOk){
 
 /* Keys are rows, workbenches are columns, and it scrolls sideways. The key and
    base columns stay pinned so a column is always read against what it overrides.
-   A key that resolves differently per selection expands into sub-rows -- so the
-   two context axes get one direction each: workbench across, selection down. */
+   There is deliberately no selection axis here -- a shortcut only decides WHICH
+   PIE opens. What each slot does with the selection lives in the pie editor. */
 function shortcutsTableEl(){
  const wrap=el("div","gwrap"), t=el("table","g");
  const cols=scopeNames();
@@ -850,67 +816,44 @@ function shortcutsTableEl(){
   hr.append(th);});
  t.append(hr);
 
- const cell=(w,k,sel,isSub)=>{
-  const base=w===ANY;
-  const r=resolveKey(k,w,sel);
-  const cls=[]; if(base)cls.push("base");
-  if(w===playWb)cls.push("on");
-  if(!r.pie)cls.push("none"); else if(!r.exact)cls.push("inh");
-  const td=el("td",cls.join(" "));
-  td.append(el("span","cv",r.pie?r.pie.name:"\u2014"));
-  td.title=(r.pie
-    ? "click to open "+r.pie.name+" in the editor\n"
-      +(r.exact?"bound here":"falls back to "+(r.from===ANY?"the base":r.from)
-        +(r.forSel==="any"&&sel!=="any"?", any selection":""))+"\n"
-    : "nothing resolves here\n")
-   +"double-click to bind\u2026 · right-click for options";
-  if(r.pie)td.onclick=()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}};
-  td.ondblclick=()=>pickPieFor(w,k,sel);
-  const own=bindAt(w,k,sel);
-  td.oncontextmenu=e=>ctxMenu(e,[
-   [uiIcon("PieMenuEditMenu"),r.pie?"Open "+r.pie.name+" in the editor":"\u2014",
-     ()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}},!r.pie],
-   [uiIcon("PieMenuAddCommand"),
-     isSub?"Bind this key here, on "+sel+"\u2026":"Bind this key here\u2026",
-     ()=>pickPieFor(w,k,sel)],
-   "-",
-   ...(isSub?[]:CONDS.filter(c=>c!=="any").map(c=>
-     [uiIcon("PieMenuAddMenu"),"Different pie on "+c+"\u2026",
-      ()=>{S.expand[k]=true; pickPieFor(w,k,c);}])),
-   ...(isSub?[]:["-"]),
-   [uiIcon("PieMenuRemove"),"Clear this binding",
-     ()=>{delete S.binds[w][k][sel]; render();},own===undefined],
-  ]);
-  return td;
- };
-
  S.keys.forEach(k=>{
-  const subs=selsUsed(k), open=!!S.expand[k];
   const tr=el("tr");
   const kc=el("td","k");
-  const tw=el("span","tw",subs.length?(open?"\u25be":"\u25b8"):"");
-  if(subs.length)tw.onclick=e=>{e.stopPropagation(); S.expand[k]=!open; render();};
-  kc.append(tw,keyCapsEl(k));
+  kc.append(keyCapsEl(k));
   kc.title="click to record a different key";
   kc.onclick=()=>captureKey(k,v=>{
    if(!v||S.keys.includes(v))return;
-   const i=S.keys.indexOf(k); S.keys[i]=v;
-   Object.keys(S.binds).forEach(sc=>{if(S.binds[sc][k]){S.binds[sc][v]=S.binds[sc][k];
-    delete S.binds[sc][k];}});
-   if(S.expand[k]){S.expand[v]=true; delete S.expand[k];}
+   S.keys[S.keys.indexOf(k)]=v;
+   Object.keys(S.binds).forEach(sc=>{if(S.binds[sc][k]!==undefined){
+    S.binds[sc][v]=S.binds[sc][k]; delete S.binds[sc][k];}});
    render();});
   tr.append(kc);
-  cols.forEach(w=>tr.append(cell(w,k,"any",false)));
-  t.append(tr);
 
-  if(open)subs.forEach(sl=>{
-   const sr=el("tr","subrow");
-   const sc2=el("td","k sub");
-   sc2.append(el("span","selname","on "+sl));
-   sr.append(sc2);
-   cols.forEach(w=>sr.append(cell(w,k,sl,true)));
-   t.append(sr);});
- });
+  cols.forEach(w=>{
+   const base=w===ANY, own=(S.binds[w]||{})[k];
+   const r=base?{pie:pieByName(own),inherited:false}:resolveKey(k,w);
+   const cls=[]; if(base)cls.push("base");
+   if(w===playWb)cls.push("on");
+   if(!r.pie)cls.push("none"); else if(r.inherited)cls.push("inh");
+   const td=el("td",cls.join(" "));
+   td.append(el("span","cv",r.pie?r.pie.name:"\u2014"));
+   td.title=(r.pie?"click to open "+r.pie.name+" in the editor\n":"")
+    +"double-click to bind\u2026 · right-click for options"
+    +(r.inherited?"\ninherited from "+ANY:"");
+   if(r.pie)td.onclick=()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}};
+   td.ondblclick=()=>pickPieFor(w,k);
+   td.oncontextmenu=e=>ctxMenu(e,[
+    [uiIcon("PieMenuEditMenu"),r.pie?"Open "+r.pie.name+" in the editor":"\u2014",
+      ()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}},!r.pie],
+    [uiIcon("PieMenuAddCommand"),"Bind this key here\u2026",()=>pickPieFor(w,k)],
+    "-",
+    [uiIcon("PieMenuAdd"),"Override the base here",
+      ()=>{bindsOf(w)[k]=S.binds[ANY][k]; render();},base||!!own||!S.binds[ANY][k]],
+    [uiIcon("PieMenuRemove"),(!base&&S.binds[ANY][k])?"Revert to "+ANY:"Clear this binding",
+      ()=>{delete bindsOf(w)[k]; render();},own===undefined],
+   ]);
+   tr.append(td);});
+  t.append(tr);});
  wrap.append(t);
 
  const addKey=iconBtn(uiIcon("PieMenuAdd"),"Add another key",
@@ -1163,8 +1106,7 @@ function build(){
  const opened=el("div");
  if(!ways.length)opened.append(el("div","empt","No shortcut reaches this pie yet."));
  else opened.append(formGrid(ways.map(w=>["key "+w.key+":",
-   el("span","ro",(w.scope===ANY?"in every workbench":"in "+w.scope)
-     +(w.sel&&w.sel!=="any"?", on "+w.sel:""))])));
+   el("span","ro",w.scope===ANY?"in every workbench":"in "+w.scope)])));
  set.append(group("Opened by",opened));
  const show=el("div");
  show.append(attachHelp(check("Command names",p.names,v=>p.names=v),"Command names"));
@@ -1346,7 +1288,7 @@ function openLivePie(x,y,openKey){
  const usable=nodes.filter(q=>q._cmd).length;
  logLine(uiIcon("PieMenu_Logo"),"opened <b>"+p.name+"</b>"
    +(hit?" \u2014 key "+openKey+" \u2192 "+(hit.via?ANY:playWb)
-        +(hit.bySel?" on "+hit.bySel:"")+" \u2192 <b>"+p.name+"</b>":"")
+        +" \u2192 <b>"+p.name+"</b>":"")
    +" \u2014 "+usable+" of "+n+" slots usable <i>(open: "+p.openOn+", run: "+p.runOn+")</i>");
  wrap._pie=p;
  return wrap;
@@ -1392,9 +1334,8 @@ const WORKBENCHES=["None","PartDesign","Part","Sketcher","Draft","BIM","FEM","CA
 let playWb="PartDesign";
 /* The active workbench decides: its own binding first, then Any workbench. */
 function pieForKey(k){
- const r=resolveKey(k,playWb,S.selection);
- return r.pie?{pie:r.pie,via:r.inherited?ANY:null,from:r.from,
-               bySel:r.bySel?r.forSel:null}:null;
+ const r=resolveKey(k,playWb);
+ return r.pie?{pie:r.pie,via:r.inherited?ANY:null,from:r.from}:null;
 }
 function initPlayground(){
  const wbSel=document.getElementById("wbPick");

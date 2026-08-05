@@ -30,6 +30,39 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 21 | A playground under the dialog | A rudimentary viewport: pick a vertex, edge, face or body on a solid, open the pie, and watch which tool each slot resolves to and what firing it does. |
 | 15 | Dragging must be visible on the pie itself | The dragged tool should follow the cursor on the preview and the landing slot should be indicated, rather than only updating on drop. |
 
+## Critical design decision — contexts belong to slots, not to shortcuts
+
+**A shortcut answers exactly one question: which pie opens.** Its only axes are
+the workbench and the base beneath it. **What a slot does with the selection is
+the slot's business**, resolved inside the pie when it is built, and configured
+in the pie editor's Contexts panel (#19).
+
+So `Main (face)` and `Main (edge)` are *not* two pies. There is one pie, **Main**,
+whose slot 1 resolves to one command when a face is selected and another when an
+edge is. An attempt to put selection into the shortcuts table (as expandable
+sub-rows per key) was built and **reverted** on exactly this ground.
+
+**Why this is the right cut.** Selection conditions are not a small enum. They are
+permutations over counts per topology axis -- a face *and* an edge, two faces *and*
+three points -- which the backend already models as six axes each carrying a
+comparison and a value (`InitGui.py:matchesContext`). Any attempt to express that
+as rows in the shortcuts table needs one row per permutation, which does not
+converge. Per-slot rules do not have this problem: each slot names only the few
+conditions it actually cares about, and unrelated slots stay silent.
+
+**Consequences**
+
+- The shortcuts table stays two-dimensional forever: key x workbench. It never
+  grows a third axis, no matter how complex conditions get.
+- Everything conditional lives in the pie editor, per slot. That is where
+  overloaded buttons, the chooser for several matching bindings, and the six-axis
+  rule editor belong.
+- Pies stay few and structural. Conditions multiply inside a pie, not across the
+  pie list -- so a user never ends up with `Main (face)`, `Main (edge)`,
+  `Main (2 faces + 3 points)` as separate entries.
+- Anything already built that splits a pie per selection should be treated as a
+  mistake and folded back into one pie with conditional slots.
+
 ## Decisions that change shipped work
 
 | # | Decision | Consequence |
@@ -258,16 +291,8 @@ to is always read against the base it overrides. (A transposed version was tried
 -- scopes as rows -- and rejected; scrolling sideways past workbench columns is
 easier to follow than hunting rows.)
 
-**Selection is the second context axis, and it expands downward.** A key can
-resolve to an entirely different pie depending on what is selected -- key 1 in
-PartDesign opening `Main (face)` on a face and `Main (edge)` on an edge. Rather
-than cram that into a cell, a key row carries a disclosure triangle and expands
-into indented sub-rows, one per selection it mentions. So each context axis gets
-one direction: **workbench across, selection down.** Precedence is
-`this workbench + this selection` -> `this workbench + any` -> `base + this
-selection` -> `base + any`, which is two independent one-step fallbacks rather
-than a stack. A key with no selection conditions has no triangle and no sub-rows,
-so the feature is invisible until used.
+There is deliberately **no selection axis here** -- see the design decision
+below. A shortcut decides which pie opens, nothing more.
 
 Also: each workbench column is headed by an **icon** rather than a repeated
 "overrides the base" caption, and the key column shows a real **keybind** --
