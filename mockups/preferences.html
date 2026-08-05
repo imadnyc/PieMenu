@@ -13,10 +13,10 @@ font:13px/1.35 "Segoe UI","Noto Sans","DejaVu Sans",system-ui,sans-serif;-webkit
 .dialog{margin:16px auto;width:1310px;max-width:calc(100% - 24px);background:var(--win);
 border:1px solid #1d1b1a;border-radius:4px;
 box-shadow:0 10px 34px rgba(0,0,0,.5);display:flex;flex-direction:column}
-.body{display:flex;flex-direction:column;gap:8px;padding:8px;height:760px}
+.body{display:flex;flex-direction:column;gap:8px;padding:8px;height:812px}
 .brow{display:flex;gap:8px;flex:1;min-height:0}
 /* the table is as tall as its rows need; the editor above takes the rest */
-.bshort{flex:0 0 272px;display:flex;flex-direction:column;min-height:0}
+.bshort{flex:0 0 324px;display:flex;flex-direction:column;min-height:0}
 /* the slot's contexts, edited in place beside the preview rather than in a modal */
 .slothead{padding:6px 8px 5px;border-bottom:1px solid var(--line);color:var(--dim);font-size:11px;
 flex:0 0 auto;background:var(--win)}
@@ -39,8 +39,9 @@ table.g{border-collapse:separate;border-spacing:0;font-size:12px}
 table.g th,table.g td{border-right:1px solid #3a3735;border-bottom:1px solid #3a3735;
 padding:5px 9px;text-align:left;white-space:nowrap;background:var(--base)}
 table.g th{background:var(--win);position:sticky;top:0;z-index:2;font-weight:600}
-table.g th .wn{display:block;color:var(--text);font-size:12px}
-table.g th .sub{display:block;color:var(--dim);font-size:10px;font-weight:400}
+table.g th .wh{display:flex;align-items:center;gap:6px}
+table.g th .wi{width:14px;height:14px;flex:0 0 14px;opacity:.75}
+table.g th .wn{color:var(--text);font-size:12px;overflow:hidden;text-overflow:ellipsis}
 table.g th,table.g td{min-width:124px}
 /* the key column and the base column stay put while the rest scrolls */
 table.g th.kh,table.g td.k{position:sticky;left:0;z-index:3;width:52px;min-width:52px;
@@ -50,9 +51,20 @@ table.g th.base,table.g td.base{position:sticky;left:52px;z-index:3;
 border-right:2px solid var(--line)}
 table.g th.base{z-index:4}
 table.g td.base{background:#2e2b29}
-table.g td.k .cap{display:inline-block;min-width:20px;padding:1px 6px;background:var(--btn);
+table.g th.kh,table.g td.k{width:118px;min-width:118px}
+table.g td.k{cursor:pointer}
+table.g td.k .tw{display:inline-block;width:11px;color:var(--dim);font-size:9px;cursor:pointer}
+.combo{display:inline-flex;align-items:center;gap:2px}
+.combo .cap{display:inline-block;min-width:18px;padding:1px 5px;background:var(--btn);
 border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;
-font-family:ui-monospace,monospace;font-size:11px;color:var(--text)}
+font-family:ui-monospace,monospace;font-size:11px;color:var(--text);text-align:center}
+.combo .plus{color:var(--dim);font-size:10px}
+/* a selection sub-row: the second context axis, indented under its key */
+table.g tr.subrow td{background:#2b2927}
+table.g tr.subrow td.base{background:#292624}
+table.g td.k.sub{padding-left:24px;cursor:default}
+table.g td.k .selname{color:var(--dim);font-size:11px;font-style:italic}
+table.g th.base .wn,table.g td.base{}
 table.g td.inh{color:var(--dim);font-style:italic}
 table.g td.none{color:var(--empty)}
 table.g th.on .wn{color:var(--hi)}
@@ -450,6 +462,12 @@ const S={pies:[
    slot(["Sketcher_NewSketch"]),slot(["Sketcher_Line"]),
    null,slot(["Sketcher_Circle"]),slot(["Sketcher_Rectangle"]),null,
   ],{parent:"Main",family:"grid",cols:3,rows:2}),
+ mkPie("Main (face)",[slot([{cmd:"PartDesign_Pad",when:"face"}]),
+   slot([{cmd:"PartDesign_Pocket",when:"face"}]),slot(["View_Fit"]),null],
+   {parent:"Main",slots:4,perRing:4,radius:62}),
+ mkPie("Main (edge)",[slot([{cmd:"PartDesign_Fillet",when:"edge"}]),
+   slot([{cmd:"PartDesign_Chamfer",when:"edge"}]),null,null,null,null],
+   {parent:"Main",slots:6,perRing:6,radius:62}),
  mkPie("View",[slot(["View_Fit"]),slot(["View_Front"]),slot(["View_Top"]),
                slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"])],
    {def:true,slots:12,perRing:6,radius:56}),
@@ -461,32 +479,53 @@ const S={pies:[
     global/direct split -- a "direct" key is one bound under ANY, a "global"
     key is one bound under a workbench. */
  scope:"PartDesign",
- binds:{"Any workbench":{"9":"Sketching","0":"View"},
-        "PartDesign":{"1":"Main","2":"Modelling"},
-        "Sketcher":{"1":"Main","2":"Sketching"}}};
+ /* binds[scope][key] is a map of SELECTION -> pie, "any" being the fallback.
+    So a key resolves along two independent axes: the workbench (columns, base
+    at the left) and the selection (rows, "any" at the top). Precedence is
+    this workbench's selection, then this workbench's any, then the base's
+    selection, then the base's any. */
+ binds:{"Any workbench":{"9":{any:"Sketching"},"0":{any:"View"}},
+        "PartDesign":{"1":{any:"Main",face:"Main (face)",edge:"Main (edge)"},
+                      "2":{any:"Modelling"}},
+        "Sketcher":{"1":{any:"Main"},"2":{any:"Sketching"}}},
+ keys:["1","2","3","4","9","0"],
+ expand:{"1":true}};
 
 /* ---- shortcut resolution -------------------------------------------------
    The whole rule: a workbench binding beats ANY; if neither has the key, the
    key does nothing. Returns {pie, from, inherited}. */
 const ANY="Any workbench";
-const KEYCAPS=["1","2","3","4","9","0"];
 const pieByName=n=>S.pies.find(p=>p.name===n);
 const defaultPie=()=>S.pies.find(p=>p.def)||S.pies[0];
 const scopeNames=()=>[ANY].concat(WORKBENCHES.filter(w=>w!=="None"));
 /* a scope with no bindings yet is just an empty map, not a missing column */
 const bindsOf=sc=>(S.binds[sc]||(S.binds[sc]={}));
-function resolveKey(key,wb){
- const own=S.binds[wb]&&S.binds[wb][key];
- if(own&&pieByName(own))return {pie:pieByName(own),from:wb,inherited:false};
- const any=S.binds[ANY][key];
- if(any&&pieByName(any))return {pie:pieByName(any),from:ANY,inherited:true};
- return {pie:null,from:null,inherited:false};
+const bindAt=(sc,key,sel)=>{const m=S.binds[sc]&&S.binds[sc][key];
+ return m?m[sel]:undefined;};
+/* the two axes, in precedence order */
+function resolveKey(key,wb,sel){
+ sel=sel||"any";
+ const tries=[[wb,sel],[wb,"any"],[ANY,sel],[ANY,"any"]];
+ for(const [sc,sl] of tries){
+  const n=bindAt(sc,key,sl);
+  if(n&&pieByName(n))return {pie:pieByName(n),from:sc,forSel:sl,
+    exact:(sc===wb&&sl===sel),inherited:sc!==wb,bySel:sl!=="any"};
+ }
+ return {pie:null,from:null,exact:false,inherited:false};
+}
+/* which selections this key mentions anywhere -- these become its sub-rows */
+function selsUsed(key){
+ const out=[];
+ scopeNames().forEach(sc=>{const m=S.binds[sc]&&S.binds[sc][key];
+  if(m)Object.keys(m).forEach(sl=>{if(sl!=="any"&&!out.includes(sl))out.push(sl);});});
+ return CONDS.filter(c=>c!=="any"&&out.includes(c));
 }
 /* every way a given pie can be reached, for its settings panel */
 function waysTo(name){
  const out=[];
  Object.keys(S.binds).forEach(sc=>Object.keys(S.binds[sc]).forEach(k=>{
-  if(S.binds[sc][k]===name)out.push({key:k,scope:sc});}));
+  const m=S.binds[sc][k];
+  Object.keys(m).forEach(sl=>{if(m[sl]===name)out.push({key:k,scope:sc,sel:sl});});}));
  return out;
 }
 const nameTaken=(n,skip)=>S.pies.some(p=>p.name===n&&p!==skip);
@@ -737,19 +776,62 @@ function panel(title,count,actions,listNode){
    hotkey sets, SolidWorks gesture guides, Stream Deck profiles). The scope is
    named after something FreeCAD users already have -- a workbench -- so there
    is no new noun to learn. */
-function pickPieFor(sc,k){
+function pickPieFor(sc,k,sel){
+ sel=sel||"any";
+ const m=(S.binds[sc]||(S.binds[sc]={}));
+ const cur=(m[k]||{})[sel];
  const list=el("div","list");
  S.pies.forEach(pp=>{
-  const r=el("div","row"+(S.binds[sc][k]===pp.name?" sel":""));
+  const r=el("div","row"+(cur===pp.name?" sel":""));
   r.append(svg(uiIcon("PieMenuEditMenu")),el("span","name",pp.name));
-  r.onclick=()=>{S.binds[sc][k]=pp.name; document.querySelector(".scrim").remove(); render();};
+  r.onclick=()=>{(m[k]||(m[k]={}))[sel]=pp.name;
+   document.querySelector(".scrim").remove(); render();};
   list.append(r);});
- modal("Key "+k+" in "+sc,list,()=>{});
+ modal("Key "+k+" in "+(sc===ANY?"any workbench":sc)
+   +(sel==="any"?"":" \u2014 when a "+sel+" is selected"),list,()=>{});
 }
 
-/* Keys are rows, workbenches are columns, and the whole thing scrolls sideways.
-   The key column and the "Any workbench" base column are pinned left, so
-   whatever you scroll to is always read against the base it overrides. */
+/* A workbench icon per column, so columns are told apart by shape not by
+   reading a repeated sentence. */
+const WBICON={PartDesign:"pad",Part:"box",Sketcher:"sketch",Draft:"line",BIM:"rect",
+ FEM:"polpat",CAM:"trim",Mesh:"wire",Points:"dot",Surface:"sphere",TechDraw:"front",
+ Spreadsheet:"dim",Inspection:"eye",Material:"paste",Assembly:"asm",OpenSCAD:"bool",
+ "Reverse Engineering":"revolve",Robot:"link",Start:"new","Test Framework":"solve"};
+const wbIcon=w=>T[WBICON[w]]||T.dot;
+/* a keybind, drawn as caps: Ctrl+1 is two caps and a plus */
+function keyCapsEl(combo){
+ const w=el("span","combo");
+ String(combo).split("+").forEach((part,i)=>{
+  if(i)w.append(el("span","plus","+"));
+  w.append(el("span","cap",part));});
+ return w;
+}
+function captureKey(cur,onOk){
+ const box=el("div"); box.style.cssText="padding:18px;text-align:center";
+ const shown=el("div"); shown.style.marginBottom="8px"; shown.append(keyCapsEl(cur||"?"));
+ box.append(shown,el("div","empt","Press a key. Modifiers are included."));
+ let got=cur;
+ const scrim=el("div","scrim"), m=el("div","modal");
+ m.append(el("h2",null,"Shortcut key"),box);
+ const f=el("div","foot"),c=el("button","btn","Cancel"),o=el("button","btn primary","OK");
+ c.onclick=()=>{scrim.remove(); document.removeEventListener("keydown",h,true);};
+ o.onclick=()=>{scrim.remove(); document.removeEventListener("keydown",h,true); onOk(got);};
+ f.append(c,o); m.append(f); scrim.append(m); document.body.append(scrim);
+ function h(e){
+  e.preventDefault(); e.stopPropagation();
+  if(["Control","Shift","Alt","Meta"].includes(e.key))return;
+  const mods=[]; if(e.ctrlKey)mods.push("Ctrl"); if(e.altKey)mods.push("Alt");
+  if(e.shiftKey)mods.push("Shift");
+  got=mods.concat([e.key===" "?"Space":e.key]).join("+");
+  shown.innerHTML=""; shown.append(keyCapsEl(got));
+ }
+ document.addEventListener("keydown",h,true);
+}
+
+/* Keys are rows, workbenches are columns, and it scrolls sideways. The key and
+   base columns stay pinned so a column is always read against what it overrides.
+   A key that resolves differently per selection expands into sub-rows -- so the
+   two context axes get one direction each: workbench across, selection down. */
 function shortcutsTableEl(){
  const wrap=el("div","gwrap"), t=el("table","g");
  const cols=scopeNames();
@@ -759,50 +841,84 @@ function shortcutsTableEl(){
  cols.forEach(w=>{
   const base=w===ANY;
   const th=el("th",(base?"base":"")+(w===playWb?" on":""));
-  th.append(el("span","wn",base?"Any workbench":w));
-  th.append(el("span","sub",base?"the base":"overrides the base"));
-  th.title=base?"applies everywhere unless a workbench overrides it":w;
+  const top=el("span","wh");
+  top.append(svg(base?uiIcon("PieMenu_Logo"):wbIcon(w),"wi"),
+             el("span","wn",base?"Any workbench":w));
+  th.append(top);
+  th.title=base?"the base — applies everywhere unless a workbench overrides it"
+               :w+" — overrides the base";
   hr.append(th);});
  t.append(hr);
 
- KEYCAPS.forEach(k=>{
+ const cell=(w,k,sel,isSub)=>{
+  const base=w===ANY;
+  const r=resolveKey(k,w,sel);
+  const cls=[]; if(base)cls.push("base");
+  if(w===playWb)cls.push("on");
+  if(!r.pie)cls.push("none"); else if(!r.exact)cls.push("inh");
+  const td=el("td",cls.join(" "));
+  td.append(el("span","cv",r.pie?r.pie.name:"\u2014"));
+  td.title=(r.pie
+    ? "click to open "+r.pie.name+" in the editor\n"
+      +(r.exact?"bound here":"falls back to "+(r.from===ANY?"the base":r.from)
+        +(r.forSel==="any"&&sel!=="any"?", any selection":""))+"\n"
+    : "nothing resolves here\n")
+   +"double-click to bind\u2026 · right-click for options";
+  if(r.pie)td.onclick=()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}};
+  td.ondblclick=()=>pickPieFor(w,k,sel);
+  const own=bindAt(w,k,sel);
+  td.oncontextmenu=e=>ctxMenu(e,[
+   [uiIcon("PieMenuEditMenu"),r.pie?"Open "+r.pie.name+" in the editor":"\u2014",
+     ()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}},!r.pie],
+   [uiIcon("PieMenuAddCommand"),
+     isSub?"Bind this key here, on "+sel+"\u2026":"Bind this key here\u2026",
+     ()=>pickPieFor(w,k,sel)],
+   "-",
+   ...(isSub?[]:CONDS.filter(c=>c!=="any").map(c=>
+     [uiIcon("PieMenuAddMenu"),"Different pie on "+c+"\u2026",
+      ()=>{S.expand[k]=true; pickPieFor(w,k,c);}])),
+   ...(isSub?[]:["-"]),
+   [uiIcon("PieMenuRemove"),"Clear this binding",
+     ()=>{delete S.binds[w][k][sel]; render();},own===undefined],
+  ]);
+  return td;
+ };
+
+ S.keys.forEach(k=>{
+  const subs=selsUsed(k), open=!!S.expand[k];
   const tr=el("tr");
-  const kc=el("td","k"); kc.append(el("span","cap",k)); tr.append(kc);
-  cols.forEach(w=>{
-   const base=w===ANY, own=bindsOf(w)[k];
-   const r=base?{pie:pieByName(own),inherited:false}:resolveKey(k,w);
-   const cls=[]; if(base)cls.push("base");
-   if(w===playWb)cls.push("on");
-   if(!r.pie)cls.push("none"); else if(r.inherited)cls.push("inh");
-   const td=el("td",cls.join(" "));
-   td.append(el("span","cv",r.pie?r.pie.name:"\u2014"));
-   td.title=(r.pie?"click to open "+r.pie.name+" in the editor\n":"")
-    +"double-click to bind\u2026 · right-click for options"
-    +(r.inherited?"\ninherited from "+ANY:"");
-   if(r.pie)td.onclick=()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}};
-   td.ondblclick=()=>pickPieFor(w,k);
-   td.oncontextmenu=e=>ctxMenu(e,[
-    [uiIcon("PieMenuEditMenu"),r.pie?"Open "+r.pie.name+" in the editor":"\u2014",
-      ()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}},!r.pie],
-    [uiIcon("PieMenuAddCommand"),"Bind this key here\u2026",()=>pickPieFor(w,k)],
-    "-",
-    [uiIcon("PieMenuAdd"),"Override the base here",
-      ()=>{bindsOf(w)[k]=S.binds[ANY][k]; render();},base||!!own||!S.binds[ANY][k]],
-    [uiIcon("PieMenuRemove"),(!base&&S.binds[ANY][k])?"Revert to "+ANY:"Clear this binding",
-      ()=>{delete bindsOf(w)[k]; render();},!own],
-   ]);
-   tr.append(td);});
-  t.append(tr);});
+  const kc=el("td","k");
+  const tw=el("span","tw",subs.length?(open?"\u25be":"\u25b8"):"");
+  if(subs.length)tw.onclick=e=>{e.stopPropagation(); S.expand[k]=!open; render();};
+  kc.append(tw,keyCapsEl(k));
+  kc.title="click to record a different key";
+  kc.onclick=()=>captureKey(k,v=>{
+   if(!v||S.keys.includes(v))return;
+   const i=S.keys.indexOf(k); S.keys[i]=v;
+   Object.keys(S.binds).forEach(sc=>{if(S.binds[sc][k]){S.binds[sc][v]=S.binds[sc][k];
+    delete S.binds[sc][k];}});
+   if(S.expand[k]){S.expand[v]=true; delete S.expand[k];}
+   render();});
+  tr.append(kc);
+  cols.forEach(w=>tr.append(cell(w,k,"any",false)));
+  t.append(tr);
+
+  if(open)subs.forEach(sl=>{
+   const sr=el("tr","subrow");
+   const sc2=el("td","k sub");
+   sc2.append(el("span","selname","on "+sl));
+   sr.append(sc2);
+   cols.forEach(w=>sr.append(cell(w,k,sl,true)));
+   t.append(sr);});
+ });
  wrap.append(t);
 
- const addKey=iconBtn(uiIcon("PieMenuAdd"),"Add another key",()=>{
-  askText("Add a shortcut key","Key:","",v=>{
-   const k=v.trim(); if(!k||KEYCAPS.includes(k))return;
-   KEYCAPS.push(k);});},false,true);
+ const addKey=iconBtn(uiIcon("PieMenuAdd"),"Add another key",
+  ()=>captureKey("",v=>{if(v&&!S.keys.includes(v)){S.keys.push(v); render();}}),false,true);
  const jump=iconBtn(uiIcon("PieMenuArrowDown"),"Scroll to the active workbench",()=>{
   const i=cols.indexOf(playWb); if(i<1)return;
   const th=wrap.querySelectorAll("th")[i+1];
-  if(th)wrap.scrollTo({left:th.offsetLeft-220,behavior:"smooth"});},false,true);
+  if(th)wrap.scrollTo({left:th.offsetLeft-260,behavior:"smooth"});},false,true);
  return panel("Shortcuts",null,[jump,addKey],wrap);
 }
 
@@ -1047,7 +1163,8 @@ function build(){
  const opened=el("div");
  if(!ways.length)opened.append(el("div","empt","No shortcut reaches this pie yet."));
  else opened.append(formGrid(ways.map(w=>["key "+w.key+":",
-   el("span","ro",w.scope===ANY?"in every workbench":"in "+w.scope)])));
+   el("span","ro",(w.scope===ANY?"in every workbench":"in "+w.scope)
+     +(w.sel&&w.sel!=="any"?", on "+w.sel:""))])));
  set.append(group("Opened by",opened));
  const show=el("div");
  show.append(attachHelp(check("Command names",p.names,v=>p.names=v),"Command names"));
@@ -1228,10 +1345,8 @@ function openLivePie(x,y,openKey){
  vp.append(wrap);
  const usable=nodes.filter(q=>q._cmd).length;
  logLine(uiIcon("PieMenu_Logo"),"opened <b>"+p.name+"</b>"
-   +(hit?(hit.via
-      ? " \u2014 key "+openKey+" \u2192 no "+playWb+" binding \u2192 "+ANY+" \u2192 <b>"+p.name+"</b>"
-      : " \u2014 key "+openKey+" \u2192 bound in "+playWb+" \u2192 <b>"+p.name+"</b>")
-     :"")
+   +(hit?" \u2014 key "+openKey+" \u2192 "+(hit.via?ANY:playWb)
+        +(hit.bySel?" on "+hit.bySel:"")+" \u2192 <b>"+p.name+"</b>":"")
    +" \u2014 "+usable+" of "+n+" slots usable <i>(open: "+p.openOn+", run: "+p.runOn+")</i>");
  wrap._pie=p;
  return wrap;
@@ -1277,15 +1392,16 @@ const WORKBENCHES=["None","PartDesign","Part","Sketcher","Draft","BIM","FEM","CA
 let playWb="PartDesign";
 /* The active workbench decides: its own binding first, then Any workbench. */
 function pieForKey(k){
- const r=resolveKey(k,playWb);
- return r.pie?{pie:r.pie,via:r.inherited?ANY:null,from:r.from}:null;
+ const r=resolveKey(k,playWb,S.selection);
+ return r.pie?{pie:r.pie,via:r.inherited?ANY:null,from:r.from,
+               bySel:r.bySel?r.forSel:null}:null;
 }
 function initPlayground(){
  const wbSel=document.getElementById("wbPick");
  WORKBENCHES.forEach(w=>{const o=el("option",null,w); if(w===playWb)o.selected=true; wbSel.append(o);});
  wbSel.onchange=()=>{playWb=wbSel.value; render();
   logLine(uiIcon("PieMenuEditMenu"),"workbench \u2192 <b>"+playWb+"</b>; keys now "
-    +KEYCAPS.map(k=>{const r=pieForKey(k);
+    +S.keys.map(k=>{const r=pieForKey(k);
        return r?(k+"\u2192"+r.pie.name):null;}).filter(Boolean).join(", "));};
  drawSolid();
  const vp=document.getElementById("viewport");
@@ -1324,7 +1440,7 @@ function initPlayground(){
   vp.focus();
   const r=vp.getBoundingClientRect();
   if(!mousePos.x&&!mousePos.y)mousePos={x:r.width/2,y:r.height/2-20};
-  openLivePie(mousePos.x,mousePos.y,KEYCAPS.find(k=>pieForKey(k))||null);};
+  openLivePie(mousePos.x,mousePos.y,S.keys.find(k=>pieForKey(k))||null);};
  document.getElementById("clearSel").onclick=()=>select("none",-1);
  document.getElementById("clearLog").onclick=()=>{
   document.getElementById("log").innerHTML="";

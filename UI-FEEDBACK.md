@@ -258,6 +258,21 @@ to is always read against the base it overrides. (A transposed version was tried
 -- scopes as rows -- and rejected; scrolling sideways past workbench columns is
 easier to follow than hunting rows.)
 
+**Selection is the second context axis, and it expands downward.** A key can
+resolve to an entirely different pie depending on what is selected -- key 1 in
+PartDesign opening `Main (face)` on a face and `Main (edge)` on an edge. Rather
+than cram that into a cell, a key row carries a disclosure triangle and expands
+into indented sub-rows, one per selection it mentions. So each context axis gets
+one direction: **workbench across, selection down.** Precedence is
+`this workbench + this selection` -> `this workbench + any` -> `base + this
+selection` -> `base + any`, which is two independent one-step fallbacks rather
+than a stack. A key with no selection conditions has no triangle and no sub-rows,
+so the feature is invisible until used.
+
+Also: each workbench column is headed by an **icon** rather than a repeated
+"overrides the base" caption, and the key column shows a real **keybind** --
+click it to record one, modifiers included, drawn as keycaps (`Ctrl` `+` `1`).
+
 The base column sits first, tinted and rule-separated; every workbench column
 either overrides it (solid) or inherits it (dim italic). The active workbench's
 column is tinted and its header marked. Cells name the **pie**;
