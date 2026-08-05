@@ -103,13 +103,17 @@ Everything else is **derived from the bindings, never declared**:
 - **The look.** A slot that currently resolves to a pie-command draws with the
   ring + chevron. That comes from resolution, so it is always truthful about
   what firing will do right now.
-- **The map.** The structure panel is the union of all pie-bindings. It changes
-  only when bindings are edited — never with the selection. It carries **graph
-  marks only**: fold twisties on pies with children, `↩ same pie` reference
-  rows, `×N refs`, `default`. Edge conditions were shown as rule badges and
-  removed — they duplicated the Slots table and crushed the names in a 212px
-  column; the row tooltip keeps them. Every pie has its **own icon**, worn
-  everywhere the pie is referenced (map, door slots, Slots table, choosers).
+- **The pie list is flat.** The structure is a graph, and drawing it as a tree
+  was tried twice (a `parent` field, then a map derived from door bindings with
+  `×N refs`, `↩ same pie` reference rows and fold twisties) and rejected: a
+  third of the rows were apologies for the projection, and placement under the
+  "shallowest parent" was arbitrary. The list is now just icon + name +
+  `default`/`unused` tags. The graph lives where it is local: **outgoing**
+  doors are the pie's own door slots (canvas + Slots table); **incoming** ones
+  are listed in the pie's settings under **Opened by** (`from Main — slot 4,
+  Edge ≥ 1`, click to jump there); a pie that nothing reaches — no shortcut,
+  no door — wears `unused`. Every pie has its **own icon**, worn everywhere it
+  is referenced (list, door slots, Slots table, choosers).
 - **Same subtrees, by construction.** A binding stores only the pie's *name*, so
   every route to View reaches the one View — same as the addon, where
   `PieMenu_<name>` resolves the single pie config by name at open time. The map

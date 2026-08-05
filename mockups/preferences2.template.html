@@ -284,7 +284,6 @@ body{display:flex;align-items:flex-start}
 .new{color:#b8bb26}.fix{color:#fabd2f}.perf{color:#83a598}.int{color:#a89984}.ui{color:#d3869b}
 /* v2: six-axis rules + sub-pies-as-commands */
 /* clean-pie markers: the data lives in the Slots table */
-.row .tw{width:11px;flex:0 0 11px;font-size:9px;color:var(--dim);cursor:pointer;text-align:center}
 .slot .bn{position:absolute;right:-5px;top:-5px;min-width:14px;height:14px;line-height:14px;
 border-radius:7px;background:var(--hi);color:var(--hitext);font-size:9.5px;text-align:center;
 padding:0 3px;font-weight:600}
@@ -310,10 +309,9 @@ cursor:pointer;font-size:11px;color:var(--dim)}
 .slot .chev{position:absolute;right:-4px;bottom:-4px;font-size:10px;color:var(--hi);
 background:var(--canvas);border-radius:50%;width:13px;height:13px;line-height:13px;text-align:center}
 .slot.unbound .chev{color:var(--slotline)}
-.badge{display:inline-block;padding:0 6px;border:1px solid var(--line);border-radius:8px;
-font-size:10px;color:var(--dim);white-space:nowrap;margin-left:4px;flex:0 0 auto}
-.row.link{opacity:.55}
-.row .rf{color:var(--dim);font-size:10px;margin-left:auto;flex:0 0 auto}
+.tag.dim{opacity:.65}
+.golink{cursor:pointer}
+.golink:hover{color:var(--hi);text-decoration:underline}
 </style>
 
 <div class="side" id="side"></div>
@@ -858,36 +856,31 @@ function positions(p){
 function setCounts(c){S.counts={...c}; chooserPick={};
  if(typeof picks!=="undefined")picks.length=0;
  render(); if(typeof drawSolid==="function")drawSolid();}
+/* Every door binding that points AT a pie -- the incoming half of the graph,
+   reported in that pie's own settings under "Opened by". */
+function doorsInto(name){
+ const out=[];
+ S.pies.forEach(q=>q.items.forEach((sl,i)=>(sl?sl.b:[]).forEach(b=>{
+  if(isPie(b.cmd)&&pieTarget(b.cmd)===name)
+   out.push({from:q.name,slot:i+1,rule:b.rule});})));
+ return out;
+}
+/* Flat. The structure is a graph, and a tree of it spends a third of its rows
+   apologizing (reference rows, arbitrary parent placement). Outgoing doors
+   are visible on the pie itself; incoming ones under "Opened by"; a pie that
+   nothing reaches wears a tag. */
 function pieListEl(){
  const l=el("div","list");
- /* The map is derived from PieMenu_* bindings -- every route that can exist,
-    labelled with its condition. It only changes when bindings are edited,
-    never with the selection. A pie referenced from several places is ONE pie:
-    drawn once under its shallowest parent, other references as dim rows. */
- const edgeMapOf=name=>{const m={};
-  (pieByName(name)||{items:[]}).items.forEach(sl=>(sl?sl.b:[]).forEach(b=>{
-   if(isPie(b.cmd)){const t=pieTarget(b.cmd);(m[t]=m[t]||[]).push(ruleText(b.rule));}}));
-  return m;};
- const parentsOf=name=>S.pies.filter(q=>q.name!==name&&edgeMapOf(q.name)[name]).map(q=>q.name);
- const row=(name,depth,conds,link)=>{
-  const q=pieByName(name); if(!q)return;
-  const i=S.pies.indexOf(q);
-  const r=el("div","row"+(link?" link":"")+(i===S.cur?" sel":""));
-  r.style.paddingLeft=(6+depth*13)+"px";
-  /* graph marks only -- the rule itself lives in the Slots table */
-  const kids=!link&&Object.keys(edgeMapOf(name)).some(k=>pieByName(k));
-  const tw=el("span","tw",kids?(q.fold?"\u25b8":"\u25be"):"");
-  if(kids)tw.onclick=e=>{e.stopPropagation(); q.fold=!q.fold; render();};
-  r.append(tw,svg(pieIcon(q)),el("span","name",name));
-  const ps=parentsOf(name);
-  if(link)r.append(el("span","rf","\u21a9 same pie"));
-  else if(ps.length>1)r.append(el("span","rf","\u00d7"+ps.length+" refs"));
-  const cs=[...new Set(conds||[])].filter(w=>w!=="always");
-  const tips=[];
-  if(cs.length)tips.push("opens when "+cs.join("  \u00b7  "));
-  if(ps.length>1)tips.push("one pie \u2014 reached from "+ps.join(", ")+"; editing it anywhere edits the one pie");
-  if(tips.length)r.title=tips.join("\n");
+ S.pies.forEach((q,i)=>{
+  const r=el("div","row"+(i===S.cur?" sel":""));
+  r.append(svg(pieIcon(q)),el("span","name",q.name));
   if(q.def)r.append(el("span","tag","default"));
+  else{
+   const reached=doorsInto(q.name).length>0
+     ||Object.keys(S.binds).some(sc=>Object.values(S.binds[sc]).includes(q.name));
+   if(!reached){const t=el("span","tag dim","unused");
+    t.title="no shortcut and no door reaches this pie"; r.append(t);}
+  }
   r.onclick=()=>{S.cur=i; render();};
   r.ondblclick=()=>{S.cur=i; pieRename();};
   r.oncontextmenu=e=>{S.cur=i; render(); return ctxMenu(e,[
@@ -898,25 +891,7 @@ function pieListEl(){
    [uiIcon("PieMenu_Logo"),"Use when no workbench matches",pieDefault,q.def],
   ]);};
   l.append(r);
- };
- const owner={}, roots=[];
- const claimFrom=r=>{owner[r]=null; roots.push(r);
-  const bfs=[r];
-  while(bfs.length){const n=bfs.shift();
-   Object.keys(edgeMapOf(n)).forEach(k=>{if(!(k in owner)&&pieByName(k)){owner[k]=n; bfs.push(k);}});}};
- S.pies.map(q=>q.name).filter(n=>!parentsOf(n).length).forEach(claimFrom);
- /* cycles can leave whole components parentless-free; seed a root from the
-    first unowned pie until everything is claimed */
- S.pies.forEach(q=>{if(!(q.name in owner))claimFrom(q.name);});
- roots.sort((a,b)=>S.pies.findIndex(x=>x.name===a)-S.pies.findIndex(x=>x.name===b));
- const walk=(name,depth)=>{
-  const q=pieByName(name); if(q&&q.fold)return;
-  const em=edgeMapOf(name);
-  Object.keys(em).forEach(k=>{ if(!pieByName(k))return;
-   if(owner[k]===name){row(k,depth,em[k],false); walk(k,depth+1);}
-   else row(k,depth,em[k],true);});
- };
- roots.forEach(n=>{row(n,0,null,false); walk(n,1);});
+ });
  return l;
 }
 function iconBtn(icon,title,fn,active,small){
@@ -1272,11 +1247,19 @@ function build(){
  /* Read-only: a pie does not declare how it is reached -- shortcuts do, and
     they are scoped by workbench. This reports every scope that names this pie
     so the relationship is still visible from here. */
- const ways=waysTo(p.name);
+ const ways=waysTo(p.name), doors=doorsInto(p.name);
  const opened=el("div");
- if(!ways.length)opened.append(el("div","empt","No shortcut reaches this pie yet."));
- else opened.append(formGrid(ways.map(w=>["key "+w.key+":",
-   el("span","ro",w.scope===ANY?"in every workbench":"in "+w.scope)])));
+ if(!ways.length&&!doors.length)
+  opened.append(el("div","empt","Nothing reaches this pie \u2014 no shortcut, no door."));
+ else opened.append(formGrid(
+  ways.map(w=>["key "+w.key+":",
+    el("span","ro",w.scope===ANY?"in every workbench":"in "+w.scope)])
+  .concat(doors.map(d=>{
+    const t=el("span","ro golink","slot "+d.slot
+      +(Object.keys(d.rule).length?", "+ruleText(d.rule):""));
+    t.title="open "+d.from+" in the editor";
+    t.onclick=()=>{S.cur=S.pies.findIndex(q=>q.name===d.from); render();};
+    return ["from "+d.from+":",t];}))));
  set.append(group("Opened by",opened));
  const show=el("div");
  show.append(attachHelp(check("Command names",p.names,v=>p.names=v),"Command names"));
