@@ -155,9 +155,10 @@ color:var(--dim);padding:3px 9px;cursor:pointer;font-size:12px}
 .selbar .seg button:last-child{border-right:0}
 .selbar .seg button.on{background:var(--hi);color:var(--hitext)}
 .ibody{padding:9px;overflow:auto;flex:1;min-height:0}
-.kindrow{display:flex;gap:6px;align-items:center;margin-bottom:9px}
-.kind{padding:2px 8px;border-radius:10px;font-size:11px;border:1px solid var(--line);color:var(--dim)}
-.kind.on{background:var(--hi);color:var(--hitext);border-color:var(--hi)}
+.badge{display:inline-block;padding:0 6px;border:1px solid var(--line);border-radius:8px;
+font-size:10px;color:var(--dim);white-space:nowrap}
+.treerow.link{opacity:.55}
+.brow .badge{flex:0 0 auto}
 .brow{display:flex;gap:6px;align-items:center;padding:3px 0;font-size:12px;border-bottom:1px solid #3a3735}
 .brow .when{color:var(--dim);font-size:11px;margin-left:auto}
 .brow.live{color:var(--text)} .brow.off{color:var(--empty)}
@@ -169,16 +170,19 @@ border-left:2px solid var(--line);padding-left:8px}
 
 <div class="topbar">
   <h1>Sub-pies</h1>
-  <span class="hint">structure is static, behaviour is contextual · click a doorway to descend · click any slot to inspect it</span>
+  <span class="hint">a pie is just a command · click a slot to inspect · double-click to descend into a pie</span>
 </div>
 
 <div class="wrap">
   <p class="lede">
-    Two rules. <b>A slot's kind never changes</b> — it is an action or a doorway, forever, so
-    <i>flick and keep going</i> always means the same thing. <b>Doorways carry no conditions</b>;
-    only action slots do. So the graph is static, and instead of one doorway that changes target,
-    you spend <b>two</b> — each greying itself out when its pie says it is irrelevant.
-    Change the selection below and watch: <b>nothing moves</b>.
+    One model. <b>A pie is a command</b> — the addon already registers every pie as
+    <code>PieMenu_&lt;name&gt;</code> — so a slot is just an ordered list of
+    <i>(condition → command)</i>, and some commands open pies. Slot 3 below opens
+    <b>Surface tools</b> on a face and <b>Edge tools</b> on an edge: one slot, two pies,
+    same mechanism as any conditional tool. The ring-and-chevron look is <b>derived</b>
+    from what the slot resolves to right now, never declared. The map on the left shows
+    <b>every possible route with its condition</b>; a pie referenced from several places
+    is <b>one pie</b> (↩ marks the repeats).
   </p>
 
   <div class="cols">
@@ -205,55 +209,67 @@ const uiIcon=n=>ICONS[n]||"";
 const shortName=c=>c.replace(/^[A-Za-z]+_/,"").replace(/([a-z])([A-Z])/g,"$1 $2");
 
 const SELS=["none","vertex","edge","face","body"];
+const isPie=c=>!!c&&c.startsWith("PieMenu_");
+const target=c=>c.slice(8);              /* "PieMenu_".length */
 
-/* A pie may declare what it expects. That one line is what lets a doorway grey
-   itself out without putting a condition on the edge, and it gives the editor a
-   definite context to preview an interior pie under. */
+/* The whole model. A pie is a command like any other -- the addon registers
+   every pie as PieMenu_<name> (InitGui.py:2523) -- so a slot is nothing but an
+   ordered list of (condition -> command), and some commands open pies. No slot
+   kinds, no parent field, no per-pie "expects": everything is derived from
+   these bindings. Slot 3 of Main is the point: a pie on face, a DIFFERENT pie
+   on edge, one slot. */
 const PIES={
- "Main":{expects:null,slots:8,radius:96,items:[
-   {kind:"action",b:[{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Fillet",when:"edge"}]},
-   {kind:"action",b:[{cmd:"Std_Save",when:"any"}]},
-   {kind:"door",pie:"Surface tools"},
-   {kind:"door",pie:"Edge tools"},
-   {kind:"action",b:[{cmd:"Std_Undo",when:"any"}]},
+ "Main":{slots:8,radius:96,items:[
+   [{when:"face",cmd:"PartDesign_Pad"},{when:"edge",cmd:"PartDesign_Fillet"}],
+   [{when:"any",cmd:"Std_Save"}],
+   [{when:"face",cmd:"PieMenu_Surface tools"},{when:"edge",cmd:"PieMenu_Edge tools"}],
+   [{when:"any",cmd:"PieMenu_View"}],
+   [{when:"any",cmd:"Std_Undo"}],
+   null,null,null]},
+ "Surface tools":{slots:4,radius:74,items:[
+   [{when:"face",cmd:"PartDesign_Pad"}],
+   [{when:"face",cmd:"PartDesign_Pocket"}],
+   [{when:"face",cmd:"PartDesign_Draft"}],
+   [{when:"any",cmd:"PieMenu_View"}]]},
+ "Edge tools":{slots:6,radius:80,items:[
+   [{when:"edge",cmd:"PartDesign_Fillet"}],
+   [{when:"edge",cmd:"PartDesign_Chamfer"}],
    null,
-   {kind:"door",pie:"View"},
-   null]},
- "Surface tools":{expects:"face",slots:4,radius:74,items:[
-   {kind:"action",b:[{cmd:"PartDesign_Pad",when:"face"}]},
-   {kind:"action",b:[{cmd:"PartDesign_Pocket",when:"face"}]},
-   {kind:"action",b:[{cmd:"PartDesign_Draft",when:"face"}]},
-   {kind:"door",pie:"View"}]},
- "Edge tools":{expects:"edge",slots:6,radius:80,items:[
-   {kind:"action",b:[{cmd:"PartDesign_Fillet",when:"edge"}]},
-   {kind:"action",b:[{cmd:"PartDesign_Chamfer",when:"edge"}]},
-   null,null,
-   {kind:"action",b:[{cmd:"Std_Undo",when:"any"}]},
-   {kind:"door",pie:"View"}]},
- "View":{expects:null,slots:4,radius:70,items:[
-   {kind:"action",b:[{cmd:"View_Fit",when:"any"}]},
-   {kind:"action",b:[{cmd:"View_Front",when:"any"}]},
-   {kind:"action",b:[{cmd:"View_Top",when:"any"}]},
-   null]},
+   [{when:"any",cmd:"Std_Undo"}],
+   null,
+   [{when:"any",cmd:"PieMenu_View"}]]},
+ "View":{slots:4,radius:70,items:[
+   [{when:"any",cmd:"View_Fit"}],
+   [{when:"any",cmd:"View_Front"}],
+   [{when:"any",cmd:"View_Top"}],
+   [{when:"any",cmd:"PieMenu_Main"}]]},   /* a cycle, on purpose */
 };
 
 const S={sel:"face",path:["Main"],slot:null};
 const cur=()=>PIES[S.path[S.path.length-1]];
 const curName=()=>S.path[S.path.length-1];
 
-/* an action slot resolves against the selection; a doorway never does */
 const matches=b=>b.when==="any"||b.when===S.sel;
-const liveCmd=it=>{const h=(it.b||[]).filter(matches); return h.length?h[0].cmd:null;};
-/* a doorway is live when the pie it opens says it is relevant */
-const doorLive=it=>{const p=PIES[it.pie]; return !p.expects||p.expects===S.sel;};
-const slotLive=it=>!it?false:(it.kind==="door"?doorLive(it):!!liveCmd(it));
-/* one level of lookahead: is there anything to do in there? */
-const childHasSomething=name=>PIES[name].items.some(x=>x&&slotLive(x));
+const live=sl=>sl?sl.filter(matches):[];
 
-/* structure is derived from doorways, and does not depend on the selection */
-function edgesFrom(name){return PIES[name].items.filter(x=>x&&x.kind==="door").map(x=>x.pie);}
-function reachedFrom(name){
- return Object.keys(PIES).filter(p=>edgesFrom(p).includes(name));}
+/* is there anything to actually do in there, under the current selection?
+   recursive, visited-set, so cycles terminate */
+function pieLive(name,seen){
+ seen=seen||new Set();
+ if(seen.has(name)||!PIES[name])return false;
+ seen.add(name);
+ return PIES[name].items.some(sl=>live(sl).some(b=>
+   isPie(b.cmd)?pieLive(target(b.cmd),seen):true));
+}
+
+/* the union graph: every pie-binding is an edge, labelled with its condition.
+   Depends only on the bindings, never on the selection. */
+function edgeMap(name){
+ const m={};
+ PIES[name].items.forEach(sl=>(sl||[]).forEach(b=>{
+  if(isPie(b.cmd)){const t=target(b.cmd);(m[t]=m[t]||[]).push(b.when);}}));
+ return m;}
+const parentsOf=name=>Object.keys(PIES).filter(p=>p!==name&&edgeMap(p)[name]);
 
 function positions(p){
  const out=[],n=p.slots,step=2*Math.PI/n,start=-Math.PI/2;
@@ -262,7 +278,7 @@ function positions(p){
 
 /* ---- the pie ------------------------------------------------------------- */
 function pieEl(){
- const p=cur(), body=el("div");
+ const body=el("div");
  body.style.cssText="display:flex;flex-direction:column;flex:1;min-height:0";
 
  const cr=el("div","crumb");
@@ -271,8 +287,6 @@ function pieEl(){
   if(i<S.path.length-1){const a=el("a",null,n);
    a.onclick=()=>{S.path=S.path.slice(0,i+1); S.slot=null; draw();}; cr.append(a);}
   else cr.append(el("span","cur",n));});
- if(p.expects){cr.append(el("span","grow"));
-  cr.append(el("span","hint","expects a "+p.expects));}
  body.append(cr);
 
  const c=el("div","canvas"); c.style.flex="1";
@@ -291,7 +305,6 @@ function pieEl(){
  bar.append(back);
  body.append(bar);
 
- body._canvas=c;
  return panel("Pie — "+curName(),null,[],body);
 }
 
@@ -300,27 +313,28 @@ function paint(c){
  const p=cur(), w=c.clientWidth, h=c.clientHeight; if(!w||!h)return;
  const cx=w/2, cy=h/2-4, pos=positions(p), size=42;
  pos.forEach(([x,y],i)=>{
-  const it=p.items[i];
-  const live=slotLive(it);
+  const sl=p.items[i], bs=live(sl), b=bs[0]||(sl&&sl[0])||null;
+  const pie=b&&isPie(b.cmd);
+  const dead=sl?(!bs.length||(pie&&!pieLive(target(b.cmd)))):false;
   const cls=["slot"];
-  if(!it)cls.push("empty");
-  else{ if(it.kind==="door")cls.push("door"); if(!live)cls.push("dead"); }
+  if(!sl)cls.push("empty");
+  else{ if(pie)cls.push("door"); if(dead)cls.push("dead"); if(bs.length>1)cls.push("multi"); }
   if(i===S.slot)cls.push("sel");
   const s=el("div",cls.join(" "));
   s.style.cssText=`left:${cx+x-size/2}px;top:${cy+y-size/2}px;width:${size}px;height:${size}px`;
-  if(it){
-   if(it.kind==="door"){
-    s.append(svg(uiIcon("PieMenu_Logo")));
-    s.append(el("span","chev","›"));
-    s.append(el("span","lbl",it.pie));
-   }else{
-    const cmd=liveCmd(it);
-    s.append(el("span",null,cmd?shortName(cmd).split(" ")[0]:"—"));
-    if(cmd)s.append(el("span","lbl",shortName(cmd)));
-   }
-  }else s.append(el("span",null,"+"));
+  if(!sl)s.append(el("span",null,"+"));
+  else if(pie){
+   s.append(svg(uiIcon("PieMenu_Logo")));
+   s.append(el("span","chev","›"));
+   s.append(el("span","lbl",target(b.cmd)));
+  }else{
+   s.append(el("span",null,shortName(b.cmd).split(" ")[0]));
+   s.append(el("span","lbl",shortName(b.cmd)));
+  }
+  if(sl)s.title=sl.map(x=>(x.when==="any"?"always":"on "+x.when)+" → "
+    +(isPie(x.cmd)?"open "+target(x.cmd):shortName(x.cmd))).join("\n");
   s.onclick=()=>{S.slot=i; draw();};
-  s.ondblclick=()=>{ if(it&&it.kind==="door"&&live)enter(it.pie); };
+  s.ondblclick=()=>{ if(pie&&bs.length)enter(target(b.cmd)); };
   c.append(s);
  });
  const centre=el("div","slot"); centre.style.cssText=
@@ -329,37 +343,55 @@ function paint(c){
 }
 
 function enter(name){
- if(!childHasSomething(name))
-  log(uiIcon("PieMenuRemove"),"<b>"+name+"</b> has nothing live for <b>"+S.sel+"</b>");
+ if(!pieLive(name))log(uiIcon("PieMenuRemove"),"<b>"+name+"</b> has nothing live for <b>"+S.sel+"</b>");
  S.path=S.path.concat([name]); S.slot=null;
  log(uiIcon("PieMenu_Logo"),"entered <b>"+name+"</b>");
  draw();
 }
 
-/* ---- derived structure --------------------------------------------------- */
+/* ---- the map ------------------------------------------------------------- */
 function treeEl(){
  const list=el("div","list");
- const seen={};
- const walk=(name,depth)=>{
-  const row=el("div","row treerow"+(name===curName()?" sel":""));
-  row.style.paddingLeft=(6+depth*13)+"px";
-  row.append(svg(uiIcon("PieMenu_Logo")),el("span","name",name));
-  const rf=reachedFrom(name);
-  if(rf.length>1)row.append(el("span","rf","from "+rf.length));
-  if(PIES[name].expects)row.append(el("span","tag",PIES[name].expects));
-  row.onclick=()=>{S.path=[name]; S.slot=null; draw();};
-  list.append(row);
-  if(seen[name])return;                  // draw a shared pie's children once
-  seen[name]=1;
-  edgesFrom(name).forEach(ch=>walk(ch,depth+1));
+ const badge=w=>el("span","badge",w==="any"?"always":"on "+w);
+ const row=(name,depth,conds,link)=>{
+  const r=el("div","row treerow"+(link?" link":"")+(name===curName()?" sel":""));
+  r.style.paddingLeft=(6+depth*13)+"px";
+  r.append(svg(uiIcon("PieMenu_Logo")),el("span","name",name));
+  [...new Set(conds||[])].forEach(w=>r.append(badge(w)));
+  const ps=parentsOf(name);
+  if(link)r.append(el("span","rf","↩ same pie"));
+  else if(ps.length>1)r.append(el("span","rf","×"+ps.length+" refs"));
+  if(ps.length>1)r.title="one pie — reached from "+ps.join(", ")+"; editing it anywhere edits the one pie";
+  r.onclick=()=>{S.path=[name]; S.slot=null; draw();};
+  list.append(r);
  };
- Object.keys(PIES).filter(n=>!reachedFrom(n).length).forEach(n=>walk(n,0));
+ /* pass 1: breadth-first owner assignment, so a shared pie nests under its
+    shallowest parent and every other reference renders as a link */
+ let roots=Object.keys(PIES).filter(n=>!parentsOf(n).length);
+ if(!roots.length)roots=[Object.keys(PIES)[0]];
+ const owner={}; const q=[...roots]; roots.forEach(n=>owner[n]=null);
+ while(q.length){
+  const n=q.shift();
+  Object.keys(edgeMap(n)).forEach(k=>{ if(!(k in owner)){owner[k]=n; q.push(k);} });
+ }
+ Object.keys(PIES).forEach(n=>{ if(!(n in owner)){owner[n]=null; roots.push(n);} });
+ /* pass 2: render */
+ const walk=(name,depth)=>{
+  const em=edgeMap(name);
+  Object.keys(em).forEach(k=>{
+   if(owner[k]===name){row(k,depth,em[k],false); walk(k,depth+1);}
+   else row(k,depth,em[k],true);
+  });
+ };
+ roots.forEach(n=>{row(n,0,null,false); walk(n,1);});
+
  const note=el("div","note");
- note.textContent="Drawn from doorway slots, not from a parent field. It does not "
-  +"change when the selection changes — only what is live inside does.";
+ note.textContent="Drawn from the bindings: every route that can exist, labelled with "
+  +"its condition. It never changes with the selection — only the greying in the pie "
+  +"does. ↩ rows are references to a pie drawn once elsewhere: one pie, edited in one place.";
  const w=el("div"); w.style.cssText="display:flex;flex-direction:column;flex:1;min-height:0";
  w.append(list,note);
- return panel("Structure",Object.keys(PIES).length,[],w);
+ return panel("Map",Object.keys(PIES).length,[],w);
 }
 
 /* ---- inspector ----------------------------------------------------------- */
@@ -367,55 +399,32 @@ function inspEl(){
  const p=cur(), body=el("div","ibody");
  if(S.slot==null||!p.items[S.slot]){
   body.append(el("div","empt",S.slot==null
-   ? "Click a slot to see what it is and why it looks the way it does."
+   ? "Click a slot to see its bindings."
    : "Slot "+(S.slot+1)+" is empty."));
   return panel("Slot",null,[],body);
  }
- const it=p.items[S.slot];
- const kr=el("div","kindrow");
- kr.append(el("span","kind"+(it.kind==="action"?" on":""),"action"),
-           el("span","kind"+(it.kind==="door"?" on":""),"doorway"));
- body.append(kr);
-
- if(it.kind==="door"){
-  const ch=PIES[it.pie], live=doorLive(it);
-  body.append(el("div","brow live","opens "+it.pie));
-  body.append(el("div","brow"+(live?" live":" off"),
-    ch.expects?(it.pie+" expects a "+ch.expects):(it.pie+" expects nothing in particular")));
-  body.append(el("div","brow"+(live?" live":" off"),
-    live?"live for "+S.sel:"greyed for "+S.sel));
-  if(live&&!childHasSomething(it.pie))
-   body.append(el("div","brow off warn","⚠ nothing inside is live either"));
-  const b=el("button","btn tiny","Enter "+it.pie); b.style.marginTop="8px";
-  b.disabled=!live; b.onclick=()=>enter(it.pie);
-  body.append(b);
-  const n=el("div","note");
-  n.textContent="A doorway carries no condition of its own. It greys because the pie "
-   +"it opens says it is irrelevant — declared once, on that pie, not on every edge "
-   +"pointing at it.";
-  body.append(n);
- }else{
-  it.b.forEach(b=>{
-   const on=matches(b);
-   const r=el("div","brow"+(on?" live":" off"));
-   r.append(el("span",null,shortName(b.cmd)),el("span","when",b.when));
-   body.append(r);});
-  const n=el("div","note");
-  n.textContent="Conditions live here, in the action slot, and nowhere else. "
-   +"This is the only kind of slot that reads the selection.";
-  body.append(n);
- }
-
- const t=el("button","btn tiny",it.kind==="door"
-   ? "Try to add a command here" : "Try to make this a doorway");
- t.style.marginTop="10px";
- t.onclick=()=>{
-  log(uiIcon("PieMenuRemove"),"refused — slot "+(S.slot+1)+" is "
-   +(it.kind==="door"?"a doorway":"an action")
-   +", and a slot's kind never changes. <i>Flick and keep going</i> has to mean "
-   +"the same thing every time.");
- };
- body.append(t);
+ const sl=p.items[S.slot], bs=live(sl);
+ sl.forEach(b=>{
+  const pie=isPie(b.cmd);
+  const on=matches(b)&&(!pie||pieLive(target(b.cmd)));
+  const r=el("div","brow"+(on?" live":" off"));
+  r.append(el("span","badge",b.when==="any"?"always":"on "+b.when));
+  r.append(el("span",null,pie?"open "+target(b.cmd):shortName(b.cmd)));
+  if(pie){
+   const btn=el("button","btn tiny","Enter"); btn.style.marginLeft="auto";
+   btn.disabled=!matches(b);
+   btn.onclick=()=>enter(target(b.cmd));
+   r.append(btn);
+  }
+  body.append(r);
+ });
+ if(bs.length>1)
+  body.append(el("div","note warn","Several bindings apply to the current selection — the slot would offer the chooser."));
+ const n=el("div","note");
+ n.textContent="A pie is a command like any other, so one slot can mix tools and pies "
+  +"across contexts. The ring-and-chevron look is derived from what the slot resolves "
+  +"to right now — firing is the same activation either way.";
+ body.append(n);
  return panel("Slot "+(S.slot+1)+" of "+curName(),null,[],body);
 }
 
@@ -439,8 +448,7 @@ function draw(){
  swap("treePanel",treeEl());
  swap("piePanel",pieEl());
  swap("inspPanel",inspEl());
- /* paint once the node is in the document -- rAF is throttled in a background
-    tab, which would leave the pie blank */
+ /* paint synchronously -- rAF is throttled in a background tab */
  const c=document.querySelector("#piePanel .canvas");
  if(c)paint(c);
 }

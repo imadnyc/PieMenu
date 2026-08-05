@@ -63,36 +63,39 @@ conditions it actually cares about, and unrelated slots stay silent.
 - Anything already built that splits a pie per selection should be treated as a
   mistake and folded back into one pie with conditional slots.
 
-## Open — sub-pies, and how they survive contextual slots
+## Sub-pies — a pie is just a command
 
-Slots that open other pies already exist in the addon (`InitGui.py:2523` registers
-every pie as a `PieMenu_<name>` command via `NestedPieMenu`), so a graph edge and
-a conditional binding are the same object. That collides with the decision above:
-if edges carry conditions, the pie graph becomes a function of the selection --
-a slot changes *kind* between contexts (fatal for gesture memory), doorways can
-lead to entirely dead pies, an interior pie has no fixed context to be previewed
-under, the "tree" is really a selection-dependent DAG, and pinning would have to
-flow along edges that come and go.
+Slots that open pies already exist: the addon registers every pie as an ordinary
+command (`Gui.addCommand('PieMenu_' + name, NestedPieMenu(...))`,
+`InitGui.py:2523`). So there is no separate "doorway" kind and no second
+mechanism — a slot is an ordered list of *(condition → command)*, and some
+commands happen to open pies. One slot may open Surface tools on a face and
+Edge tools on an edge, or mix pies and tools freely; firing is the same command
+activation either way. (An earlier sketch that invented a fixed action/doorway
+slot kind, banned conditions on pie targets, and added a per-pie `expects`
+declaration is superseded — `370b37a`.)
 
-**Proposed, and built as `mockups/subpies.html`:**
+Everything else is **derived from the bindings, never declared**:
 
-1. **A slot's kind is fixed.** Action or doorway, permanently. *Flick and keep
-   going* must mean the same thing every time. Enforced -- trying to mix them is
-   refused.
-2. **Doorways carry no conditions; only action slots do.** So the graph is static:
-   drawable, walkable, and safe for pinning to flow along.
-3. **Don't overload a doorway -- spend a second slot.** Two doorways, each greying
-   itself out when irrelevant, instead of one that changes target. Position stays
-   honest, and the two children keep different layouts and slot counts, which
-   merging them into one child would have forced you to give up.
-4. **A pie declares what it expects** (optional, one line). That is what greys a
-   doorway -- declared once on the pie, not repeated on every edge pointing at it
-   -- and it gives the editor a definite context to preview an interior pie under.
+- **The look.** A slot that currently resolves to a pie-command draws with the
+  ring + chevron. That comes from resolution, so it is always truthful about
+  what firing will do right now.
+- **The map.** The structure panel is the union of all pie-bindings, each edge
+  labelled with its condition (*on face*, *always*). The union changes only when
+  bindings are edited — never with the selection — so the map is stable while
+  liveness greys things in the live pie.
+- **Same subtrees, by construction.** A binding stores only the pie's *name*, so
+  every route to View reaches the one View — same as the addon, where
+  `PieMenu_<name>` resolves the single pie config by name at open time. The map
+  draws a pie once (under its shallowest parent), renders every other reference
+  as a dimmed `↩ same pie` row, and tags the node `×N refs`. Editing it anywhere
+  edits the one pie. Cycles are legal and drawn the same way (the demo has
+  View → Main).
+- **Liveness.** A pie-binding greys when its condition does not match, or when
+  nothing inside the target is live for the current selection (recursive,
+  visited-set, so cycles terminate). No per-pie declaration needed.
 
-The structure panel is drawn from doorway bindings rather than a `parent` field,
-so it cannot go stale; a pie reached from several parents is tagged with how many.
-Open question: whether spending a slot per contextual child stays acceptable on a
-genuinely crowded pie.
+Built as `mockups/subpies.html`.
 
 ## Decisions that change shipped work
 
