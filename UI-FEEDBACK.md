@@ -23,7 +23,7 @@ change already made — the implemented work is tracked in `PLAN-PROGRESS.md`.
 | 14 | A distinct icon per tool | Currently every tool row shows the same dot, so the list reads as undifferentiated. |
 | 20 | Replace, not delete-then-add | A filled slot's right-click menu needs **Replace tool…**, so changing what is in a slot is one step rather than clearing it and adding again. |
 | 23 | Playground needs a workbench switch | Changing workbench there must resolve which pie opens through the Assignment setting, so the workbench-to-pie mapping can actually be tried. |
-| 27 | Global vs direct shortcuts | **Direction D built** — every key addresses one target; a target is a pie or a *router* that picks a pie by workbench. See the note below. |
+| 27 | Global vs direct shortcuts | **D and E both built, awaiting a verdict.** D = routers (`preferences.html`). E = workbench-first scopes (`shortcuts.html`), which is what the prior-art research points at. See the note below. |
 | 26 | Any number of global shortcuts, not four | F2 capped the slots at four for no reason beyond having to pick a number. The list should grow and shrink, so a pie's "on shortcut" is bounded by how many you have defined rather than a constant. In the demo the keys are 1-4 so several can be tried quickly. |
 | 25 | Arc: free number plus presets, and a facing angle | Arc should be typeable as well as pickable, and needs a direction: a 90° arc must be able to face up, down, left or right rather than always starting from the top. |
 | 24 | Selection chips do not belong on the preview | Previewing against a selection is an occasional action, so it goes in the preview's right-click menu rather than sitting permanently across the top of it. |
@@ -205,6 +205,51 @@ Consequences:
   the router's last row (`otherwise -> ...`), falling back to the pie marked
   default when unset.
 - Cost: one new concept (routers) in the pie list.
+
+**E. Workbench-first scopes — BUILT, and what the research supports.** A survey of
+seven CAD/creative apps (Blender, Maya, AutoCAD, Fusion 360, SolidWorks, Rhino,
+Adobe) and ten input/automation tools (Stream Deck, QMK/ZMK, Oryx, VIA, Wacom,
+BetterTouchTool, Keyboard Maestro, Karabiner, AutoHotkey) found **zero GUIs that
+are binding-first**. Every shipping GUI is *scope-first*: pick a named context,
+then edit the bindings inside it. Attaching a condition to a key only ever appears
+in text config (AutoHotkey `#HotIf`, Karabiner JSON). D is binding-first, so it is
+shaped unlike anything that ships.
+
+E inverts it. A left rail lists the scopes -- `Any workbench` pinned at the top,
+then each workbench -- and you edit that scope's `key -> pie` table.
+
+    SCOPES            PartDesign                    key  Any    PartDesign Sketcher
+     Any workbench     1  Modelling                  1    ---   Modelling  Sketch tools
+    >PartDesign        2  Surfacing                  2    ---   Surfacing  Measure
+     Sketcher          9  Sketching  from Any        9   Sketching (inherited everywhere)
+     Assembly          0  View       from Any        0   View      (inherited everywhere)
+
+Why it is likely better than D:
+
+- **The global/direct split disappears.** A "direct" key is one bound under
+  `Any workbench`; a "global" key is one bound under a specific workbench. Same
+  mechanism, different scope. No new noun -- and no shipping app uses the word
+  "context" either; they all name the scope after something the user already
+  believes in (Blender `3D View`, Maya `Graph Editor`, SolidWorks `Part`).
+- **One-sentence fallback rule**, taken from AutoHotkey: a context-less binding is
+  the *lowest* priority, firing only when the active workbench has no binding of
+  its own. Two levels only, so none of the QMK N-layer confusion.
+- **Inherited rows show the inherited pie name, dimmed** (ZSA Oryx), never a
+  placeholder glyph like VIA's. Each has **Override here**; overridden rows get
+  **Revert**.
+- **An overview grid** answers "what does key 2 do everywhere" at a glance, which
+  scope-first editing otherwise cannot (SolidWorks shows its gesture guides
+  side by side for exactly this reason).
+- **A resolve preview instead of a conflict analyser.** VS Code deliberately
+  refused to build conflict detection -- undecidable with free-form conditions --
+  and shipped "show everything on this key in precedence order". The tester logs
+  the chain: `key 9 - Sketcher -> no Sketcher binding -> Any workbench -> Sketching`.
+- Copy a binding to another scope is offered in the right-click menu rather than
+  drag-only (NN/g flags drag-only as an accessibility failure).
+
+Still missing from E, if it wins: binding a key from the pie itself (Blender's
+right-click -> Assign Shortcut, the escape hatch that means most users never open
+this dialog at all).
 
 ## Notes
 

@@ -70,11 +70,20 @@ def plan_items():
 
 
 def main():
+    icons = json.dumps(inline_icons())
+
     tpl = open(os.path.join(HERE, "preferences.template.html"), encoding="utf-8").read()
-    out = tpl.replace("__ICONS__", json.dumps(inline_icons()))
+    out = tpl.replace("__ICONS__", icons)
     out = out.replace("__PLAN__", json.dumps(plan_items()))
     dest = os.path.join(HERE, "preferences.html")
     open(dest, "w", encoding="utf-8").write(out)
+    print("wrote", dest)
+
+    # The shortcut-model comparison page (UI-FEEDBACK #27). Same icons, no plan
+    # sidebar -- it is one question, not the whole dialog.
+    tpl = open(os.path.join(HERE, "shortcuts.template.html"), encoding="utf-8").read()
+    dest = os.path.join(HERE, "shortcuts.html")
+    open(dest, "w", encoding="utf-8").write(tpl.replace("__ICONS__", icons))
     print("wrote", dest)
 
 
