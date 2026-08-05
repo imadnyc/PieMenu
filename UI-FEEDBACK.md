@@ -103,10 +103,13 @@ Everything else is **derived from the bindings, never declared**:
 - **The look.** A slot that currently resolves to a pie-command draws with the
   ring + chevron. That comes from resolution, so it is always truthful about
   what firing will do right now.
-- **The map.** The structure panel is the union of all pie-bindings, each edge
-  labelled with its condition (*on face*, *always*). The union changes only when
-  bindings are edited — never with the selection — so the map is stable while
-  liveness greys things in the live pie.
+- **The map.** The structure panel is the union of all pie-bindings. It changes
+  only when bindings are edited — never with the selection. It carries **graph
+  marks only**: fold twisties on pies with children, `↩ same pie` reference
+  rows, `×N refs`, `default`. Edge conditions were shown as rule badges and
+  removed — they duplicated the Slots table and crushed the names in a 212px
+  column; the row tooltip keeps them. Every pie has its **own icon**, worn
+  everywhere the pie is referenced (map, door slots, Slots table, choosers).
 - **Same subtrees, by construction.** A binding stores only the pie's *name*, so
   every route to View reaches the one View — same as the addon, where
   `PieMenu_<name>` resolves the single pie config by name at open time. The map

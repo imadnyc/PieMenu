@@ -284,6 +284,7 @@ body{display:flex;align-items:flex-start}
 .new{color:#b8bb26}.fix{color:#fabd2f}.perf{color:#83a598}.int{color:#a89984}.ui{color:#d3869b}
 /* v2: six-axis rules + sub-pies-as-commands */
 /* clean-pie markers: the data lives in the Slots table */
+.row .tw{width:11px;flex:0 0 11px;font-size:9px;color:var(--dim);cursor:pointer;text-align:center}
 .slot .bn{position:absolute;right:-5px;top:-5px;min-width:14px;height:14px;line-height:14px;
 border-radius:7px;background:var(--hi);color:var(--hitext);font-size:9.5px;text-align:center;
 padding:0 3px;font-weight:600}
@@ -433,7 +434,11 @@ Sketcher_Arc:"arc",Sketcher_Rectangle:"rect",Sketcher_Polyline:"poly",Sketcher_T
 Sketcher_ConstrainDistance:"dim",Part_Box:"box",Part_Cylinder:"cyl",Part_Sphere:"sphere",
 Part_Cone:"cone",Part_Cut:"bool",Part_Fuse:"bool",Part_Common:"bool",Part_Extrude:"extrude",
 Assembly_CreateAssembly:"asm",Assembly_InsertLink:"link",Assembly_SolveAssembly:"solve"};
-const toolIcon=c=>c&&c.startsWith("PieMenu_")?ICONS.PieMenu_Logo:(T[MAP[c]]||T.dot);
+const pieIcon=q=>T[q&&q.icon]||ICONS.PieMenu_Logo;
+const toolIcon=c=>{
+ if(c&&c.startsWith("PieMenu_")){const t=S.pies.find(q=>q.name===c.slice(8));
+  return t?pieIcon(t):ICONS.PieMenu_Logo;}
+ return T[MAP[c]]||T.dot;};
 const uiIcon=n=>ICONS[n]||T.dot;
 
 const CATALOG={
@@ -516,7 +521,7 @@ const S={pies:[
    slot([{cmd:"PieMenu_Modelling",when:"face"},
          {cmd:"PieMenu_Boolean ops",rule:{Face:[">=",2]}},
          {cmd:"PieMenu_Sketching",when:"edge"}]),
-  ]),
+  ],{icon:"box"}),
  mkPie("Modelling",[
    /* three peers: Groove only on EXACTLY one face, so 2 faces narrows to 2 */
    slot([{cmd:"PartDesign_Pad",when:"face"},{cmd:"PartDesign_Pocket",when:"face"},
@@ -535,43 +540,43 @@ const S={pies:[
    slot(["PieMenu_Boolean ops"]),
    slot([{cmd:"PieMenu_Dress-up",rule:{Edge:[">=",1]}}]),
    slot(["PieMenu_Patterns"]),
-  ],{slots:10,perRing:10,openOn:"hold",runOn:"release"}),
+  ],{slots:10,perRing:10,icon:"pad",openOn:"hold",runOn:"release"}),
  mkPie("Dress-up",[
    slot([{cmd:"PartDesign_Fillet",when:"edge"}]),
    slot([{cmd:"PartDesign_Chamfer",when:"edge"}]),
    slot([{cmd:"PartDesign_Draft",when:"face"}]),
    slot([{cmd:"PartDesign_Thickness",when:"face"}]),
    slot(["PieMenu_Patterns"]),null,
-  ],{slots:6,perRing:6,radius:66}),
+  ],{slots:6,perRing:6,radius:66,icon:"fillet"}),
  mkPie("Patterns",[
    slot(["PartDesign_Mirrored"]),slot(["PartDesign_LinearPattern"]),
    slot(["PartDesign_PolarPattern"]),null,
-  ],{slots:4,perRing:4,radius:58}),
+  ],{slots:4,perRing:4,radius:58,icon:"linpat"}),
  mkPie("Boolean ops",[
    slot([{cmd:"Part_Cut",rule:{Object:[">=",2]}}]),
    slot([{cmd:"Part_Fuse",rule:{Object:[">=",2]}}]),
    slot([{cmd:"Part_Common",rule:{Object:[">=",2]}}]),
    null,
-  ],{slots:4,perRing:4,radius:58}),
+  ],{slots:4,perRing:4,radius:58,icon:"bool"}),
  mkPie("Sketching",[
    slot(["Sketcher_NewSketch"]),slot(["Sketcher_Line"]),
    slot(["PieMenu_Constraints"]),
    slot(["Sketcher_Circle"]),slot(["Sketcher_Rectangle"]),null,
-  ],{family:"grid",cols:3,rows:2}),
+  ],{family:"grid",cols:3,rows:2,icon:"sketch"}),
  mkPie("Constraints",[
    slot(["Sketcher_ConstrainDistance"]),slot(["Sketcher_Trimming"]),
    slot(["Sketcher_Polyline"]),null,
-  ],{slots:4,perRing:4,radius:58}),
+  ],{slots:4,perRing:4,radius:58,icon:"dim"}),
  mkPie("View",[slot(["View_Fit"]),slot(["View_Front"]),slot(["View_Top"]),
                slot(["View_Right"]),slot(["View_Axo"]),slot(["View_Wireframe"]),
                slot(["PieMenu_Main"])],
-   {def:true,slots:12,perRing:6,radius:56}),
+   {def:true,slots:12,perRing:6,radius:56,icon:"eye"}),
  /* deliberately unreached and unbound: the map shows it as its own root and
     its settings say no shortcut reaches it */
  mkPie("Assembly",[
    slot(["Assembly_CreateAssembly"]),slot(["Assembly_InsertLink"]),
    slot(["Assembly_SolveAssembly"]),null,
-  ],{slots:4,perRing:4,radius:58}),
+  ],{slots:4,perRing:4,radius:58,icon:"asm"}),
 ], cur:0,
  /* the current selection, as counts per axis -- "2 faces + 1 edge" is real */
  counts:{Face:1},
@@ -869,12 +874,19 @@ function pieListEl(){
   const i=S.pies.indexOf(q);
   const r=el("div","row"+(link?" link":"")+(i===S.cur?" sel":""));
   r.style.paddingLeft=(6+depth*13)+"px";
-  r.append(svg(q.def?uiIcon("PieMenu_Logo"):uiIcon("PieMenuEditMenu")),el("span","name",name));
-  [...new Set(conds||[])].forEach(w=>{if(w!=="always")r.append(el("span","badge",w));});
+  /* graph marks only -- the rule itself lives in the Slots table */
+  const kids=!link&&Object.keys(edgeMapOf(name)).some(k=>pieByName(k));
+  const tw=el("span","tw",kids?(q.fold?"\u25b8":"\u25be"):"");
+  if(kids)tw.onclick=e=>{e.stopPropagation(); q.fold=!q.fold; render();};
+  r.append(tw,svg(pieIcon(q)),el("span","name",name));
   const ps=parentsOf(name);
   if(link)r.append(el("span","rf","\u21a9 same pie"));
   else if(ps.length>1)r.append(el("span","rf","\u00d7"+ps.length+" refs"));
-  if(ps.length>1)r.title="one pie \u2014 reached from "+ps.join(", ")+"; editing it anywhere edits the one pie";
+  const cs=[...new Set(conds||[])].filter(w=>w!=="always");
+  const tips=[];
+  if(cs.length)tips.push("opens when "+cs.join("  \u00b7  "));
+  if(ps.length>1)tips.push("one pie \u2014 reached from "+ps.join(", ")+"; editing it anywhere edits the one pie");
+  if(tips.length)r.title=tips.join("\n");
   if(q.def)r.append(el("span","tag","default"));
   r.onclick=()=>{S.cur=i; render();};
   r.ondblclick=()=>{S.cur=i; pieRename();};
@@ -898,6 +910,7 @@ function pieListEl(){
  S.pies.forEach(q=>{if(!(q.name in owner))claimFrom(q.name);});
  roots.sort((a,b)=>S.pies.findIndex(x=>x.name===a)-S.pies.findIndex(x=>x.name===b));
  const walk=(name,depth)=>{
+  const q=pieByName(name); if(q&&q.fold)return;
   const em=edgeMapOf(name);
   Object.keys(em).forEach(k=>{ if(!pieByName(k))return;
    if(owner[k]===name){row(k,depth,em[k],false); walk(k,depth+1);}
