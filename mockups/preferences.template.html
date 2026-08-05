@@ -35,24 +35,32 @@ padding:1px 0;font-size:11px;font-family:ui-monospace,monospace}
 .krow .from{color:var(--dim);font-size:10px;white-space:nowrap;flex:0 0 auto;
 border:1px solid var(--empty);border-radius:2px;padding:0 4px}
 .gwrap{overflow:auto;background:var(--base);flex:1;min-height:0}
-table.g{border-collapse:collapse;width:100%;font-size:12px;table-layout:fixed}
-table.g th,table.g td{border:1px solid #3a3735;padding:5px 9px;text-align:left;
+table.g{border-collapse:collapse;width:100%;font-size:12px}
+table.g th,table.g td{border:1px solid #3a3735;padding:5px 8px;text-align:left;
 white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-table.g th{background:var(--win);position:sticky;top:0;z-index:1;font-weight:600}
-table.g th .wn{display:block;color:var(--text);font-size:12px}
-table.g th .sub{display:block;color:var(--dim);font-size:10px;font-weight:400}
-table.g th.kh{width:46px}
-table.g td.k{font-family:ui-monospace,monospace;background:var(--win);text-align:center;
-color:var(--text);width:46px}
-/* the base column is the thing everything else falls back to -- say so visually */
-table.g th.base,table.g td.base{background:#2e2b29;border-right:2px solid var(--line)}
+table.g th{background:var(--win);position:sticky;top:0;z-index:1;color:var(--dim);
+font-weight:600;font-size:11px}
+table.g th.sh{width:172px}
+table.g th.kh{width:104px;text-align:center}
+table.g th.rh{width:30px}
+table.g th .cap{display:inline-block;min-width:20px;padding:1px 5px;background:var(--btn);
+border:1px solid var(--line);border-bottom-width:2px;border-radius:3px;
+font-family:ui-monospace,monospace;font-size:11px;color:var(--text)}
+/* the scope column: name over what the row means */
+table.g td.sname{background:var(--win);width:172px}
+table.g td.sname .wn{display:block;color:var(--text);font-size:12px}
+table.g td.sname .sub{display:block;color:var(--dim);font-size:10px}
+table.g td.sname.on{box-shadow:inset 3px 0 0 var(--hi)}
+/* the base row is what everything else falls back to */
+table.g tr.baserow td{background:#2e2b29}
+table.g tr.baserow td.sname{background:#343029}
+table.g tr.baserow{border-bottom:2px solid var(--line)}
 table.g td.inh{color:var(--dim);font-style:italic}
-table.g td.inh .inhmark{color:var(--empty);margin-left:5px}
 table.g td.none{color:var(--empty)}
-table.g th.on{background:#4a4340}
-table.g td.on{background:#3c3634}
-table.g td:not(.k){cursor:pointer}
-table.g td:not(.k):hover{outline:1px solid var(--hi);outline-offset:-1px}
+table.g td.rowact{width:30px;padding:2px}
+table.g td:not(.sname):not(.rowact){cursor:pointer}
+table.g td:not(.sname):not(.rowact):hover{outline:1px solid var(--hi);outline-offset:-1px}
+.gfoot{padding:6px 9px;color:var(--dim);font-size:11px;border-top:1px solid #3a3735}
 /* the settings column is a panel like the others, so it can say whose settings
    these are rather than floating unlabelled beside the preview */
 .setbody{overflow-y:auto;padding:0 8px 8px;flex:1;min-height:0}
@@ -455,9 +463,7 @@ const S={pies:[
  scope:"PartDesign",
  binds:{"Any workbench":{"9":"Sketching","0":"View"},
         "PartDesign":{"1":"Main","2":"Modelling"},
-        "Sketcher":{"1":"Main","2":"Sketching"},
-        "Assembly":{},
-        "Part":{}}};
+        "Sketcher":{"1":"Main","2":"Sketching"}}};
 
 /* ---- shortcut resolution -------------------------------------------------
    The whole rule: a workbench binding beats ANY; if neither has the key, the
@@ -466,7 +472,10 @@ const ANY="Any workbench";
 const KEYCAPS=["1","2","3","4","9","0"];
 const pieByName=n=>S.pies.find(p=>p.name===n);
 const defaultPie=()=>S.pies.find(p=>p.def)||S.pies[0];
-const scopeNames=()=>[ANY].concat(WORKBENCHES.filter(w=>w!=="None"));
+/* Only scopes that exist as rows. A workbench with no row simply inherits the
+   base -- it does not need to be listed to work. */
+const scopeNames=()=>[ANY].concat(Object.keys(S.binds).filter(w=>w!==ANY));
+const unusedWorkbenches=()=>WORKBENCHES.filter(w=>w!=="None"&&!(w in S.binds));
 function resolveKey(key,wb){
  const own=S.binds[wb]&&S.binds[wb][key];
  if(own&&pieByName(own))return {pie:pieByName(own),from:wb,inherited:false};
@@ -739,65 +748,90 @@ function pickPieFor(sc,k){
  modal("Key "+k+" in "+sc,list,()=>{});
 }
 
-/* Every key in every workbench, always on screen. Columns are the scopes, so
-   the whole hierarchy is visible at once: the Any workbench column is the base,
-   and a workbench column either overrides it (solid) or inherits it (dim). No
-   dropdown, nothing hidden behind a modal. */
+/* Scopes are ROWS and keys are COLUMNS, because a real install has ~16
+   workbenches and only a handful of keys: rows scroll gracefully, columns do
+   not. And only workbenches you have actually bound get a row -- every other
+   workbench simply inherits the base, exactly as Wacom lists only the apps you
+   customised alongside "All other applications". */
 function shortcutsTableEl(){
  const wrap=el("div","gwrap"), t=el("table","g");
- const cols=scopeNames();
+ const rows=scopeNames();
 
  const hr=el("tr");
- hr.append(el("th","kh","key"));
- cols.forEach(w=>{
-  const th=el("th",(w===ANY?"base":"")+(w===playWb?" on":""));
-  th.append(el("span","wn",w===ANY?"Any workbench":w));
-  th.append(el("span","sub",w===ANY?"the base — applies everywhere":"overrides the base"));
-  th.title=w; hr.append(th);});
+ hr.append(el("th","sh","workbench"));
+ KEYCAPS.forEach(k=>{const th=el("th","kh"); th.append(el("span","cap",k)); hr.append(th);});
+ hr.append(el("th","rh"));
  t.append(hr);
 
- KEYCAPS.forEach(k=>{
-  const tr=el("tr"); tr.append(el("td","k",k));
-  cols.forEach(w=>{
-   const own=S.binds[w][k];
-   const r=(w===ANY)?{pie:pieByName(own),inherited:false}:resolveKey(k,w);
-   const cls=[]; if(w===ANY)cls.push("base");
-   if(w===playWb)cls.push("on");
+ rows.forEach(sc=>{
+  const base=sc===ANY, tr=el("tr",base?"baserow":null);
+  const nameCell=el("td","sname"+(sc===playWb?" on":""));
+  nameCell.append(el("span","wn",base?"Any workbench":sc));
+  nameCell.append(el("span","sub",base?"the base — applies everywhere":"overrides the base"));
+  if(sc===playWb)nameCell.title="the playground is in this workbench";
+  tr.append(nameCell);
+
+  KEYCAPS.forEach(k=>{
+   const own=S.binds[sc][k];
+   const r=base?{pie:pieByName(own),inherited:false}:resolveKey(k,sc);
+   const cls=[]; if(base)cls.push("base");
    if(!r.pie)cls.push("none"); else if(r.inherited)cls.push("inh");
    const td=el("td",cls.join(" "));
    td.append(el("span","cv",r.pie?r.pie.name:"\u2014"));
-   if(r.pie&&r.inherited)td.append(el("span","inhmark","\u21b3"));
-
    td.title=(r.pie?"click to open "+r.pie.name+" in the editor\n":"")
     +"double-click to bind\u2026 · right-click for options"
     +(r.inherited?"\ninherited from "+ANY:"");
-   /* click = go to the pie (what the list is for), double-click = bind */
    if(r.pie)td.onclick=()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}};
-   td.ondblclick=()=>pickPieFor(w,k);
+   td.ondblclick=()=>pickPieFor(sc,k);
    td.oncontextmenu=e=>ctxMenu(e,[
     [uiIcon("PieMenuEditMenu"),r.pie?"Open "+r.pie.name+" in the editor":"\u2014",
       ()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}},!r.pie],
-    [uiIcon("PieMenuAddCommand"),"Bind this key here\u2026",()=>pickPieFor(w,k)],
+    [uiIcon("PieMenuAddCommand"),"Bind this key here\u2026",()=>pickPieFor(sc,k)],
     "-",
     [uiIcon("PieMenuAdd"),"Override the base here",
-      ()=>{S.binds[w][k]=S.binds[ANY][k]; render();},w===ANY||!!own||!S.binds[ANY][k]],
-    [uiIcon("PieMenuRemove"),
-      (w!==ANY&&S.binds[ANY][k])?"Revert to "+ANY:"Clear this binding",
-      ()=>{delete S.binds[w][k]; render();},!own],
+      ()=>{S.binds[sc][k]=S.binds[ANY][k]; render();},base||!!own||!S.binds[ANY][k]],
+    [uiIcon("PieMenuRemove"),(!base&&S.binds[ANY][k])?"Revert to "+ANY:"Clear this binding",
+      ()=>{delete S.binds[sc][k]; render();},!own],
     "-",
-    ...cols.filter(x=>x!==w&&r.pie).map(x=>
+    ...rows.filter(x=>x!==sc&&r.pie).map(x=>
       [uiIcon("PieMenuCopy"),"Copy to "+(x===ANY?"Any workbench":x),
        ()=>{S.binds[x][k]=r.pie.name; render();}]),
    ]);
    tr.append(td);});
+
+  const rm=el("td","rowact");
+  if(!base){
+   const b=iconBtn(uiIcon("PieMenuRemove"),"Remove "+sc+" — its keys fall back to the base",
+     ()=>{delete S.binds[sc]; render();},false,true);
+   rm.append(b);
+  }
+  tr.append(rm);
   t.append(tr);});
  wrap.append(t);
 
- const add=iconBtn(uiIcon("PieMenuAdd"),"Add another key",()=>{
+ /* every workbench without a row is still covered -- say so, so the sparse
+    table does not read as "these are the only workbenches that work" */
+ const rest=unusedWorkbenches();
+ const foot=el("div","gfoot");
+ foot.textContent=rest.length
+  ? rest.length+" other workbench"+(rest.length>1?"es":"")+" ("+rest.slice(0,4).join(", ")
+    +(rest.length>4?", …":"")+") use the base."
+  : "Every workbench has its own row.";
+ wrap.append(foot);
+
+ const addWb=iconBtn(uiIcon("PieMenuAddMenu"),"Give a workbench its own row",()=>{
+  const free=unusedWorkbenches(); if(!free.length)return;
+  const list=el("div","list");
+  free.forEach(w=>{const r=el("div","row");
+   r.append(svg(uiIcon("PieMenuEditMenu")),el("span","name",w));
+   r.onclick=()=>{S.binds[w]={}; document.querySelector(".scrim").remove(); render();};
+   list.append(r);});
+  modal("Add a workbench",list,()=>{});},false,true);
+ const addKey=iconBtn(uiIcon("PieMenuAdd"),"Add another key",()=>{
   askText("Add a shortcut key","Key:","",v=>{
    const k=v.trim(); if(!k||KEYCAPS.includes(k))return;
    KEYCAPS.push(k);});},false,true);
- return panel("Shortcuts — every key, every workbench",null,[add],wrap);
+ return panel("Shortcuts",null,[addWb,addKey],wrap);
 }
 
 function canvasEl(){
@@ -1263,7 +1297,11 @@ function commitGesture(){
   closeLivePie("released away from the pie \u2014 nothing ran");
  }
 }
-const WORKBENCHES=["None","PartDesign","Sketcher","Assembly","Part"];
+/* A real install has this many, which is why the table lists only the
+   workbenches you have actually bound something in -- the same thing Wacom,
+   Stream Deck and BetterTouchTool do with applications. */
+const WORKBENCHES=["None","PartDesign","Part","Sketcher","Draft","BIM","FEM","CAM",
+ "Mesh","Points","Surface","TechDraw","Spreadsheet","Inspection","Material","Assembly"];
 let playWb="PartDesign";
 /* The active workbench decides: its own binding first, then Any workbench. */
 function pieForKey(k){

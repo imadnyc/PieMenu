@@ -249,12 +249,26 @@ Why it is likely better than D:
 
 As integrated into the main dialog: the whole table is **permanently visible** as
 a full-width row under the editor -- no scope dropdown, nothing behind a modal.
-Columns are the scopes, so the hierarchy reads directly: **Any workbench** is the
-first column, tinted and rule-separated as the base, and each workbench column
-either overrides it (solid) or inherits it (dim italic + a `↳` mark). Cells name
-the **pie**; **clicking a cell opens that pie in the editor**, double-click binds,
-right-click gives override / revert / copy-to-workbench. A pie's settings panel
-reports the reverse direction under "Opened by".
+
+**Scopes are rows and keys are columns**, which is what makes it survive a real
+install. `Gui.listWorkbenches()` returns 15-20 workbenches; as columns that would
+force horizontal scrolling, which is unusable, whereas rows scroll vertically with
+the header pinned. Two things keep the table short anyway:
+
+- **Only workbenches you have actually bound get a row.** Every other workbench
+  inherits the base and needs no row at all -- the same thing Wacom does with
+  "All other applications" plus the handful you customised, and Stream Deck and
+  BetterTouchTool with profiles/apps. A footer names the rest
+  (*"13 other workbenches (Part, Draft, BIM, FEM, …) use the base"*) so a sparse
+  table never reads as "these are the only workbenches that work".
+- **Add a workbench** is an explicit action in the panel header; removing a row
+  drops its overrides back to the base.
+
+The base row sits on top, tinted and rule-separated; every row below either
+overrides it (solid) or inherits it (dim italic). Cells name the **pie**;
+**clicking a cell opens that pie in the editor**, double-click binds, right-click
+gives override / revert / copy-to-workbench. A pie's settings panel reports the
+reverse direction under "Opened by".
 
 Still missing: binding a key from the pie itself (Blender's right-click -> Assign
 Shortcut, the escape hatch that means most users never open this dialog at all).
