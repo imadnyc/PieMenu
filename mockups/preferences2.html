@@ -61,6 +61,12 @@ font-family:ui-monospace,monospace;font-size:11px;color:var(--text);text-align:c
 
 table.g td.inh{color:var(--dim);font-style:italic}
 table.g td.none{color:var(--empty)}
+/* gesture lines inside a cell: one per tap/double/hold the key uses */
+table.g td .cv{display:block;white-space:nowrap}
+table.g td .cv.inh{color:var(--dim);font-style:italic}
+table.g td .cv.nil{color:var(--empty)}
+table.g td .cv .gg{display:inline-block;min-width:18px;color:var(--dim);
+font-family:ui-monospace,monospace}
 table.g th.on .wn{color:var(--hi)}
 table.g th.on{box-shadow:inset 0 2px 0 var(--hi)}
 table.g td.on{background:#38322f}
@@ -599,11 +605,21 @@ const S={pies:[
     workbench and the base -- selection plays no part here. See the design
     decision in UI-FEEDBACK.md: what a slot does with the selection belongs to
     the slot, inside the pie editor. */
- binds:{"Any workbench":{"9":"Sketching","0":"View"},
-        "PartDesign":{"1":"Main","2":"Modelling","3":"Dress-up","4":"Boolean ops"},
-        "Sketcher":{"1":"Main","2":"Sketching","3":"Constraints"},
-        "Part":{"1":"Main","2":"Boolean ops"}},
+ /* A binding = key x workbench x GESTURE -> pie. The gesture (tap, double
+    press, hold) lives on the BINDING, not on the pie: the same key can do
+    two things in one workbench. run-on (click/hover/release) stays per pie:
+    how you summon a pie is the shortcut's business, how it fires is its own. */
+ binds:{"Any workbench":{"9":{tap:"Sketching"},"0":{tap:"View"}},
+        "PartDesign":{"1":{tap:"Main"},
+                      "2":{tap:"Modelling",double:"Boolean ops"},
+                      "3":{tap:"Dress-up"},
+                      "4":{tap:"Boolean ops",hold:"Dress-up"}},
+        "Sketcher":{"1":{tap:"Main"},"2":{tap:"Sketching"},"3":{tap:"Constraints"}},
+        "Part":{"1":{tap:"Main"},"2":{tap:"Boolean ops"}}},
  keys:["1","2","3","4","9","0"]};
+const GESTURES=["tap","double","hold"];
+const GLYPH={tap:"·",double:"··",hold:"—"};
+const GNAME={tap:"tap",double:"double-press",hold:"press-and-hold"};
 
 /* ---- shortcut resolution -------------------------------------------------
    The whole rule: a workbench binding beats ANY; if neither has the key, the
@@ -614,18 +630,27 @@ const defaultPie=()=>S.pies.find(p=>p.def)||S.pies[0];
 const scopeNames=()=>[ANY].concat(WORKBENCHES.filter(w=>w!=="None"));
 /* a scope with no bindings yet is just an empty map, not a missing column */
 const bindsOf=sc=>(S.binds[sc]||(S.binds[sc]={}));
-function resolveKey(key,wb){
- const own=S.binds[wb]&&S.binds[wb][key];
+function resolveKey(key,wb,g){
+ g=g||"tap";
+ const own=S.binds[wb]&&S.binds[wb][key]&&S.binds[wb][key][g];
  if(own&&pieByName(own))return {pie:pieByName(own),from:wb,inherited:false};
- const any=S.binds[ANY][key];
+ const any=S.binds[ANY][key]&&S.binds[ANY][key][g];
  if(any&&pieByName(any))return {pie:pieByName(any),from:ANY,inherited:true};
  return {pie:null,from:null,inherited:false};
+}
+/* the gestures a key uses anywhere, in canonical order (tap always shows) */
+function keyGestures(k){
+ const used=new Set(["tap"]);
+ Object.keys(S.binds).forEach(sc=>{const e=S.binds[sc][k];
+  if(e)Object.keys(e).forEach(g=>used.add(g));});
+ return GESTURES.filter(g=>used.has(g));
 }
 /* every way a given pie can be reached, for its settings panel */
 function waysTo(name){
  const out=[];
  Object.keys(S.binds).forEach(sc=>Object.keys(S.binds[sc]).forEach(k=>{
-  if(S.binds[sc][k]===name)out.push({key:k,scope:sc});}));
+  Object.keys(S.binds[sc][k]||{}).forEach(g=>{
+   if(S.binds[sc][k][g]===name)out.push({key:k,scope:sc,g:g});});}));
  return out;
 }
 const nameTaken=(n,skip)=>S.pies.some(p=>p.name===n&&p!==skip);
@@ -943,7 +968,8 @@ function pieListEl(){
   if(q.def)r.append(el("span","tag","default"));
   else{
    const reached=doorsInto(q.name).length>0
-     ||Object.keys(S.binds).some(sc=>Object.values(S.binds[sc]).includes(q.name));
+     ||Object.keys(S.binds).some(sc=>Object.values(S.binds[sc])
+        .some(e=>Object.values(e||{}).includes(q.name)));
    if(!reached){const t=el("span","tag dim","unused");
     t.title="no shortcut and no door reaches this pie"; r.append(t);}
   }
@@ -976,14 +1002,16 @@ function panel(title,count,actions,listNode){
    hotkey sets, SolidWorks gesture guides, Stream Deck profiles). The scope is
    named after something FreeCAD users already have -- a workbench -- so there
    is no new noun to learn. */
-function pickPieFor(sc,k){
+function pickPieFor(sc,k,g){
+ g=g||"tap";
  const m=bindsOf(sc), list=el("div","list");
  S.pies.forEach(pp=>{
-  const r=el("div","row"+(m[k]===pp.name?" sel":""));
+  const r=el("div","row"+((m[k]&&m[k][g])===pp.name?" sel":""));
   r.append(svg(uiIcon("PieMenuEditMenu")),el("span","name",pp.name));
-  r.onclick=()=>{m[k]=pp.name; document.querySelector(".scrim").remove(); render();};
+  r.onclick=()=>{(m[k]||(m[k]={}))[g]=pp.name;
+   document.querySelector(".scrim").remove(); render();};
   list.append(r);});
- modal("Key "+k+" in "+(sc===ANY?"any workbench":sc),list,()=>{});
+ modal("Key "+k+" ("+GNAME[g]+") in "+(sc===ANY?"any workbench":sc),list,()=>{});
 }
 
 /* A workbench icon per column, so columns are told apart by shape not by
@@ -1067,32 +1095,50 @@ function shortcutsTableEl(){
   ]);
   tr.append(kc);
 
+  const gs=keyGestures(k);
   cols.forEach(w=>{
-   const base=w===ANY, own=(S.binds[w]||{})[k];
-   const r=base?{pie:pieByName(own),inherited:false}:resolveKey(k,w);
+   const base=w===ANY, own=(S.binds[w]||{})[k]||{};
    const cls=[]; if(base)cls.push("base");
    if(w===playWb)cls.push("on");
-   if(!r.pie)cls.push("none"); else if(r.inherited)cls.push("inh");
    const td=el("td",cls.join(" "));
-   td.append(el("span","cv",r.pie?r.pie.name:"\u2014"));
-   td.title=(r.pie?"click to open "+r.pie.name+" in the editor\n":"")
-    +"double-click to bind\u2026 · right-click for options"
-    +(r.inherited?"\ninherited from "+ANY:"");
-   if(r.pie)td.onclick=()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}};
-   td.ondblclick=()=>pickPieFor(w,k);
-   td.oncontextmenu=e=>ctxMenu(e,[
-    [uiIcon("PieMenuEditMenu"),r.pie?"Open "+r.pie.name+" in the editor":"\u2014",
-      ()=>{const i=S.pies.indexOf(r.pie); if(i>-1){S.cur=i; render();}},!r.pie],
-    [uiIcon("PieMenuAddCommand"),"Bind this key here\u2026",()=>pickPieFor(w,k)],
-    "-",
-    [uiIcon("PieMenuAdd"),"Override the base here",
-      ()=>{bindsOf(w)[k]=S.binds[ANY][k]; render();},base||!!own||!S.binds[ANY][k]],
-    [uiIcon("PieMenuRemove"),(!base&&S.binds[ANY][k])?"Revert to "+ANY:"Clear this binding",
-      ()=>{delete bindsOf(w)[k]; render();},own===undefined],
-   ]);
+   let anyLine=false, firstPie=null;
+   gs.forEach(g=>{
+    const r=base?{pie:pieByName(own[g]),inherited:false}:resolveKey(k,w,g);
+    const line=el("div","cv"+(r.pie?(r.inherited?" inh":""):" nil"));
+    line.append(el("span","gg",GLYPH[g]),
+                document.createTextNode(r.pie?r.pie.name:"—"));
+    line.title=GNAME[g]+(r.inherited?" · inherited from "+ANY:"");
+    td.append(line);
+    if(r.pie){anyLine=true; firstPie=firstPie||r.pie;}});
+   if(!anyLine)td.classList.add("none");
+   td.title="· tap  ·· double  — hold\n"
+    +"double-click binds the tap · right-click for the rest";
+   if(firstPie)td.onclick=()=>{const i=S.pies.indexOf(firstPie);
+    if(i>-1){S.cur=i; render();}};
+   td.ondblclick=()=>pickPieFor(w,k,"tap");
+   const items=[];
+   GESTURES.forEach(g=>{
+    items.push([uiIcon("PieMenuAddCommand"),
+     GLYPH[g]+"  "+(own[g]?("Rebind the "+GNAME[g]+" ("+own[g]+")…")
+                          :("Bind the "+GNAME[g]+"…")),
+     ()=>pickPieFor(w,k,g)]);});
+   items.push("-");
+   GESTURES.forEach(g=>{
+    if(own[g]!==undefined)items.push([uiIcon("PieMenuRemove"),
+     GLYPH[g]+"  "+((!base&&S.binds[ANY][k]&&S.binds[ANY][k][g])
+       ?"Revert the "+GNAME[g]+" to "+ANY:"Clear the "+GNAME[g]),
+     ()=>{delete bindsOf(w)[k][g];
+      if(!Object.keys(bindsOf(w)[k]).length)delete bindsOf(w)[k];
+      render();}]);});
+   td.oncontextmenu=e=>ctxMenu(e,items);
    tr.append(td);});
   t.append(tr);});
  wrap.append(t);
+ const legend=el("div","lbl",
+  "· tap   ·· double-press   — press-and-hold — the "
+  +"gesture belongs to the binding, so one key can reach several pies per "
+  +"workbench; how tools fire (click/hover/release) stays on the pie");
+ legend.style.padding="6px 2px 0";
 
  const addKey=iconBtn(uiIcon("PieMenuAdd"),"Add another key",
   ()=>captureKey("",v=>{if(v&&!S.keys.includes(v)){S.keys.push(v); render();}}),false,true);
@@ -1100,7 +1146,10 @@ function shortcutsTableEl(){
   const i=cols.indexOf(playWb); if(i<1)return;
   const th=wrap.querySelectorAll("th")[i+1];
   if(th)wrap.scrollTo({left:th.offsetLeft-260,behavior:"smooth"});},false,true);
- return panel("Shortcuts",null,[jump,addKey],wrap);
+ const box=el("div");
+ box.style.cssText="display:flex;flex-direction:column;flex:1;min-height:0";
+ box.append(wrap,legend);
+ return panel("Shortcuts",null,[jump,addKey],box);
 }
 
 function canvasEl(){
@@ -1649,8 +1698,8 @@ const WORKBENCHES=["None","PartDesign","Part","Sketcher","Draft","BIM","FEM","CA
  "OpenSCAD","Reverse Engineering","Robot","Start","Test Framework"];
 let playWb="PartDesign";
 /* The active workbench decides: its own binding first, then Any workbench. */
-function pieForKey(k){
- const r=resolveKey(k,playWb);
+function pieForKey(k,g){
+ const r=resolveKey(k,playWb,g||"tap");
  return r.pie?{pie:r.pie,via:r.inherited?ANY:null,from:r.from}:null;
 }
 function initPlayground(){
@@ -1682,11 +1731,22 @@ function initPlayground(){
  let lastTap=0, lastKey=null, heldKey=null;
  const openHere=k=>openLivePie(mousePos.x,mousePos.y,k);
  vp.addEventListener("keydown",e=>{
-  const hit=pieForKey(e.key);
-  if(!hit)return;
+  let hit=pieForKey(e.key);
+  const dblHit=pieForKey(e.key,"double");
+  if(!hit&&!dblHit)return;
   e.preventDefault();
   if(e.repeat)return;                       // auto-repeat is not a second tap
-  const p=hit.pie, now=Date.now(), isDouble=(now-lastTap)<350&&lastKey===e.key;
+  const now=Date.now(), isDouble=(now-lastTap)<350&&lastKey===e.key;
+  if(isDouble&&dblHit){                     // the binding's own double gesture
+   lastTap=now; lastKey=e.key; heldKey=e.key;
+   logLine(uiIcon("PieMenuEditMenu"),"·· double-press → <b>"+dblHit.pie.name+"</b>");
+   openLivePie(mousePos.x,mousePos.y,e.key,dblHit.pie);
+   return;}
+  if(!hit)
+   {lastTap=now; lastKey=e.key;
+    logLine(uiIcon("PieMenuBlank"),"one tap — ·· "+dblHit.pie.name
+      +" on a double"); return;}
+  const p=hit.pie;
   lastTap=now; lastKey=e.key; heldKey=e.key;
 
   if(p.openOn==="single"){

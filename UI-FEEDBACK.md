@@ -385,6 +385,39 @@ reverse direction under "Opened by".
 Still missing: binding a key from the pie itself (Blender's right-click -> Assign
 Shortcut, the escape hatch that means most users never open this dialog at all).
 
+## Proposal — the gesture belongs to the binding (single vs double press)
+
+Asked for directly: "in PartDesign I want double-press F4 to do one thing and
+single press another." Under the current model that is impossible — a key
+resolves to ONE pie and the *pie's* `open_on` decides the gesture. So the
+proposal moves the gesture onto the **binding**:
+
+    binds[scope][key] = { tap: pie, double: pie, hold: pie }
+
+- **tap / double-press / press-and-hold** are the gestures; `tap` is the
+  default and what today's binds migrate to.
+- Each gesture resolves through the scope chain **independently** (a
+  PartDesign `tap` beats an Any `tap`; an Any `double` still applies in
+  PartDesign if PartDesign has no `double` of its own).
+- `run_on` (click / hover / release) **stays on the pie** — how you summon a
+  pie is the shortcut's business; how it fires once open is its own.
+- The pie-side `open_on` would be retired: `hold` becomes a binding gesture,
+  and `double-hold` an open question (worth a fourth gesture?).
+
+**Display, in the mockup** (`preferences2.html`): key rows stay one-per-key;
+each cell stacks one **gesture line** per gesture that key uses anywhere —
+a glyph prefix (`·` tap, `··` double, `—` hold) then the pie, inherited lines
+dim italic, unbound gestures a dim dash. Right-click a cell offers
+bind/rebind/clear per gesture; double-click still binds the tap. A legend
+line under the table spells out the glyphs. The playground detects a real
+double-press (350 ms) and logs `·· double-press → <pie>`.
+
+Demo seeds: PartDesign key 2 = tap Modelling / double Boolean ops; key 4 =
+tap Boolean ops / hold Dress-up.
+
+Not built in the addon yet — this is the reviewable sketch of both the model
+change and its presentation.
+
 ## Notes
 
 - Feature requests raised in review get written here as they come up, so they can
