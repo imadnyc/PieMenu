@@ -43,8 +43,6 @@ HELP = {
     "Offset": "Gap between the cursor and each block.",
     "Button": "Size of each slot, in pixels.",
     "Spacing": "Gap between neighbouring slots.",
-    "Open on": "The gesture that opens this pie. Double tap and press-and-"
-               "hold are much harder to trigger by accident.",
     "Run on": "How a tool fires once the pie is open. Release is the marking-"
               "menu gesture: flick and let go.",
     "Delay": "Milliseconds before a hover fires a tool, opens a chooser pick "
@@ -164,6 +162,10 @@ def command_label(cmd):
     if is_pie_command(cmd):
         return "▸ " + pie_target(cmd)
     return cmd.split("_", 1)[-1]
+
+
+GLYPH = {"tap": "·", "double": "··", "hold": "—"}
+GNAME = {"tap": "tap", "double": "double-press", "hold": "press-and-hold"}
 
 
 # ---- rule editing ----------------------------------------------------------
@@ -570,9 +572,19 @@ class ShortcutsTable(QtWidgets.QWidget):
             self.left.setVerticalHeaderItem(
                 row, QtWidgets.QTableWidgetItem(key))
             self.left.setItem(row, 0, self._cell(key, ANY_SCOPE))
+            self.left.setCellWidget(row, 0, self._cell_label(key, ANY_SCOPE))
             for col, wb in enumerate(self.workbenches):
                 self.right.setItem(row, col, self._cell(key, wb))
-        self.left.resizeRowsToContents()
+                self.right.setCellWidget(row, col,
+                                         self._cell_label(key, wb))
+        self.right.resizeColumnsToContents()
+        self.right.horizontalHeader().setMinimumSectionSize(96)
+        for table in (self.left, self.right):
+            table.resizeRowsToContents()
+        for row in range(len(keys)):     # multi-gesture rows must line up
+            h = max(self.left.rowHeight(row), self.right.rowHeight(row))
+            self.left.setRowHeight(row, h)
+            self.right.setRowHeight(row, h)
 
         cur = current_scope()
         if cur in self.workbenches:
@@ -595,25 +607,33 @@ class ShortcutsTable(QtWidgets.QWidget):
                     QtWidgets.QAbstractItemView.EnsureVisible)
 
     def _cell(self, key, scope):
-        own = self.binds.get(scope, {}).get(key)
+        # the item carries the reference and the tint; the label the text
         item = QtWidgets.QTableWidgetItem()
         item.setData(QtCore.Qt.UserRole, (key, scope))
-        if own:
-            item.setText(own)
-        elif scope != ANY_SCOPE:
-            inherited = self.binds.get(ANY_SCOPE, {}).get(key)
-            if inherited:
-                item.setText(inherited)
-                font = item.font()
-                font.setItalic(True)
-                item.setFont(font)
-                item.setForeground(QtGui.QBrush(QtGui.QColor(128, 128, 128)))
-                item.setToolTip(f"inherited from {ANY_SCOPE}")
-            else:
-                item.setText("—")
-        else:
-            item.setText("—")
         return item
+
+    def _cell_label(self, key, scope):
+        """One line per gesture the key uses anywhere: '· pie' solid when
+        bound here, '↳ pie' dim italic when it flows in from Any, '—' when
+        that gesture does nothing in this workbench."""
+        lines, tips = [], []
+        for g in model.key_gestures(key, self.binds):
+            own = self.binds.get(scope, {}).get(key, {}).get(g)
+            base = self.binds.get(ANY_SCOPE, {}).get(key, {}).get(g)
+            glyph = f'<span style="color:#888">{GLYPH[g]}</span>'
+            if own:
+                lines.append(f"{glyph} {own}")
+                tips.append(f"{GNAME[g]}: {own}")
+            elif scope != ANY_SCOPE and base:
+                lines.append(f'{glyph} <i style="color:#888">↳ {base}</i>')
+                tips.append(f"{GNAME[g]}: {base} — flows in from {ANY_SCOPE}")
+            else:
+                lines.append(f'{glyph} <span style="color:#777">—</span>')
+        label = QtWidgets.QLabel("<br>".join(lines))
+        label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        label.setContentsMargins(4, 1, 4, 1)
+        label.setToolTip("\n".join(tips) or "unbound here")
+        return label
 
     # -- interactions
 
@@ -626,8 +646,9 @@ class ShortcutsTable(QtWidgets.QWidget):
         if not ref:
             return
         key, scope = ref
-        hit = self.binds.get(scope, {}).get(key) \
-            or self.binds.get(ANY_SCOPE, {}).get(key)
+        entry = dict(self.binds.get(ANY_SCOPE, {}).get(key, {}))
+        entry.update(self.binds.get(scope, {}).get(key, {}))
+        hit = entry.get("tap") or next(iter(entry.values()), None)
         if hit and hit in self.pies:
             self.jump_to_pie.emit(hit)
 
@@ -636,22 +657,31 @@ class ShortcutsTable(QtWidgets.QWidget):
         if not ref:
             return
         key, scope = ref
+        own = self.binds.get(scope, {}).get(key, {})
+        base = self.binds.get(ANY_SCOPE, {}).get(key, {})
         menu = QtWidgets.QMenu(self)
-        for name in sorted(self.pies):
-            menu.addAction(name, lambda n=name: self._set(scope, key, n))
+        for g in model.GESTURES:
+            verb = "Rebind" if g in own else "Bind"
+            sub = menu.addMenu(f"{GLYPH[g]}  {verb} the {GNAME[g]}…")
+            for name in sorted(self.pies):
+                sub.addAction(name, lambda _=False, n=name, g=g:
+                              self._set(scope, key, n, g))
         menu.addSeparator()
-        if self.binds.get(scope, {}).get(key):
-            label = "Clear this binding" if scope == ANY_SCOPE \
-                else f"Revert to {ANY_SCOPE}"
-            menu.addAction(label, lambda: self._clear(scope, key))
+        for g in model.GESTURES:
+            if g in own:
+                label = (f"{GLYPH[g]}  Revert the {GNAME[g]} to {ANY_SCOPE}"
+                         if scope != ANY_SCOPE and base.get(g)
+                         else f"{GLYPH[g]}  Clear the {GNAME[g]}")
+                menu.addAction(label, lambda _=False, g=g:
+                               self._clear(scope, key, g))
         menu.exec_(QtGui.QCursor.pos())
 
-    def _set(self, scope, key, name):
-        model.set_bind(scope, key, name)
+    def _set(self, scope, key, name, gesture="tap"):
+        model.set_bind(scope, key, name, gesture)
         self.changed.emit()
 
-    def _clear(self, scope, key):
-        model.clear_bind(scope, key)
+    def _clear(self, scope, key, gesture="tap"):
+        model.clear_bind(scope, key, gesture)
         self.changed.emit()
 
     def _rekey(self, row):
@@ -660,9 +690,9 @@ class ShortcutsTable(QtWidgets.QWidget):
         if not new or new == old or new in self.keys():
             return
         for scope, keys in self.binds.items():
-            if old in keys:
-                model.set_bind(scope, new, keys[old])
-                model.clear_bind(scope, old)
+            for g, name in (keys.get(old) or {}).items():
+                model.set_bind(scope, new, name, g)
+        model.remove_key(old)
         self.changed.emit()
 
     def _key_menu(self, point):
@@ -852,6 +882,14 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.shortcuts.changed.connect(self._binds_changed)
         self.shortcuts.jump_to_pie.connect(self.select_pie)
         sc_lay.addWidget(self.shortcuts)
+        sc_legend = QtWidgets.QLabel(
+            "· tap   ·· double-press   — press-and-hold — one "
+            "key, several pies · ↳ italic flows in from Any workbench · "
+            "the bold tinted column is the current workbench · double-click "
+            "binds the tap, right-click everything else")
+        sc_legend.setStyleSheet("color: gray;")
+        sc_legend.setWordWrap(True)
+        sc_lay.addWidget(sc_legend)
         outer.addWidget(sc_frame)
 
         # the whole global surface, inlined: two behaviour toggles, the
@@ -971,7 +1009,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.pie_list.clear()
         reached = set()
         for scope in binds.values():
-            reached.update(scope.values())
+            for gestures in scope.values():
+                reached.update(gestures.values())
         for name in sorted(pies):
             label = name
             if pies[name].default:
@@ -1334,10 +1373,6 @@ class PieMenuPreferences(QtWidgets.QDialog):
             row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
         row("Chooser size", self._slider(pie.alt_size, 16, 64, "alt_size"))
 
-        open_on = row("Open on", QtWidgets.QComboBox())
-        open_on.addItems(["single", "double", "hold", "double-hold"])
-        open_on.setCurrentText(pie.open_on)
-        open_on.currentTextChanged.connect(lambda v: self._set("open_on", v))
         run_on = row("Run on", QtWidgets.QComboBox())
         run_on.addItems(["click", "hover", "release"])
         run_on.setCurrentText(pie.run_on)
@@ -1356,12 +1391,14 @@ class PieMenuPreferences(QtWidgets.QDialog):
 
         opened = QtWidgets.QGroupBox("Opened by")
         ob = QtWidgets.QVBoxLayout(opened)
-        ways = [(key, scope) for scope, keys in self.binds.items()
-                for key, target in keys.items() if target == pie.name]
-        for key, scope in sorted(ways):
+        ways = [(key, g, scope) for scope, keys in self.binds.items()
+                for key, gs in keys.items()
+                for g, target in gs.items() if target == pie.name]
+        for key, g, scope in sorted(ways):
             where = "in every workbench" if scope == ANY_SCOPE \
                 else f"in {scope}"
-            ob.addWidget(QtWidgets.QLabel(f"key {key}: {where}"))
+            ob.addWidget(QtWidgets.QLabel(
+                f"key {key} ({GNAME[g]}): {where}"))
         for from_name, slot_i, rule in doors_into(self.pies, pie.name):
             link = QtWidgets.QPushButton(
                 f"from {from_name} — slot {slot_i + 1}"

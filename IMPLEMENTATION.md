@@ -112,3 +112,18 @@ export lives in the behaviour dialog), corner pinning (deferred #17/#18),
 the legacy auto-open context observer (the Global-context open question),
 and the spinbox display option. The mockup remains the spec of record; the
 mockups/ pages document intent for anything not yet obvious from the UI.
+
+## Gesture bindings (2026-08-06)
+
+A binding is now key x scope x **gesture** -> pie: `tap`, `double`
+(double-press) and `hold` (press-and-hold), stored as
+`Shortcuts/<scope>/<key>` (bare = tap, pre-gesture configs read unchanged)
+or `Shortcuts/<scope>/<key> <gesture>`. Each gesture inherits through the
+Any scope independently; `run_on` stays on the pie. The pie's `open_on`
+field is retired from the UI and the dispatcher (still stored/loaded for
+compatibility). Dispatcher semantics: tap opens on press (toggle applies);
+a second press within 350ms swaps to the double pie; hold opens for
+gesturing, and a release under 250ms falls back to the tap binding when
+one exists. The shortcuts table stacks one glyph-prefixed line per gesture
+(`·` `··` `—`), inherited lines shown as `↳ pie` in dim italics, with a
+legend underneath.

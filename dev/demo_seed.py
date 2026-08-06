@@ -34,7 +34,7 @@ main.items[5] = [Binding("PieMenu_View")]
 
 # two rings: 8 inner, 4 outer -- the second ring is the deeper PartDesign kit
 modelling = Pie("Modelling", slots=12, per_ring=8, radius=90,
-                open_on="hold", run_on="release")
+                run_on="release")
 model.normalise(modelling)
 modelling.items[0] = [Binding("PartDesign_Pad", {"Face": (">=", 1)}),
                       Binding("PartDesign_Pocket", {"Face": (">=", 1)}),
@@ -72,7 +72,7 @@ for i, cmd in enumerate(("Sketcher_NewSketch", "Sketcher_CreateLine",
 sketching.items[6] = [Binding("PieMenu_Constraints")]
 
 constraints = Pie("Constraints", slots=8, per_ring=8, radius=90,
-                  open_on="hold", run_on="release")
+                  run_on="release")
 model.normalise(constraints)
 for i, cmd in enumerate(("Sketcher_ConstrainCoincident",
                          "Sketcher_ConstrainHorizontal",
@@ -116,14 +116,17 @@ for pie in (main, modelling, patterns, sketching, view,
     model.save_pie(pie)
 
 # F3-F8, skipping F5 (FreeCAD recompute; F1 help and F2 rename also taken).
-# F3 and F7 are scoped -- one key, per-workbench meaning; the rest are direct.
+# The gesture lives on the binding: in PartDesign a quick F3 is Main
+# (inherited tap) while holding F3 gestures through Modelling -- one key,
+# two pies, and per-workbench meanings on top.
 model.set_bind(ANY_SCOPE, "F3", "Main")
-model.set_bind("PartDesign", "F3", "Modelling")
-model.set_bind("Sketcher", "F3", "Sketching")
-model.set_bind(ANY_SCOPE, "F4", "Modelling")
+model.set_bind("PartDesign", "F3", "Modelling", "hold")
+model.set_bind("Sketcher", "F3", "Sketching", "hold")
+model.set_bind(ANY_SCOPE, "F4", "Modelling", "hold")
+model.set_bind(ANY_SCOPE, "F4", "Patterns", "double")
 model.set_bind(ANY_SCOPE, "F6", "View")
 model.set_bind(ANY_SCOPE, "F7", "Booleans")
-model.set_bind("Sketcher", "F7", "Constraints")
+model.set_bind("Sketcher", "F7", "Constraints", "hold")
 model.set_bind(ANY_SCOPE, "F8", "Datums")
 
 model.set_schema_version(model.SCHEMA_VERSION)

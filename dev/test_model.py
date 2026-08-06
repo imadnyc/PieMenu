@@ -105,8 +105,8 @@ assert not M.pie_live("missing", pies, {})
 print("PASS liveness")
 
 # ---- shortcut resolution --------------------------------------------------
-binds = {"Any": {"9": "Sketching", "0": "View"},
-         "PartDesign": {"1": "Main", "9": "Override"}}
+binds = {"Any": {"9": {"tap": "Sketching"}, "0": {"tap": "View"}},
+         "PartDesign": {"1": {"tap": "Main"}, "9": {"tap": "Override"}}}
 assert M.resolve_key("1", "PartDesign", binds) == ("Main", "PartDesign")
 assert M.resolve_key("9", "PartDesign", binds) == ("Override", "PartDesign")
 assert M.resolve_key("9", "Sketcher", binds) == ("Sketching", "Any")
@@ -147,18 +147,31 @@ M.delete_pie("Boolean ops")
 assert "Boolean ops" not in M.load_pies()
 print("PASS pie IO")
 
-# ---- shortcut IO ----------------------------------------------------------
+# ---- shortcut IO: a binding is key x scope x gesture -----------------------
 M.set_bind("Any", "9", "Sketching")
 M.set_bind("PartDesign", "1", "Main")
 M.set_bind("PartDesign", "Ctrl+1", "Modelling")   # modifier keys as param names
 M.set_bind("Sketcher", "1", "Main")
+M.set_bind("PartDesign", "1", "Patterns", "double")
+M.set_bind("Any", "1", "View", "hold")
 b2 = M.load_binds()
-assert b2["Any"]["9"] == "Sketching"
-assert b2["PartDesign"]["Ctrl+1"] == "Modelling"
+assert b2["Any"]["9"] == {"tap": "Sketching"}
+assert b2["PartDesign"]["Ctrl+1"] == {"tap": "Modelling"}
+assert b2["PartDesign"]["1"] == {"tap": "Main", "double": "Patterns"}
 assert M.resolve_key("Ctrl+1", "PartDesign", b2) == ("Modelling", "PartDesign")
+assert M.resolve_key("1", "PartDesign", b2, "double") == \
+    ("Patterns", "PartDesign")
+# each gesture inherits independently: the hold flows in from Any
+assert M.gestures_for("1", "PartDesign", b2) == {
+    "tap": ("Main", "PartDesign"),
+    "double": ("Patterns", "PartDesign"),
+    "hold": ("View", "Any")}
+assert M.key_gestures("1", b2) == ["tap", "double", "hold"]
+assert M.key_gestures("9", b2) == ["tap"]
 M.remove_key("1")
 b3 = M.load_binds()
 assert "1" not in b3.get("PartDesign", {}) and "1" not in b3.get("Sketcher", {})
+assert "1" not in b3.get("Any", {})               # the hold went too
 M.clear_bind("Any", "9")
 assert "9" not in M.load_binds().get("Any", {})
 

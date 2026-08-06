@@ -58,18 +58,26 @@ assert door_row.text(0) == "▸ Sub" and door_row.text(1) == "Edge >= 1"
 print("PASS slots table")
 
 # ---- shortcuts table --------------------------------------------------------
+model.set_bind("PartDesign", "F6", "Sub", "hold")   # a second gesture on F6
+dlg._binds_changed()
+app.processEvents()
 table = dlg.shortcuts
 assert table.keys() == ["F6", "F7"]
 assert table.left.rowCount() == 2
 assert table.right.columnCount() == 2
 row_f6 = table.keys().index("F6")
 pd_col = table.workbenches.index("PartDesign")
-inherited = table.right.item(row_f6, pd_col)
-assert inherited.text() == "Main" and inherited.font().italic()
-own = table.right.item(table.keys().index("F7"), pd_col)
-assert own.text() == "Sub" and not own.font().italic()
+cell = table.right.cellWidget(row_f6, pd_col).text()
+assert "↳ Main" in cell, cell           # the tap flows in from Any, marked
+assert "Sub" in cell                     # the hold is its own line
+own = table.right.cellWidget(table.keys().index("F7"), pd_col).text()
+assert "Sub" in own and "↳" not in own
 sk_col = table.workbenches.index("Sketcher")
-assert table.right.item(table.keys().index("F7"), sk_col).text() == "—"
+sk = table.right.cellWidget(table.keys().index("F7"), sk_col).text()
+assert "—" in sk                         # unbound gesture line
+model.clear_bind("PartDesign", "F6", "hold")
+dlg._binds_changed()
+app.processEvents()
 print("PASS shortcuts table")
 
 # ---- opened by --------------------------------------------------------------
@@ -81,7 +89,7 @@ for label in body.findChildren(QtWidgets.QLabel):
 for btn in body.findChildren(QtWidgets.QPushButton):
     area_text.append(btn.text())
 joined = " | ".join(area_text)
-assert "key F7: in PartDesign" in joined, joined
+assert "key F7 (tap): in PartDesign" in joined, joined
 assert "from Main — slot 3, Edge >= 1" in joined, joined
 print("PASS opened by")
 

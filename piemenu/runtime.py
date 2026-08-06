@@ -527,22 +527,26 @@ PieWidget.show_chooser = _show_chooser
 # ---- dispatch --------------------------------------------------------------
 
 class Dispatcher(QtCore.QObject):
-    """App-wide key handling implementing open_on and the toggles.
+    """App-wide key handling: the gesture belongs to the binding.
 
-    open_on: single (press opens; pressing again closes when the toggle
-    behaviour is on), double (two taps within 350ms), hold (opens on press
-    and, when run_on is release, releasing fires the aimed slot), double-hold.
-    Also the long right-click trigger.
+    One key can carry a tap, a double press and a press-and-hold, each
+    resolving to its own pie. Tap opens on press (toggling if the pie is
+    already up); a second press within 350ms swaps to the double pie; a
+    hold-bound key opens the hold pie for gesturing, and a quick release
+    (<250ms) falls back to the tap pie when one is bound. Also the long
+    right-click trigger.
     """
 
-    def __init__(self, opener, resolver, open_on_of=None, parent=None):
+    def __init__(self, opener, gestures, fallback=None, parent=None):
         super().__init__(parent)
         self.opener = opener          # opener(pie_name) -> PieWidget|None
-        self.resolver = resolver      # resolver(key) -> pie_name|None
-        self.open_on_of = open_on_of or (lambda name: "single")
+        self.gestures = gestures      # gestures(key) -> {gesture: pie_name}
+        self.fallback = fallback or (lambda: None)   # the right-click pie
         self.current = None           # the open PieWidget
         self.last_tap = {}            # key -> ms timestamp
         self.held = None              # key currently held for a hold pie
+        self._press_ms = 0
+        self._tap_fallback = None
         self._rtimer = None
         self._swallow_context = False
 
@@ -607,22 +611,29 @@ class Dispatcher(QtCore.QObject):
         if self._typing_focus():
             return False
         key = self._key_of(event)
-        name = self.resolver(key)
-        if not name:
+        gmap = self.gestures(key)
+        if not gmap:
             return False
-        open_on = self.open_on_of(name)
         now = _now_ms()
-        if open_on in ("double", "double-hold") \
-                and not self._double(key, now):
+        double_ready = self._double(key, now)
+        if "double" in gmap and double_ready:
+            # second tap within the window: the double pie takes over
+            self.open_pie(gmap["double"])
             return True
-        if (open_on == "single" and self.current is not None
-                and self.current.isVisible() and behaviour()["toggle"]):
-            self.close()
+        if "hold" in gmap:
+            self.open_pie(gmap["hold"])
+            self.held = key          # after open_pie, whose close() clears it
+            self._press_ms = now
+            self._tap_fallback = gmap.get("tap")
             return True
-        self.open_pie(name)
-        if open_on in ("hold", "double-hold"):
-            # after open_pie, which clears any previous hold via close()
-            self.held = key
+        if "tap" in gmap:
+            if (self.current is not None and self.current.isVisible()
+                    and behaviour()["toggle"]):
+                self.close()
+                return True
+            self.open_pie(gmap["tap"])
+            return True
+        # only a double is bound: the first tap arms silently
         return True
 
     def _key_release(self, event):
@@ -634,6 +645,10 @@ class Dispatcher(QtCore.QObject):
         widget = self.current
         if widget is None:
             return False
+        if (_now_ms() - self._press_ms) < 250 and self._tap_fallback:
+            # a quick tap on a hold-bound key is the tap, not a failed hold
+            self.open_pie(self._tap_fallback)
+            return True
         if getattr(widget, "run_mode", widget.pie.run_on) == "release":
             widget.commit_gesture()
             if widget.isVisible():
@@ -660,7 +675,7 @@ class Dispatcher(QtCore.QObject):
             self._rtimer = None
 
     def _rclick_open(self):
-        name = self.resolver(None)
+        name = self.fallback()
         if name:
             self._swallow_context = True
             self.open_pie(name)
@@ -698,10 +713,8 @@ class Runtime:
         self._keys = {}               # normalised key -> stored key
         self._registered = set()
         self.open_preferences = None  # wired by InitGui once the dialog exists
-        self.dispatcher = Dispatcher(
-            self._open_for_dispatch, self._resolve,
-            open_on_of=lambda n: self.pies[n].open_on if n in self.pies
-            else "single")
+        self.dispatcher = Dispatcher(self._open_for_dispatch, self._gestures,
+                                     fallback=lambda: self._resolve(None))
 
     # -- model access
 
@@ -731,15 +744,23 @@ class Runtime:
     def counts(self):
         return selection_counts(self.gui)
 
+    def _gestures(self, key):
+        """key -> {gesture: pie name} under the active workbench."""
+        wb = workbench_scope(self.gui)
+        stored = self._keys.get(key, key)
+        return {g: hit[0] for g, hit
+                in model.gestures_for(stored, wb, self.binds).items()}
+
     def _resolve(self, key):
-        """key -> pie name under the active workbench; None key = right-click,
-        which opens whatever the lowest bound key resolves to."""
+        """key -> tap pie name; None key = right-click, which opens whatever
+        the lowest bound key answers with (tap first, then any gesture)."""
         wb = workbench_scope(self.gui)
         if key is None:
             for k in sorted(self._keys.values()):
-                hit = model.resolve_key(k, wb, self.binds)
-                if hit:
-                    return hit[0]
+                hits = model.gestures_for(k, wb, self.binds)
+                if hits:
+                    tap = hits.get("tap")
+                    return (tap or next(iter(hits.values())))[0]
             return None
         stored = self._keys.get(key, key)
         hit = model.resolve_key(stored, wb, self.binds)

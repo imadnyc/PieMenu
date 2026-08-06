@@ -263,18 +263,42 @@ def pie_live(name, pies, counts, _seen=None):
 
 
 # ---- shortcuts ------------------------------------------------------------
+# A binding is key x scope x GESTURE -> pie. The gesture (tap, double press,
+# press-and-hold) lives on the binding, so one key can reach several pies in
+# one workbench; each gesture inherits through the Any scope independently.
+# run_on (click/hover/release) stays on the pie.
 
-def resolve_key(key, workbench, binds):
-    """(pie name, scope) for a key in a workbench, or None.
+GESTURES = ("tap", "double", "hold")
+
+def resolve_key(key, workbench, binds, gesture="tap"):
+    """(pie name, scope) for a key + gesture in a workbench, or None.
 
     The whole rule: the workbench's own binding beats the Any scope; if
-    neither names the key, the key does nothing.
+    neither names the key for that gesture, the gesture does nothing.
     """
     for scope in (workbench, ANY_SCOPE):
-        name = binds.get(scope, {}).get(key)
+        name = binds.get(scope, {}).get(key, {}).get(gesture)
         if name:
             return name, scope
     return None
+
+
+def gestures_for(key, workbench, binds):
+    """{gesture: (pie name, scope)} — every gesture the key answers here."""
+    out = {}
+    for gesture in GESTURES:
+        hit = resolve_key(key, workbench, binds, gesture)
+        if hit:
+            out[gesture] = hit
+    return out
+
+
+def key_gestures(key, binds):
+    """The gestures a key uses in any scope, canonical order, tap always."""
+    used = {g for scope in binds.values()
+            for g in (scope.get(key) or {})}
+    used.add("tap")
+    return [g for g in GESTURES if g in used]
 
 
 # ---- ParamGet IO ----------------------------------------------------------
@@ -364,34 +388,48 @@ def delete_pie(name):
     _grp("Pies").RemGroup(name)
 
 
+def _bind_param(key, gesture):
+    """Param name for a binding: bare key = tap (which is also what every
+    pre-gesture config stored), 'KEY gesture' otherwise. Keys never contain
+    spaces (QKeySequence writes Ctrl+Shift+P), so the split is safe."""
+    return key if gesture == "tap" else f"{key} {gesture}"
+
+
 def load_binds():
-    """{scope: {key: pie name}} straight off the parameter tree."""
+    """{scope: {key: {gesture: pie name}}} straight off the parameter tree."""
     binds = {}
     root = _grp("Shortcuts")
     for scope in root.GetGroups():
         g = root.GetGroup(scope)
         keys = {}
-        for key in g.GetStrings():
-            name = g.GetString(key, "")
-            if name:
-                keys[key] = name
+        for pname in g.GetStrings():
+            name = g.GetString(pname, "")
+            if not name:
+                continue
+            key, _, gesture = pname.partition(" ")
+            gesture = gesture or "tap"
+            if gesture not in GESTURES:
+                continue
+            keys.setdefault(key, {})[gesture] = name
         binds[scope] = keys
     return binds
 
 
-def set_bind(scope, key, pie_name):
-    _grp("Shortcuts").GetGroup(scope).SetString(key, pie_name)
+def set_bind(scope, key, pie_name, gesture="tap"):
+    _grp("Shortcuts").GetGroup(scope).SetString(_bind_param(key, gesture),
+                                                pie_name)
 
 
-def clear_bind(scope, key):
-    _grp("Shortcuts").GetGroup(scope).RemString(key)
+def clear_bind(scope, key, gesture="tap"):
+    _grp("Shortcuts").GetGroup(scope).RemString(_bind_param(key, gesture))
 
 
 def remove_key(key):
     """Drop a key from every scope at once (the shortcuts-table row delete)."""
     root = _grp("Shortcuts")
     for scope in root.GetGroups():
-        root.GetGroup(scope).RemString(key)
+        for gesture in GESTURES:
+            root.GetGroup(scope).RemString(_bind_param(key, gesture))
 
 
 def get_schema_version():

@@ -225,10 +225,10 @@ pies["Main"].last_used.clear()
 print("PASS door hover + chooser size")
 
 
-# ---- dispatcher ------------------------------------------------------------
+# ---- dispatcher: the gesture belongs to the binding -------------------------
 class FakePie:
-    def __init__(self, open_on, run_on):
-        self.open_on, self.run_on = open_on, run_on
+    def __init__(self, name, run_on):
+        self.name, self.run_on = name, run_on
 
 
 class FakeWidget:
@@ -253,51 +253,88 @@ def key_event(kind, key):
 
 
 opened = []
-meta = {"Main": FakePie("single", "click")}
+gmaps = {"F6": {"tap": "Main"}}
+run_of = {"Main": "click", "Sub": "click"}
 
 
 def opener(name):
-    fw = FakeWidget(meta[name])
+    fw = FakeWidget(FakePie(name, run_of[name]))
     opened.append(fw)
     return fw
 
 
-disp = runtime.Dispatcher(opener, lambda k: "Main" if k == "F6" else None,
-                          open_on_of=lambda n: meta[n].open_on)
+def press(disp, key=QtCore.Qt.Key_F6):
+    return disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, key))
+
+
+def release(disp, key=QtCore.Qt.Key_F6):
+    return disp.eventFilter(None, key_event(QtCore.QEvent.KeyRelease, key))
+
+
+disp = runtime.Dispatcher(opener, lambda k: dict(gmaps.get(k, {})))
 
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", True)
-assert disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
+assert press(disp)
 assert len(opened) == 1 and opened[0].visible
-assert disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
-assert len(opened) == 1 and not opened[0].visible    # toggled shut
+assert press(disp)
+assert len(opened) == 1 and not opened[0].visible    # tap toggled shut
 
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", False)
-disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
-disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
+press(disp)
+press(disp)
 assert len(opened) == 3                              # reopens instead
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", True)
 
-opened.clear()
-meta["Main"] = FakePie("double", "click")
+opened.clear()                       # tap now, double pie on the second tap
+gmaps["F6"] = {"tap": "Main", "double": "Sub"}
 disp.close()
-disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
-assert opened == []                                  # one tap arms
-disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
-assert len(opened) == 1                              # second tap opens
+disp.last_tap.clear()
+press(disp)
+assert [w.pie.name for w in opened] == ["Main"]
+press(disp)                          # within the window: the double takes over
+assert [w.pie.name for w in opened] == ["Main", "Sub"]
+assert not opened[0].visible and opened[1].visible
 
-opened.clear()
-meta["Main"] = FakePie("hold", "release")
+opened.clear()                       # only a double bound: first tap arms
+gmaps["F6"] = {"double": "Sub"}
 disp.close()
-disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
+disp.last_tap.clear()
+press(disp)
+assert opened == []
+press(disp)
+assert [w.pie.name for w in opened] == ["Sub"]
+
+opened.clear()                       # hold + release commits the aim
+gmaps["F6"] = {"hold": "Main"}
+run_of["Main"] = "release"
+disp.close()
+disp.last_tap.clear()
+press(disp)
 assert len(opened) == 1 and opened[0].visible
-disp.eventFilter(None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F6))
-assert opened[0].committed                           # release fired the aim
+disp._press_ms -= 400                # pretend the key was held a while
+release(disp)
+assert opened[0].committed
 
-opened.clear()
-meta["Main"] = FakePie("hold", "click")
-disp.eventFilter(None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
-disp.eventFilter(None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F6))
-assert not opened[0].visible and not opened[0].committed   # momentary close
+opened.clear()                       # a quick tap on a hold key = the tap pie
+gmaps["F6"] = {"tap": "Sub", "hold": "Main"}
+disp.close()
+disp.last_tap.clear()
+press(disp)
+assert [w.pie.name for w in opened] == ["Main"]
+release(disp)                        # released instantly: tap fallback
+assert [w.pie.name for w in opened] == ["Main", "Sub"]
+assert not opened[0].visible and opened[1].visible
+
+opened.clear()                       # hold with run_on click is momentary
+gmaps["F6"] = {"hold": "Main"}
+run_of["Main"] = "click"
+disp.close()
+disp.last_tap.clear()
+press(disp)
+disp._press_ms -= 400
+release(disp)
+assert not opened[0].visible and not opened[0].committed
+run_of["Main"] = "click"
 print("PASS dispatch")
 
 
@@ -327,6 +364,7 @@ for pie in make_pies().values():
     model.save_pie(pie)
 model.set_bind(model.ANY_SCOPE, "F6", "Main")
 model.set_bind("PartDesign", "F7", "Sub")
+model.set_bind(model.ANY_SCOPE, "F8", "Main", "hold")
 
 gui = FakeGui()
 rt = runtime.Runtime(gui)
@@ -344,17 +382,18 @@ widget.close()
 print("PASS runtime wrapper")
 
 # ---- keys-only door descend through the real dispatcher --------------------
-rt.pies["Main"].open_on = "hold"
+# F8 is hold-bound to Main: press opens it in gesture mode, release commits
 rt.pies["Main"].run_on = "release"
 gui.ran.clear()
 assert rt.dispatcher.eventFilter(
-    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F8))
 w = rt.dispatcher.current
 assert w is not None and w.isVisible() and w.pie.name == "Main"
 QtGui.QCursor.setPos(w.buttons[2].mapToGlobal(QtCore.QPoint(17, 17)))
 wait(20)
+rt.dispatcher._press_ms -= 400           # the key was held, not tapped
 assert rt.dispatcher.eventFilter(
-    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F6))
+    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F8))
 assert w.isVisible() and w.pie.name == "Sub", (w.isVisible(), w.pie.name)
 assert any(not b.isHidden() for b in w.buttons), "sub-pie buttons invisible"
 assert rt.dispatcher.current is w        # still tracked for the next key
