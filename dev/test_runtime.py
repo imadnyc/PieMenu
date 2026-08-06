@@ -124,6 +124,23 @@ w.close()
 w.deleteLater()
 print("PASS gesture aim")
 
+# ---- gesture release on an overloaded slot ---------------------------------
+fired.clear()
+pies["Main"].run_on = "release"
+w = runtime.PieWidget(pies, "Main", {}, fire)        # slot 4 has 2 live
+w.popup_at(QtCore.QPoint(400, 400))
+aim = w.buttons[4].mapToGlobal(QtCore.QPoint(17, 17))
+w.commit_gesture(pos=aim)                # ambiguous: chooser, pie stays up
+assert fired == [] and w.isVisible() and w._chooser is not None
+alts = w._chooser.findChildren(QtWidgets.QToolButton)
+over_alt = alts[1].mapToGlobal(QtCore.QPoint(12, 12))
+w.commit_gesture(pos=over_alt)           # release over the second flavour
+assert fired == ["Std_Open"], fired
+assert not w.isVisible()
+w.deleteLater()
+pies["Main"].run_on = "click"
+print("PASS gesture chooser")
+
 
 # ---- dispatcher ------------------------------------------------------------
 class FakePie:

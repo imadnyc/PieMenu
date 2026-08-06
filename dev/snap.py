@@ -52,6 +52,14 @@ def run():
             snap(w, "pie-modelling-2faces-chooser")
             w.close()
 
+            w = rt.PieWidget(run_.pies, "Modelling", {"Face": 2}, fire)
+            w.popup_at(QtCore.QPoint(600, 400))
+            w._aim = QtCore.QPoint(int(w._origin[0] + 70),
+                                   int(w._origin[1] - 55))
+            w.update()
+            snap(w, "pie-modelling-gesture-arrow")
+            w.close()
+
         print("SNAP step: pies done, building dialog", flush=True)
         dlg = dialog.PieMenuPreferences(Gui.getMainWindow(),
                                         on_change=run_.reload)

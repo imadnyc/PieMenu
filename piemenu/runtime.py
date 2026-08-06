@@ -132,6 +132,8 @@ class PieWidget(QtWidgets.QWidget):
         self.quick_menu = quick_menu
         self._hover_timer = None
         self._chooser = None
+        self._aim = None              # cursor point for the gesture arrow
+        self.setMouseTracking(True)
         self.build(name)
 
     # -- construction
@@ -140,6 +142,7 @@ class PieWidget(QtWidgets.QWidget):
         for child in self.findChildren(QtWidgets.QWidget):
             child.deleteLater()
         self._chooser = None
+        self._aim = None
         pie = self.pies[name]
         model.normalise(pie)
         self.pie = pie
@@ -260,13 +263,60 @@ class PieWidget(QtWidgets.QWidget):
         under = self.rect().contains(self.mapFromGlobal(global_pos))
         return best if (under or dist <= limit * 4) else None
 
-    def commit_gesture(self):
-        """Release in a hold pie: run whatever the cursor is aimed at."""
-        btn = self.nearest_slot(QtGui.QCursor.pos())
-        if btn is not None:
-            btn.click()
-        else:
+    def commit_gesture(self, pos=None):
+        """Release in a hold pie: run whatever the cursor is aimed at.
+
+        A chooser alternative near the cursor wins over its parent slot.
+        Releasing on an overloaded slot with no choice made opens the
+        chooser and leaves the pie up, so the mouse can settle it."""
+        pos = QtGui.QCursor.pos() if pos is None else pos
+        if self._chooser is not None:
+            local = self._chooser.mapFromGlobal(pos)
+            if self._chooser.rect().adjusted(-10, -10, 10, 10).contains(local):
+                alts = self._chooser.findChildren(QtWidgets.QToolButton)
+                if alts:
+                    min(alts, key=lambda a: abs(
+                        a.geometry().center().x() - local.x())).click()
+                    return
+        btn = self.nearest_slot(pos)
+        if btn is None:
             self.close()
+            return
+        live = model.live_bindings(self.pie.items[self.buttons.index(btn)],
+                                   self.counts)
+        if len(live) > 1:
+            self.show_chooser(btn, live)
+            return
+        btn.click()
+
+    # -- the gesture arrow (release mode): centre -> cursor
+
+    def mouseMoveEvent(self, event):
+        if self.pie.run_on == "release":
+            self._aim = event.position().toPoint() \
+                if hasattr(event, "position") else event.pos()
+            self.update()
+        super().mouseMoveEvent(event)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+        if self.pie.run_on != "release" or self._aim is None:
+            return
+        line = QtCore.QLineF(QtCore.QPointF(self._origin[0], self._origin[1]),
+                             QtCore.QPointF(self._aim))
+        if line.length() < 12:
+            return
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setPen(QtGui.QPen(self.palette().highlight().color(), 3,
+                                  QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+        painter.drawLine(line)
+        for splay in (30, -30):        # two barbs make the head
+            barb = QtCore.QLineF(line.p2(), line.p1())
+            barb.setAngle(line.angle() + 180 + splay)
+            barb.setLength(min(14.0, line.length()))
+            painter.drawLine(barb)
+        painter.end()
 
 
 def behaviour_quick(_widget):
@@ -449,6 +499,8 @@ class Dispatcher(QtCore.QObject):
             return False
         if widget.pie.run_on == "release":
             widget.commit_gesture()
+            if widget.isVisible():
+                return True    # ambiguous aim or a door: stays up for the mouse
         else:
             # a held pie is momentary: letting go closes it
             widget.close()
