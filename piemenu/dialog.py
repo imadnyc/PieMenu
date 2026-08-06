@@ -1078,11 +1078,6 @@ class PieMenuPreferences(QtWidgets.QDialog):
         bar = QtWidgets.QHBoxLayout()
         bar.addWidget(QtWidgets.QLabel("Pies"))
         bar.addStretch(1)
-        try_btn = QtWidgets.QToolButton()
-        try_btn.setText("▶")
-        try_btn.setToolTip("Try this pie live, right here")
-        try_btn.clicked.connect(self._try_pie)
-        bar.addWidget(try_btn)
         for text, fn in (("+", self.pie_add),):
             b = QtWidgets.QToolButton()
             b.setText(text)
@@ -1315,13 +1310,6 @@ class PieMenuPreferences(QtWidgets.QDialog):
         for i in range(self.pie_list.count()):
             item = self.pie_list.item(i)
             item.setHidden(bool(needle) and needle not in item.text().lower())
-
-    def _try_pie(self):
-        """Open the selected pie live at the cursor, straight from here."""
-        if runtime.runtime is None:
-            return
-        runtime.runtime.reload()
-        runtime.runtime.open_pie(self.current)
 
     def _pie_picked(self, _label):
         item = self.pie_list.currentItem()

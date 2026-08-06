@@ -434,8 +434,12 @@ class PieWidget(QtWidgets.QWidget):
     def popup_at(self, global_pos):
         self.move(int(global_pos.x() - self._origin[0]),
                   int(global_pos.y() - self._origin[1]))
+        platform = QtWidgets.QApplication.platformName() \
+            if QtWidgets.QApplication.instance() else ""
         if not self.isVisible() and App is not None \
-                and behaviour()["animate"]:
+                and behaviour()["animate"] and platform != "wayland":
+            # Wayland cannot set window opacity: animating there only
+            # spams "plugin does not support" warnings
             self.setWindowOpacity(0.0)
             self.show()
             anim = QtCore.QPropertyAnimation(self, b"windowOpacity", self)
