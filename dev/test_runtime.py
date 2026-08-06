@@ -208,6 +208,13 @@ assert alts and alts[0].width() == 40    # the chooser-size knob
 assert w.buttons[1].property("alt") is True      # odd slots alternate fill
 assert not w.buttons[0].property("alt")
 w.deleteLater()
+
+pies["Main"].show_names = True           # names need room, buttons grow
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+assert w.buttons[1].text() == "Undo"
+assert w.buttons[1].height() > pies["Main"].button
+w.deleteLater()
+pies["Main"].show_names = False
 pies["Main"].alt_size = 24
 pies["Main"].delay = 250
 pies["Main"].last_used.clear()

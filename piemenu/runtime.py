@@ -199,21 +199,21 @@ class PieWidget(QtWidgets.QWidget):
         self.run_mode = "release" if self.run_mode == "release" \
             else pie.run_on
         pos = model.positions(pie)
-        size = pie.button
         pad = 24
-        min_x = min(x for x, _ in pos) - size / 2 - pad
-        max_x = max(x for x, _ in pos) + size / 2 + pad
-        min_y = min(y for _, y in pos) - size / 2 - pad
-        max_y = max(y for _, y in pos) + size / 2 + pad
+        # buttons size themselves (command names grow them), so bounds come
+        # from the real widgets, not from pie.button
+        self.buttons = [self._slot_button(pie.items[i], i)
+                        for i in range(len(pos))]
+        min_x = min(x - b.width() / 2 for (x, _), b in zip(pos, self.buttons)) - pad
+        max_x = max(x + b.width() / 2 for (x, _), b in zip(pos, self.buttons)) + pad
+        min_y = min(y - b.height() / 2 for (_, y), b in zip(pos, self.buttons)) - pad
+        max_y = max(y + b.height() / 2 for (_, y), b in zip(pos, self.buttons)) + pad
         # the cursor anchor must sit at (0,0) of the layout
         self._origin = (-min_x, -min_y)
         self.resize(int(max_x - min_x), int(max_y - min_y))
-
-        self.buttons = []
-        for i, (x, y) in enumerate(pos):
-            btn = self._slot_button(pie.items[i], i)
-            btn.move(int(x - min_x - size / 2), int(y - min_y - size / 2))
-            self.buttons.append(btn)
+        for (x, y), btn in zip(pos, self.buttons):
+            btn.move(int(x - min_x - btn.width() / 2),
+                     int(y - min_y - btn.height() / 2))
         if behaviour_quick(self):
             self._centre_button()
 
@@ -272,7 +272,14 @@ class PieWidget(QtWidgets.QWidget):
                 tip = action.toolTip() or cmd
         if self.pie.show_names:
             btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
-            btn.setText(cmd.split("_", 1)[-1])
+            text = pie_target(cmd) if is_pie_command(cmd) \
+                else cmd.split("_", 1)[-1]
+            btn.setText(text)
+            # a 34px square clips text-under-icon into nothing: grow to fit
+            fm = btn.fontMetrics()
+            btn.setFixedSize(
+                max(self.pie.button, fm.horizontalAdvance(text) + 12),
+                self.pie.button + fm.height() + 2)
         if n_live > 1:
             tip += f"  ({n_live} apply — hover to choose)"
         btn.setToolTip(tip)
