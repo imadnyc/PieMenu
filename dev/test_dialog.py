@@ -182,10 +182,9 @@ assert binding.cmd == "Std_Redo" and binding.rule == {"Object": (">=", 2)}
 assert "Redo" in picker.echo.text()
 print("PASS picker")
 
-# ---- globals inlined in the footer ------------------------------------------
-assert isinstance(dlg.g_toggle, QtWidgets.QCheckBox)
-assert isinstance(dlg.g_rclick, QtWidgets.QCheckBox)
-assert dlg.g_delay.value() >= 100
+# ---- the global surface is just accent + backup ------------------------------
+assert not hasattr(dlg, "g_toggle")      # the behaviour toggles are gone
+assert not hasattr(dlg, "g_rclick")
 assert not hasattr(dialog, "behaviour_dialog")
 print("PASS behaviour dialog")
 

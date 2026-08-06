@@ -73,7 +73,7 @@ def run():
             print(f"SNAP note: PartDesign activate failed: {exc}", flush=True)
         dlg = dialog.PieMenuPreferences(Gui.getMainWindow(),
                                         on_change=run_.reload)
-        dlg.resize(1280, 760)
+        dlg.resize(1560, 1000)           # the real default size
         snap(dlg, "dialog-main")
         dlg.select_pie("Modelling")
         snap(dlg, "dialog-modelling")

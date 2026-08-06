@@ -8,6 +8,8 @@ columns pinned).  Doors, rules and scoped binds all edit the same model the
 runtime reads; every change calls ``on_change`` so the caller can reload it.
 """
 
+import os
+
 from PySide import QtCore, QtGui, QtWidgets
 
 try:
@@ -52,13 +54,6 @@ HELP = {
     "Doors on hover": "Dwelling on a door slot for the delay opens that pie "
                       "at the cursor — glide in, aim, release.",
     "Command names": "Write each tool's name in its slot as well as its icon.",
-    "Toggle show/hide": "Pressing a pie's shortcut while it is open closes "
-                        "it. Off means the key only ever opens.",
-    "Long right-click to open": "Hold the right mouse button for the delay "
-                                "and the workbench's pie opens at the cursor.",
-    "Global context": "Legacy auto-open-on-selection. Under the new model "
-                      "conditions belong to slots, so what this becomes is an "
-                      "open question — placeholder only.",
 }
 
 
@@ -135,6 +130,97 @@ def current_scope():
         return runtime.workbench_scope(Gui)
     except Exception:  # noqa: BLE001 -- console mode / tests
         return None
+
+
+_TIP_IMAGE_CACHE = {}
+
+
+def _tip_image(key):
+    """A small drawn illustration for the trickiest knobs, cached as a PNG
+    (Qt tooltips render <img>, but do not animate, so stills not gifs)."""
+    if key in _TIP_IMAGE_CACHE:
+        return _TIP_IMAGE_CACHE[key]
+    painters = {"Arc": _draw_arc, "Facing": _draw_facing,
+                "Stagger": _draw_stagger, "Anchors": _draw_anchors}
+    if key not in painters:
+        _TIP_IMAGE_CACHE[key] = None
+        return None
+    import tempfile
+    pm = QtGui.QPixmap(150, 100)
+    pm.fill(QtGui.QColor(250, 250, 250))
+    painter = QtGui.QPainter(pm)
+    painter.setRenderHint(QtGui.QPainter.Antialiasing)
+    painters[key](painter)
+    painter.end()
+    path = os.path.join(tempfile.gettempdir(),
+                        f"piemenu-tip-{key.lower()}.png")
+    pm.save(path)
+    _TIP_IMAGE_CACHE[key] = path
+    return path
+
+
+def _dots(painter, centre, radius, angles, colour):
+    painter.setPen(QtCore.Qt.NoPen)
+    painter.setBrush(colour)
+    import math
+    for a in angles:
+        painter.drawEllipse(
+            QtCore.QPointF(centre.x() + math.cos(a) * radius,
+                           centre.y() + math.sin(a) * radius), 5, 5)
+
+
+def _draw_arc(p):
+    import math
+    grey, blue = QtGui.QColor(190, 190, 190), QtGui.QColor(70, 130, 200)
+    c = QtCore.QPointF(40, 50)
+    _dots(p, c, 26, [i * math.pi / 4 for i in range(8)], blue)
+    c2 = QtCore.QPointF(108, 50)
+    _dots(p, c2, 26, [i * math.pi / 4 for i in range(8)], grey)
+    _dots(p, c2, 26, [-math.pi / 2 + i * math.pi / 3 for i in range(4)], blue)
+    p.setPen(QtGui.QColor(120, 120, 120))
+    p.drawText(QtCore.QRectF(10, 82, 60, 16), "360")
+    p.drawText(QtCore.QRectF(84, 82, 60, 16), "180 up")
+
+
+def _draw_facing(p):
+    import math
+    blue = QtGui.QColor(70, 130, 200)
+    c = QtCore.QPointF(75, 50)
+    _dots(p, c, 30, [-math.pi / 4 + i * math.pi / 6 for i in range(4)], blue)
+    p.setPen(QtGui.QPen(QtGui.QColor(200, 90, 60), 2))
+    p.drawLine(QtCore.QPointF(75, 50), QtCore.QPointF(112, 50))
+    p.drawLine(QtCore.QPointF(112, 50), QtCore.QPointF(104, 44))
+    p.drawLine(QtCore.QPointF(112, 50), QtCore.QPointF(104, 56))
+
+
+def _draw_stagger(p):
+    import math
+    blue = QtGui.QColor(70, 130, 200)
+    c = QtCore.QPointF(75, 52)
+    angles = [i * math.pi / 4 for i in range(8)]
+    _dots(p, c, 24, angles[::2], blue)
+    _dots(p, c, 36, angles[1::2], blue)
+
+
+def _draw_anchors(p):
+    p.setPen(QtCore.Qt.NoPen)
+    p.setBrush(QtGui.QColor(70, 130, 200))
+    for x in range(3):                     # a block above the cursor
+        p.drawRect(45 + x * 22, 14, 18, 14)
+    for x in range(3):                     # and one below
+        p.drawRect(45 + x * 22, 72, 18, 14)
+    p.setBrush(QtGui.QColor(200, 90, 60))
+    p.drawEllipse(QtCore.QPointF(75, 51), 4, 4)
+
+
+def _help_button(text):
+    """A small ? whose tooltip carries what used to be an inline caption."""
+    btn = QtWidgets.QToolButton()
+    btn.setText("?")
+    btn.setAutoRaise(True)
+    btn.setToolTip(text)
+    btn.setCursor(QtCore.Qt.WhatsThisCursor)
+    return btn
 
 
 def _panel(margin=6):
@@ -833,14 +919,14 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.preview.slots_swapped.connect(self._swap)
         self.preview.slot_menu.connect(self._slot_context)
         pv_frame, pv_lay = _panel()
+        pv_head = QtWidgets.QHBoxLayout()
+        pv_head.addStretch(1)
+        pv_head.addWidget(_help_button(
+            "n badge — several tools share the slot<br>"
+            "dot — conditional<br>ring — opens another pie<br>"
+            "dashed — empty<br>red — context clash"))
+        pv_lay.addLayout(pv_head)
         pv_lay.addWidget(self.preview)
-        legend = QtWidgets.QLabel(
-            "n badge — several tools share the slot  ·  dot — conditional  ·  "
-            "ring — opens another pie  ·  dashed — empty  ·  red — context "
-            "clash")
-        legend.setStyleSheet("color: gray;")
-        legend.setWordWrap(True)
-        pv_lay.addWidget(legend)
         top.addWidget(pv_frame, 1)
 
         # -- slots table
@@ -885,51 +971,29 @@ class PieMenuPreferences(QtWidgets.QDialog):
 
         # -- shortcuts
         sc_frame, sc_lay = _panel()
-        sc_lay.addWidget(QtWidgets.QLabel("Shortcuts"))
+        sc_head = QtWidgets.QHBoxLayout()
+        sc_head.addWidget(QtWidgets.QLabel("Shortcuts"))
+        sc_head.addStretch(1)
+        sc_head.addWidget(_help_button(
+            "· press &nbsp; ·· double-press — two pies per key; whether "
+            "release fires (gesture pies) or the pie stays for clicking is "
+            "its 'Run on'<br>↳ italic flows in from Any workbench<br>"
+            "the bold tinted column is the current workbench<br>"
+            "double-click binds the press, right-click everything else"))
+        sc_lay.addLayout(sc_head)
         self.shortcuts = ShortcutsTable(workbenches=workbenches)
         self.shortcuts.changed.connect(self._binds_changed)
         self.shortcuts.jump_to_pie.connect(self.select_pie)
         sc_lay.addWidget(self.shortcuts)
-        sc_legend = QtWidgets.QLabel(
-            "· press   ·· double-press — two pies per key; whether "
-            "release fires (gesture pies) or the pie stays for clicking "
-            "is its 'Run on' · ↳ italic flows in from Any workbench · "
-            "the bold tinted column is the current workbench · "
-            "double-click binds the press, right-click everything else")
-        sc_legend.setStyleSheet("color: gray;")
-        sc_legend.setWordWrap(True)
-        sc_lay.addWidget(sc_legend)
         outer.addWidget(sc_frame)
 
-        # the whole global surface, inlined: two behaviour toggles, the
-        # accent override and backup -- no second dialog
+        # the global surface, inlined: the accent override and backup
         foot = QtWidgets.QHBoxLayout()
         add_key = QtWidgets.QPushButton("Add a shortcut key…")
         add_key.clicked.connect(self.shortcuts.add_key)
         foot.addWidget(add_key)
         foot.addSpacing(16)
         p = App.ParamGet(runtime.MAIN)
-        self.g_toggle = QtWidgets.QCheckBox("Key toggles open/close")
-        self.g_toggle.setChecked(p.GetBool("GlobalKeyToggle", True))
-        self.g_toggle.toggled.connect(
-            lambda v: p.SetBool("GlobalKeyToggle", v))
-        self.g_toggle.setToolTip(HELP.get("Toggle show/hide", ""))
-        foot.addWidget(self.g_toggle)
-        self.g_rclick = QtWidgets.QCheckBox("Long right-click opens")
-        self.g_rclick.setChecked(p.GetBool("RightClickTrigger", False))
-        self.g_rclick.toggled.connect(
-            lambda v: p.SetBool("RightClickTrigger", v))
-        self.g_rclick.setToolTip(HELP.get("Long right-click to open", ""))
-        foot.addWidget(self.g_rclick)
-        self.g_delay = QtWidgets.QSpinBox()
-        self.g_delay.setRange(100, 2000)
-        self.g_delay.setSuffix(" ms")
-        self.g_delay.setValue(p.GetInt("DelayRightClick", 0) or 350)
-        self.g_delay.valueChanged.connect(
-            lambda v: p.SetInt("DelayRightClick", v))
-        self.g_delay.setToolTip("How long the right button is held before "
-                                "the pie opens.")
-        foot.addWidget(self.g_delay)
         accent_btn = QtWidgets.QPushButton("Accent…")
         accent_btn.setToolTip("Colour for door rings, hover borders, the "
                               "gesture arrow and dwell rings. Default: the "
@@ -1316,8 +1380,15 @@ class PieMenuPreferences(QtWidgets.QDialog):
         def row(label, widget):
             lab = QtWidgets.QLabel(label + ":")
             tip = HELP.get(label, "")
-            lab.setToolTip(tip)
-            widget.setToolTip(tip)
+            image = _tip_image(label)
+            if image:
+                tip = f"<img src='{image}'><br>{tip}"
+            if tip:
+                # the dotted underline says "hover me, there is help here"
+                lab.setStyleSheet(
+                    "border-bottom: 1px dotted palette(mid);")
+                lab.setToolTip(tip)
+                widget.setToolTip(tip)
             form.addRow(lab, widget)
             return widget
 
@@ -1494,6 +1565,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
 
 def open_preferences(parent=None, on_change=None):
     dlg = PieMenuPreferences(parent, on_change=on_change)
-    dlg.resize(1280, 760)
+    screen = QtWidgets.QApplication.primaryScreen()
+    if screen is not None:
+        avail = screen.availableGeometry()
+        dlg.resize(min(1560, int(avail.width() * 0.85)),
+                   min(1000, int(avail.height() * 0.85)))
+    else:
+        dlg.resize(1560, 1000)
     dlg.exec_()
     return dlg
