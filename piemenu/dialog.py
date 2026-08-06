@@ -8,6 +8,7 @@ columns pinned).  Doors, rules and scoped binds all edit the same model the
 runtime reads; every change calls ``on_change`` so the caller can reload it.
 """
 
+import math
 import os
 
 from PySide import QtCore, QtGui, QtWidgets
@@ -250,8 +251,9 @@ def command_label(cmd):
     return cmd.split("_", 1)[-1]
 
 
-GLYPH = {"press": "·", "double": "··"}
-GNAME = {"press": "press", "double": "double-press"}
+GLYPH = {"press": "·", "double": "··", "hold": "—", "double-hold": "··—"}
+GNAME = {"press": "press", "double": "double-press",
+         "hold": "press-and-hold", "double-hold": "double-press-and-hold"}
 
 
 # ---- rule editing ----------------------------------------------------------
@@ -489,6 +491,18 @@ class PreviewWidget(QtWidgets.QWidget):
     def _geometry(self):
         pie = self.pie
         pos = model.positions(pie)
+        if pie.show_names and len(pos) > 1:
+            # spread like the live pie does, so full labels have room
+            fm = self.fontMetrics()
+            widest = max((fm.horizontalAdvance(command_label(s[0].cmd))
+                          for s in pie.items if s), default=0) + 10
+            if pie.family == "circle":
+                per = max(2, min(pie.per_ring, len(pos)))
+                chord = 2 * math.sin(math.pi / per) * max(1, pie.radius)
+                scale = max(1.0, widest / chord)
+            else:
+                scale = max(1.0, widest / (pie.button + pie.spacing))
+            pos = [(x * scale, y * scale) for x, y in pos]
         cx, cy = self.width() / 2, self.height() / 2
         size = pie.button
         return [(int(cx + x - size / 2), int(cy + y - size / 2)) for x, y in pos]
@@ -541,13 +555,17 @@ class PreviewWidget(QtWidgets.QWidget):
                     icon.paint(painter, rect.adjusted(6, 6, -6, -6))
                 if pie.show_names:
                     painter.setPen(pal.color(QtGui.QPalette.ButtonText))
+                    text = command_label(first.cmd)
+                    tw = painter.fontMetrics().horizontalAdvance(text) + 8
                     below = QtCore.QRect(
-                        rect.left() - 24, rect.bottom() + 2,
-                        rect.width() + 48,
-                        painter.fontMetrics().height())
-                    painter.drawText(below,
-                                     QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop,
-                                     command_label(first.cmd))
+                        rect.center().x() - tw // 2, rect.bottom() + 2,
+                        tw, painter.fontMetrics().height())
+                    # never off the edge of the preview
+                    below.moveLeft(max(2, min(below.left(),
+                                              self.width() - tw - 2)))
+                    below.moveTop(min(below.top(),
+                                      self.height() - below.height() - 2))
+                    painter.drawText(below, QtCore.Qt.AlignCenter, text)
                 conditional = any(b.rule for b in slot)
                 if len(slot) > 1:
                     badge = QtCore.QRect(rect.right() - 9, rect.top() - 5,
@@ -1007,9 +1025,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
         sc_head.addWidget(QtWidgets.QLabel("Shortcuts"))
         sc_head.addStretch(1)
         sc_head.addWidget(_help_button(
-            "· press &nbsp; ·· double-press — two pies per key; whether "
-            "release fires (gesture pies) or the pie stays for clicking is "
-            "its 'Run on'<br>↳ italic flows in from Any workbench<br>"
+            "· press &nbsp; ·· double-press &nbsp; — press-and-hold &nbsp; "
+            "··— double-press-and-hold — four pies per key; whether release "
+            "fires (gesture pies) or the pie stays for clicking is its "
+            "'Run on'<br>↳ italic flows in from Any workbench<br>"
             "the bold tinted column is the current workbench<br>"
             "double-click binds the press, right-click everything else"))
         sc_lay.addLayout(sc_head)

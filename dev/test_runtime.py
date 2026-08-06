@@ -370,6 +370,50 @@ press(disp)
 assert opened == []
 press(disp)
 assert [w.pie.name for w in opened] == ["Sub"]
+
+opened.clear()                       # press vs hold: tap gets the press pie
+gmaps["F6"] = {"press": "Sub", "hold": "Main"}
+run_of["Main"] = "release"
+disp.close()
+disp.last_tap.clear()
+press(disp)
+assert opened == []                  # ambiguous: deferred
+release(disp)                        # a tap: the persistent press pie
+assert [w.pie.name for w in opened] == ["Sub"] and opened[0].visible
+
+opened.clear()                       # ...and holding gets the hold pie
+disp.close()
+disp.last_tap.clear()
+wait(400)                            # let the double window lapse
+press(disp)
+assert opened == []
+wait(320)                            # defer elapses while held
+assert [w.pie.name for w in opened] == ["Main"] and opened[0].visible
+release(disp)
+assert opened[0].committed
+
+opened.clear()                       # double vs double-hold on one key
+gmaps["F6"] = {"double": "Sub", "double-hold": "Main"}
+disp.close()
+disp.last_tap.clear()
+press(disp)
+release(disp)                        # first tap arms
+press(disp)                          # second press: ambiguous pair
+assert opened == []
+release(disp)                        # released quickly: the double-tap
+assert [w.pie.name for w in opened] == ["Sub"] and opened[0].visible
+
+opened.clear()
+disp.close()
+disp.last_tap.clear()
+wait(400)
+press(disp)
+release(disp)
+press(disp)                          # tap, then press-and-hold
+wait(320)
+assert [w.pie.name for w in opened] == ["Main"] and opened[0].visible
+release(disp)
+assert opened[0].committed           # the double-hold gestured
 print("PASS dispatch")
 
 

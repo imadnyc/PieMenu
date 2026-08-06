@@ -127,3 +127,14 @@ gesturing, and a release under 250ms falls back to the tap binding when
 one exists. The shortcuts table stacks one glyph-prefixed line per gesture
 (`·` `··` `—`), inherited lines shown as `↳ pie` in dim italics, with a
 legend underneath.
+
+## Four gestures (2026-08-06)
+
+press / double / hold / double-hold, still key x scope x gesture -> pie.
+Every key press resolves a QUICK outcome (press or double) and a HELD one
+(hold or double-hold): both bound and different -> the dispatcher defers
+~170ms, an early release opens the quick pie (persistent pies only — a
+completed tap means nothing to a release pie), holding or moving the
+mouse opens the held pie anchored at the press point. A fast second press
+on a key with no double-side binding re-runs the press pair, so fast
+toggling works. Params: bare key = press, "KEY double|hold|double-hold".

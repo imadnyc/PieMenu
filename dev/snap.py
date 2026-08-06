@@ -84,6 +84,10 @@ def run():
         snap(dlg, "dialog-main")
         dlg.select_pie("Modelling")
         snap(dlg, "dialog-modelling")
+        dlg.pies["Constraints"].show_names = True
+        dlg.select_pie("Constraints")
+        snap(dlg, "dialog-constraints-names")
+        dlg.pies["Constraints"].show_names = False
         dlg.deleteLater()
 
         print("SNAP-DONE", flush=True)

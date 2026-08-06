@@ -153,22 +153,27 @@ M.set_bind("PartDesign", "1", "Main")
 M.set_bind("PartDesign", "Ctrl+1", "Modelling")   # modifier keys as param names
 M.set_bind("Sketcher", "1", "Main")
 M.set_bind("PartDesign", "1", "Patterns", "double")
-M.set_bind("Any", "1", "View", "hold")            # legacy spelling on disk
+M.set_bind("Any", "1", "View", "hold")
+M.set_bind("Any", "1", "Datums", "double-hold")
 b2 = M.load_binds()
 assert b2["Any"]["9"] == {"press": "Sketching"}
 assert b2["PartDesign"]["Ctrl+1"] == {"press": "Modelling"}
 assert b2["PartDesign"]["1"] == {"press": "Main", "double": "Patterns"}
-assert b2["Any"]["1"] == {"press": "View"}        # 'hold' folds into press
+assert b2["Any"]["1"] == {"hold": "View", "double-hold": "Datums"}
 assert M.resolve_key("Ctrl+1", "PartDesign", b2) == ("Modelling", "PartDesign")
 assert M.resolve_key("1", "PartDesign", b2, "double") == \
     ("Patterns", "PartDesign")
 # each gesture inherits independently through the Any scope
 assert M.gestures_for("1", "PartDesign", b2) == {
     "press": ("Main", "PartDesign"),
-    "double": ("Patterns", "PartDesign")}
+    "double": ("Patterns", "PartDesign"),
+    "hold": ("View", "Any"),
+    "double-hold": ("Datums", "Any")}
 assert M.gestures_for("1", "Sketcher", b2) == {
-    "press": ("Main", "Sketcher")}
-assert M.key_gestures("1", b2) == ["press", "double"]
+    "press": ("Main", "Sketcher"),
+    "hold": ("View", "Any"),
+    "double-hold": ("Datums", "Any")}
+assert M.key_gestures("1", b2) == ["press", "double", "hold", "double-hold"]
 assert M.key_gestures("9", b2) == ["press"]
 M.remove_key("1")
 b3 = M.load_binds()

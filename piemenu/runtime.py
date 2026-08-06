@@ -544,14 +544,15 @@ PieWidget.show_chooser = _show_chooser
 class Dispatcher(QtCore.QObject):
     """App-wide key handling: the gesture belongs to the binding.
 
-    A key carries a press pie and optionally a double-press pie. What
-    RELEASE means is the pie's own run mode: a release pie opens on press,
-    follows the aim and never outlives the key (release fires the aim, or
-    just closes from the centre dead-zone); a click/hover pie stays for
-    the mouse, and pressing again toggles it shut. A second press within
-    350ms swaps to the double pie — and when a double is bound, a release
-    pie's appearance is deferred ~170ms, so a quick tap is a clean no-op
-    and a double-tap never flickers. Also the long right-click trigger.
+    Four gestures per key — press, double, hold, double-hold. Every press
+    decides between a QUICK outcome (tap / double-tap) and a HELD one
+    (hold / double-hold): when both exist the pie defers ~170ms, an early
+    release resolves to the quick pie, holding (or moving the mouse)
+    resolves to the held one anchored at the press point. What RELEASE
+    means is the pie's own run mode: a release pie follows the aim and
+    never outlives the key (centre dead-zone just closes); a click/hover
+    pie stays for the mouse and toggles. Also the long right-click
+    trigger.
     """
 
     DOUBLE_MS = 350
@@ -593,11 +594,12 @@ class Dispatcher(QtCore.QObject):
     def _open_deferred(self):
         if self._deferred is None:
             return
-        key, name = self._deferred
+        key, _quick, held = self._deferred
         self._deferred = None
-        if self.held == key:          # the hand is still down: gesture on
-            # anchor at the press point, so movement so far counts as aim
-            self.open_pie(name, at=self._press_pos)
+        if self.held == key and held is not None:
+            # the hand is still down: the held outcome, anchored at the
+            # press point so movement so far counts as aim
+            self.open_pie(held, at=self._press_pos)
             self.held = key           # open_pie's close() cleared it
 
     def open_pie(self, name, at=None):
@@ -668,34 +670,45 @@ class Dispatcher(QtCore.QObject):
         double_ready = self._double(key, now)
         self._defer.stop()
         self._deferred = None
-        if "double" in gmap and double_ready:
-            # second press within the window: the double pie takes over
-            if not self._reuse(gmap["double"]):
-                self.open_pie(gmap["double"])
-            self.held = key
-            return True
-        if "press" in gmap:
-            name = gmap["press"]
+        # every press decides between a QUICK outcome (tap / double-tap) and
+        # a HELD outcome (hold / double-hold)
+        if double_ready:
+            quick, held = gmap.get("double"), gmap.get("double-hold")
+            if quick is None and held is None:
+                # no double side on this key: a fast second press is just
+                # another press (fast toggling must keep working)
+                quick, held = gmap.get("press"), gmap.get("hold")
+        else:
+            quick, held = gmap.get("press"), gmap.get("hold")
+        if quick is None and held is None:
+            return True      # nothing this round; the window is armed
+        ambiguous = held is not None and held != quick
+        if not ambiguous and not double_ready and quick is not None \
+                and self.mode_of(quick) == "release" \
+                and ("double" in gmap or "double-hold" in gmap):
+            # a gesture pie ahead of a possible double: wait it out so a
+            # quick tap is a no-op and a double-tap never flickers
+            held = quick
+            ambiguous = True
+        if not ambiguous:
+            name = quick if quick is not None else held
             if self._reuse(name):
                 # the same pie is already up: a persistent pie toggles shut
-                # (unless a double is bound, which a slow second tap must
-                # not swallow); a gesture pie just re-arms
+                # (only when this key has no other gesture to protect)
                 if (self.mode_of(name) != "release"
-                        and behaviour()["toggle"] and "double" not in gmap):
+                        and behaviour()["toggle"] and set(gmap) <= {"press"}):
                     self.close()
                     return True
-            elif "double" in gmap and self.mode_of(name) == "release":
-                # defer the gesture pie so a quick tap is a clean no-op and
-                # a double-tap swaps without any flicker; moving the mouse
-                # ends the wait early (gesturing, not tapping)
-                self._deferred = (key, name)
-                self._press_pos = QtGui.QCursor.pos()
-                self._defer.start()
             else:
                 self.open_pie(name)
             self.held = key
             return True
-        # only a double is bound: the first press arms silently
+        # ambiguous: hold (or movement) opens the held pie; an early
+        # release resolves to the quick one
+        self._deferred = (key, quick, held)
+        self._press_pos = QtGui.QCursor.pos()
+        self._defer.start()
+        self.held = key
         return True
 
     def _key_release(self, event):
@@ -705,10 +718,15 @@ class Dispatcher(QtCore.QObject):
             return False
         self.held = None
         if self._deferred is not None:
-            # released before the deferred gesture pie appeared: a pure tap,
-            # which on a gesture pie means nothing at all
+            # released before the held outcome: this was a tap
+            _key, quick, _held = self._deferred
             self._defer.stop()
             self._deferred = None
+            if quick is not None and self.mode_of(quick) != "release" \
+                    and not self._reuse(quick):
+                # a persistent quick pie opens where the press happened;
+                # a release pie on a completed tap means nothing at all
+                self.open_pie(quick, at=self._press_pos)
             return True
         widget = self.current
         if widget is None:

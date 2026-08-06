@@ -116,20 +116,20 @@ for pie in (main, modelling, patterns, sketching, view,
     model.save_pie(pie)
 
 # F3-F8, skipping F5 (FreeCAD recompute; F1 help and F2 rename also taken).
-# Two gestures per key: press and double-press. Whether release fires is
-# the pie's run_on: Modelling/Sketching/Constraints are gesture pies
-# (press, aim, release), the rest stay open for clicking.
+# Four gestures per key: press, double, hold, double-hold. Gesture pies
+# (run_on release: Modelling, Sketching, Constraints) follow the aim and
+# vanish with the key; the rest stay open for clicking.
 model.set_bind(ANY_SCOPE, "F3", "Main")
-# In PartDesign pressing F3 gestures through Modelling; the double-press
-# is the way back out to Main.
-model.set_bind("PartDesign", "F3", "Modelling")
-model.set_bind("PartDesign", "F3", "Main", "double")
-model.set_bind("Sketcher", "F3", "Sketching")
+# In PartDesign F3 does three things: tap = Main (inherited), hold =
+# gesture through Modelling, double-tap-and-hold = gesture Patterns.
+model.set_bind("PartDesign", "F3", "Modelling", "hold")
+model.set_bind("PartDesign", "F3", "Patterns", "double-hold")
+model.set_bind("Sketcher", "F3", "Sketching", "hold")
 model.set_bind(ANY_SCOPE, "F4", "Modelling")
 model.set_bind(ANY_SCOPE, "F4", "Patterns", "double")
 model.set_bind(ANY_SCOPE, "F6", "View")
 model.set_bind(ANY_SCOPE, "F7", "Booleans")
-model.set_bind("Sketcher", "F7", "Constraints")
+model.set_bind("Sketcher", "F7", "Constraints", "hold")
 model.set_bind(ANY_SCOPE, "F8", "Datums")
 
 model.set_schema_version(model.SCHEMA_VERSION)

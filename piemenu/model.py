@@ -263,13 +263,14 @@ def pie_live(name, pies, counts, _seen=None):
 
 
 # ---- shortcuts ------------------------------------------------------------
-# A binding is key x scope x GESTURE -> pie: "press" or "double" (double
-# press). One key can reach two pies per workbench; each gesture inherits
-# through the Any scope independently. What RELEASE means is the pie's own
-# run_on: a release pie opens on press, follows the aim and never outlives
-# the key; a click/hover pie stays for the mouse and toggles.
+# A binding is key x scope x GESTURE -> pie. Four gestures: press (a tap),
+# double (two taps), hold (press and keep it down), double-hold (tap, then
+# press and hold). One key can reach four pies per workbench; each gesture
+# inherits through the Any scope independently. What RELEASE means is the
+# pie's own run_on: a release pie follows the aim and never outlives the
+# key; a click/hover pie stays for the mouse and toggles.
 
-GESTURES = ("press", "double")
+GESTURES = ("press", "double", "hold", "double-hold")
 
 def resolve_key(key, workbench, binds, gesture="press"):
     """(pie name, scope) for a key + gesture in a workbench, or None.
@@ -408,8 +409,8 @@ def load_binds():
             if not name:
                 continue
             key, _, gesture = pname.partition(" ")
-            if gesture in ("", "tap", "hold"):
-                gesture = "press"    # older spellings fold into press
+            if gesture in ("", "tap"):
+                gesture = "press"    # the older spelling folds into press
             if gesture not in GESTURES:
                 continue
             keys.setdefault(key, {})[gesture] = name
@@ -424,16 +425,16 @@ def set_bind(scope, key, pie_name, gesture="press"):
 
 def clear_bind(scope, key, gesture="press"):
     _grp("Shortcuts").GetGroup(scope).RemString(_bind_param(key, gesture))
-    if gesture == "press":               # older spellings of the same thing
+    if gesture == "press":               # the older spelling of the same thing
         _grp("Shortcuts").GetGroup(scope).RemString(f"{key} tap")
-        _grp("Shortcuts").GetGroup(scope).RemString(f"{key} hold")
 
 
 def remove_key(key):
     """Drop a key from every scope at once (the shortcuts-table row delete)."""
     root = _grp("Shortcuts")
     for scope in root.GetGroups():
-        for pname in (key, f"{key} double", f"{key} tap", f"{key} hold"):
+        for pname in (key, f"{key} double", f"{key} hold",
+                      f"{key} double-hold", f"{key} tap"):
             root.GetGroup(scope).RemString(pname)
 
 
