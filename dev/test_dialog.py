@@ -44,7 +44,7 @@ dlg = dialog.PieMenuPreferences(
 labels = [dlg.pie_list.item(i).text() for i in range(dlg.pie_list.count())]
 assert any(t.startswith("Main") and "(default)" in t for t in labels), labels
 assert any(t.startswith("Orphan") and "(unused)" in t for t in labels), labels
-assert any(t == "Sub" for t in labels), labels          # reached by a door
+assert any(t.startswith("Sub") for t in labels), labels  # reached by a door
 print("PASS pie list")
 
 # ---- slots table ------------------------------------------------------------

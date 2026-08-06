@@ -8,6 +8,7 @@ columns pinned).  Doors, rules and scoped binds all edit the same model the
 runtime reads; every change calls ``on_change`` so the caller can reload it.
 """
 
+import json
 import math
 import os
 
@@ -313,7 +314,21 @@ def command_icon(cmd, actions):
 def command_label(cmd):
     if is_pie_command(cmd):
         return "▸ " + pie_target(cmd)
+    if cmd.startswith(model.MACRO_PREFIX):
+        return "◈ " + cmd[len(model.MACRO_PREFIX):].rsplit(".", 1)[0]
     return cmd.split("_", 1)[-1]
+
+
+def _list_macros():
+    """The user's macro files, pickable as slot targets."""
+    if App is None:
+        return []
+    try:
+        folder = App.getUserMacroDir(True)
+        return sorted(f for f in os.listdir(folder)
+                      if f.lower().endswith((".fcmacro", ".py")))
+    except Exception:  # noqa: BLE001 -- no macro dir is fine
+        return []
 
 
 GLYPH = {"press": "·", "double": "··", "hold": "—", "double-hold": "··—"}
@@ -429,6 +444,18 @@ class PickerDialog(QtWidgets.QDialog):
         self.search.textChanged.connect(self._rebuild)
         lay.addWidget(self.search)
 
+        loader_row = QtWidgets.QHBoxLayout()
+        loader_row.addWidget(QtWidgets.QLabel(
+            "Missing a workbench's tools?"))
+        self.bench_pick = QtWidgets.QComboBox()
+        self.bench_pick.addItem("Load a workbench…")
+        for wb in workbench_scopes():
+            self.bench_pick.addItem(wb)
+        self.bench_pick.activated.connect(self._load_bench)
+        loader_row.addWidget(self.bench_pick)
+        loader_row.addStretch(1)
+        lay.addLayout(loader_row)
+
         self.tree = QtWidgets.QTreeWidget()
         self.tree.setHeaderHidden(True)
         self.tree.setMinimumSize(460, 260)
@@ -450,6 +477,7 @@ class PickerDialog(QtWidgets.QDialog):
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
 
+        self._pies_ref, self._current_ref = pies, current_pie
         self._groups = self._grouped(pies, current_pie)
         self._rebuild()
         self._echo()
@@ -461,9 +489,33 @@ class PickerDialog(QtWidgets.QDialog):
             groups.setdefault(name.split("_", 1)[0], []).append(name)
         doors = [model.PIE_PREFIX + p for p in sorted(pies)
                  if p != current_pie.name]
-        if doors:
-            groups["Pie menus"] = doors
+        doors.append(model.PIE_PREFIX + model.SMART_NAME)
+        groups["Pie menus"] = doors
+        macros = _list_macros()
+        if macros:
+            groups["Macros"] = [model.MACRO_PREFIX + m for m in macros]
         return groups
+
+    def _load_bench(self, index):
+        """Activate a workbench so its commands (and icons) exist, then
+        rescan; the picker can offer every bench without visiting it."""
+        if index <= 0 or App is None or not App.GuiUp:
+            return
+        scope = self.bench_pick.itemText(index)
+        try:
+            import FreeCADGui as Gui
+            benches = Gui.listWorkbenches()
+            full = next((k for k in benches
+                         if k.startswith(scope)), None)
+            if full:
+                current = Gui.activeWorkbench().name()
+                Gui.activateWorkbench(full)
+                Gui.activateWorkbench(current)
+        except Exception:  # noqa: BLE001 -- a bench that fails to load
+            return
+        self.actions = list_commands()
+        self._groups = self._grouped(self._pies_ref, self._current_ref)
+        self._rebuild()
 
     def _rebuild(self):
         query = self.search.text().strip().lower()
@@ -526,6 +578,7 @@ class PreviewWidget(QtWidgets.QWidget):
         self.highlight = -1
         self._drag_from = None
         self._mock_chooser = None    # (slot index, size): chooser-size demo
+        self._stats = {}             # cmd -> fires, for never-used dimming
         self.setMinimumSize(420, 320)
 
     def flash_chooser(self, index, size):
@@ -543,6 +596,10 @@ class PreviewWidget(QtWidgets.QWidget):
             self._mock_chooser = None
         self.pie = pie
         self.actions = actions
+        try:
+            self._stats = model.stats()
+        except Exception:  # noqa: BLE001 -- no params outside FreeCAD
+            self._stats = {}
         self.update()
 
     def set_selected(self, index):
@@ -615,12 +672,17 @@ class PreviewWidget(QtWidgets.QWidget):
                 else:
                     painter.drawRoundedRect(rect, 4, 4)
                 icon = command_icon(first.cmd, self.actions)
+                never_used = (self._stats and not is_pie_command(first.cmd)
+                              and first.cmd not in self._stats)
+                if never_used:
+                    painter.setOpacity(0.45)   # you have never fired this
                 if icon.isNull():
                     painter.setPen(pal.color(QtGui.QPalette.ButtonText))
                     painter.drawText(rect, QtCore.Qt.AlignCenter,
                                      command_label(first.cmd)[:6])
                 else:
                     icon.paint(painter, rect.adjusted(6, 6, -6, -6))
+                painter.setOpacity(1.0)
                 if pie.show_names:
                     painter.setPen(pal.color(QtGui.QPalette.ButtonText))
                     text = command_label(first.cmd)
@@ -873,11 +935,14 @@ class ShortcutsTable(QtWidgets.QWidget):
         own = self.binds.get(scope, {}).get(key, {})
         base = self.binds.get(ANY_SCOPE, {}).get(key, {})
         menu = QtWidgets.QMenu(self)
+        targets = sorted(self.pies) + [model.SMART_NAME]
         for g in model.GESTURES:
             verb = "Rebind" if g in own else "Bind"
             sub = menu.addMenu(f"{GLYPH[g]}  {verb} the {GNAME[g]}…")
-            for name in sorted(self.pies):
-                sub.addAction(name, lambda _=False, n=name, g=g:
+            for name in targets:
+                label = name if name != model.SMART_NAME \
+                    else f"{name} (most used)"
+                sub.addAction(label, lambda _=False, n=name, g=g:
                               self._set(scope, key, n, g))
         menu.addSeparator()
         for g in model.GESTURES:
@@ -925,7 +990,7 @@ class ShortcutsTable(QtWidgets.QWidget):
         if not new or new in self.keys():
             return
         menu = QtWidgets.QMenu(self)
-        for name in sorted(self.pies):
+        for name in sorted(self.pies) + [model.SMART_NAME]:
             menu.addAction(f"{new} opens {name} (Any workbench)",
                            lambda n=name: self._set(ANY_SCOPE, new, n))
         menu.exec_(QtGui.QCursor.pos())
@@ -1013,12 +1078,22 @@ class PieMenuPreferences(QtWidgets.QDialog):
         bar = QtWidgets.QHBoxLayout()
         bar.addWidget(QtWidgets.QLabel("Pies"))
         bar.addStretch(1)
+        try_btn = QtWidgets.QToolButton()
+        try_btn.setText("▶")
+        try_btn.setToolTip("Try this pie live, right here")
+        try_btn.clicked.connect(self._try_pie)
+        bar.addWidget(try_btn)
         for text, fn in (("+", self.pie_add),):
             b = QtWidgets.QToolButton()
             b.setText(text)
             b.clicked.connect(fn)
             bar.addWidget(b)
         left.addLayout(bar)
+        self.pie_filter = QtWidgets.QLineEdit()
+        self.pie_filter.setPlaceholderText("Filter…")
+        self.pie_filter.setClearButtonEnabled(True)
+        self.pie_filter.textChanged.connect(self._filter_pies)
+        left.addWidget(self.pie_filter)
         self.pie_list = QtWidgets.QListWidget()
         self.pie_list.setFixedWidth(200)
         self.pie_list.setHorizontalScrollBarPolicy(
@@ -1119,6 +1194,19 @@ class PieMenuPreferences(QtWidgets.QDialog):
         colours_btn.clicked.connect(
             lambda: colours_dialog(self, self.on_change).exec_())
         foot.addWidget(colours_btn)
+        p = App.ParamGet(runtime.MAIN)
+        animate = QtWidgets.QCheckBox("Animate")
+        animate.setChecked(p.GetBool("Animate", True))
+        animate.toggled.connect(lambda v: p.SetBool("Animate", v))
+        animate.setToolTip("Fade pies in over ~90ms.")
+        foot.addWidget(animate)
+        auto = QtWidgets.QCheckBox("Auto-open on selection")
+        auto.setChecked(p.GetBool("AutoOpenSelection", False))
+        auto.toggled.connect(lambda v: p.SetBool("AutoOpenSelection", v))
+        auto.setToolTip("When the selection changes and the workbench's pie "
+                        "has a matching conditional slot, open it at the "
+                        "cursor unasked.")
+        foot.addWidget(auto)
         foot.addStretch(1)
 
         root = App.ParamGet("User parameter:BaseApp/PieMenu")
@@ -1190,7 +1278,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
             for gestures in scope.values():
                 reached.update(gestures.values())
         for name in sorted(pies):
-            label = name
+            filled = sum(1 for s in pies[name].items if s)
+            label = f"{name} · {filled}"
             if pies[name].default:
                 label += "   (default)"
             elif name not in reached and not doors_into(pies, name):
@@ -1202,6 +1291,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
             if name == self.current:
                 self.pie_list.setCurrentItem(item)
         self.pie_list.blockSignals(False)
+        self._filter_pies(self.pie_filter.text())
 
         pie = self.pie()
         model.normalise(pie)
@@ -1220,6 +1310,19 @@ class PieMenuPreferences(QtWidgets.QDialog):
             self.slot = 0
             self.refresh()
 
+    def _filter_pies(self, text):
+        needle = text.strip().lower()
+        for i in range(self.pie_list.count()):
+            item = self.pie_list.item(i)
+            item.setHidden(bool(needle) and needle not in item.text().lower())
+
+    def _try_pie(self):
+        """Open the selected pie live at the cursor, straight from here."""
+        if runtime.runtime is None:
+            return
+        runtime.runtime.reload()
+        runtime.runtime.open_pie(self.current)
+
     def _pie_picked(self, _label):
         item = self.pie_list.currentItem()
         if item is not None:
@@ -1235,7 +1338,88 @@ class PieMenuPreferences(QtWidgets.QDialog):
         act.setEnabled(len(self.pies) > 1)
         menu.addSeparator()
         menu.addAction("Use when no workbench matches", self.pie_default)
+        menu.addSeparator()
+        menu.addAction("Export this pie…", self.pie_export)
+        menu.addAction("Import a pie…", self.pie_import)
+        menu.addAction("New from a toolbar…", self.pie_from_toolbar)
         menu.exec_(self.pie_list.mapToGlobal(point))
+
+    def pie_export(self):
+        pie = self.pie()
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export pie", f"{pie.name}.piemenu.json",
+            "PieMenu pies (*.piemenu.json)")
+        if not path:
+            return
+        data = {f: getattr(pie, f) for f in
+                ("name", "family", "icon", "slots", "per_ring", "ring_mode",
+                 "ring_counts", "radius", "arc", "arc_face", "stagger",
+                 "stagger_by", "cols", "rows", "anchors", "anchor_offsets",
+                 "button", "spacing", "accent", "run_on", "delay",
+                 "show_names", "alt_size", "door_hover")}
+        data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule)}
+                          for b in (slot or [])] for slot in pie.items]
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=1)
+
+    def pie_import(self):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Import a pie", "", "PieMenu pies (*.piemenu.json)")
+        if not path:
+            return
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            items = data.pop("items", [])
+            pie = Pie(name="Imported")
+            for key, value in data.items():
+                if hasattr(pie, key):
+                    setattr(pie, key, value)
+            pie.name = self._unique(str(data.get("name", "Imported")))
+            pie.default = False
+            model.normalise(pie)
+            for i, slot in enumerate(items[:len(pie.items)]):
+                bindings = [Binding(e["cmd"],
+                                    model.decode_rule(e.get("rule", "")))
+                            for e in slot if e.get("cmd")]
+                pie.items[i] = bindings or None
+        except Exception as exc:  # noqa: BLE001 -- bad file, tell the user
+            QtWidgets.QMessageBox.warning(self, "Import failed", str(exc))
+            return
+        model.save_pie(pie)
+        self.pies[pie.name] = pie
+        self.select_pie(pie.name)
+        self.on_change()
+
+    def pie_from_toolbar(self):
+        """Seed a new pie from any toolbar of the main window."""
+        if App is None or not App.GuiUp:
+            return
+        import FreeCADGui as Gui
+        mw = Gui.getMainWindow()
+        bars = {}
+        for bar in mw.findChildren(QtWidgets.QToolBar):
+            cmds = [a.objectName() for a in bar.actions()
+                    if a.objectName() and "_" in a.objectName()]
+            if cmds and bar.windowTitle():
+                bars[bar.windowTitle()] = cmds
+        if not bars:
+            return
+        name, ok = QtWidgets.QInputDialog.getItem(
+            self, "New pie from a toolbar", "Toolbar:",
+            sorted(bars), 0, False)
+        if not ok or not name:
+            return
+        cmds = bars[name][:24]
+        pie = Pie(self._unique(name), slots=max(4, len(cmds)),
+                  per_ring=8)
+        model.normalise(pie)
+        for i, cmd in enumerate(cmds):
+            pie.items[i] = [Binding(cmd)]
+        model.save_pie(pie)
+        self.pies[pie.name] = pie
+        self.select_pie(pie.name)
+        self.on_change()
 
     def _unique(self, base):
         names = set(self.pies)
@@ -1592,6 +1776,36 @@ class PieMenuPreferences(QtWidgets.QDialog):
         if pie.family == "grid":
             row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
         row("Chooser size", self._slider(pie.alt_size, 16, 64, "alt_size"))
+        accent_box = QtWidgets.QWidget()
+        accent_lay = QtWidgets.QHBoxLayout(accent_box)
+        accent_lay.setContentsMargins(0, 0, 0, 0)
+        accent_pick = QtWidgets.QPushButton("theme" if not pie.accent else "")
+        if pie.accent:
+            accent_pick.setStyleSheet(f"background:{pie.accent};"
+                                      "min-width:60px;")
+
+        def pick_pie_accent(_=False):
+            colour = QtWidgets.QColorDialog.getColor(
+                QtGui.QColor(pie.accent) if pie.accent else runtime.accent(),
+                self, "Pie accent")
+            if colour.isValid():
+                self._set("accent", colour.name())
+                accent_pick.setText("")
+                accent_pick.setStyleSheet(f"background:{colour.name()};"
+                                          "min-width:60px;")
+
+        accent_pick.clicked.connect(pick_pie_accent)
+        accent_clear = QtWidgets.QToolButton()
+        accent_clear.setText("✕")
+        accent_clear.setToolTip("Back to the global accent")
+        accent_clear.clicked.connect(
+            lambda: (self._set("accent", ""),
+                     accent_pick.setText("theme"),
+                     accent_pick.setStyleSheet("")))
+        accent_lay.addWidget(accent_pick)
+        accent_lay.addWidget(accent_clear)
+        accent_lay.addStretch(1)
+        row("Accent", accent_box)
 
         run_on = row("Run on", QtWidgets.QComboBox())
         run_on.addItems(["click", "hover", "release"])

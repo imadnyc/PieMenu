@@ -451,6 +451,9 @@ class FakeGui:
     def runCommand(self, cmd, idx=0):
         self.ran.append(cmd)
 
+    def doCommand(self, code):
+        self.ran.append(("py", code))
+
 
 App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 for pie in make_pies().values():
@@ -462,7 +465,8 @@ model.set_bind(model.ANY_SCOPE, "F8", "Main")
 gui = FakeGui()
 rt = runtime.Runtime(gui)
 rt.reload()
-assert set(gui.commands) == {"PieMenu_Main", "PieMenu_Sub"}
+assert set(gui.commands) == {"PieMenu_Main", "PieMenu_Sub",
+                             "PieMenu_Smart"}
 assert rt._resolve("F6") == "Main"
 assert rt._resolve("F7") == "Sub"                    # workbench scope
 assert rt._resolve(None) == "Main"                   # right-click: lowest key
@@ -471,6 +475,14 @@ widget = rt.open_pie("Main")
 assert widget is not None and widget.isVisible()
 rt.fire("Std_Undo")
 assert gui.ran == ["Std_Undo"]
+assert model.stats("PartDesign").get("Std_Undo") == 1   # fires are counted
+rt.fire("Macro:probe.FCMacro")
+assert gui.ran[-1][0] == "py" and "probe.FCMacro" in gui.ran[-1][1]
+smart_widget = rt.open_pie(model.SMART_NAME)            # built from stats
+assert smart_widget is not None and smart_widget.isVisible()
+assert any("Undo" in b.toolTip() for b in smart_widget.buttons
+           if not b.isHidden())
+smart_widget.close()
 widget.close()
 print("PASS runtime wrapper")
 

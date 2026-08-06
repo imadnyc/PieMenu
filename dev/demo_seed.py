@@ -131,6 +131,7 @@ model.set_bind(ANY_SCOPE, "F6", "View")
 model.set_bind(ANY_SCOPE, "F7", "Booleans")
 model.set_bind("Sketcher", "F7", "Constraints", "hold")
 model.set_bind(ANY_SCOPE, "F8", "Datums")
+model.set_bind(ANY_SCOPE, "F9", "Smart")   # your most-used, per workbench
 
 model.set_schema_version(model.SCHEMA_VERSION)
 print("DEMO-SEEDED:", ", ".join(sorted(model.load_pies())))

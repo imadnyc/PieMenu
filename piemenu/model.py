@@ -166,6 +166,7 @@ class Pie:
     # shared
     button: int = 34
     spacing: int = 6
+    accent: str = ""                # per-pie accent override (hex), "" = global
     # trigger
     open_on: str = "single"         # single | double | hold | double-hold
     run_on: str = "click"           # click | hover | release
@@ -346,7 +347,7 @@ def _grp(path=""):
 _BOOLS = ("default", "stagger", "show_names", "door_hover")
 _INTS = ("slots", "per_ring", "radius", "arc", "arc_face", "stagger_by",
          "cols", "rows", "button", "spacing", "delay", "alt_size")
-_STRINGS = ("family", "icon", "open_on", "run_on", "ring_mode")
+_STRINGS = ("family", "icon", "open_on", "run_on", "ring_mode", "accent")
 _PARAM = {f: "".join(w.capitalize() for w in f.split("_")) for f in
           _BOOLS + _INTS + _STRINGS}
 
@@ -485,6 +486,51 @@ def remove_key(key):
         for pname in (key, f"{key} double", f"{key} hold",
                       f"{key} double-hold", f"{key} tap"):
             root.GetGroup(scope).RemString(pname)
+
+
+# ---- usage stats -----------------------------------------------------------
+# every fire is counted per workbench, so the Smart pie can serve the tools
+# you actually use where you use them
+
+SMART_NAME = "Smart"
+MACRO_PREFIX = "Macro:"
+
+
+def bump_stat(workbench, cmd):
+    g = _grp("Stats").GetGroup(workbench or ANY_SCOPE)
+    g.SetInt(cmd, g.GetInt(cmd, 0) + 1)
+
+
+def stats(workbench=None):
+    """cmd -> count for one workbench, or aggregated over all of them."""
+    root = _grp("Stats")
+    out = {}
+    scopes = [workbench] if workbench else root.GetGroups()
+    for scope in scopes:
+        g = root.GetGroup(scope)
+        for cmd in g.GetInts():
+            out[cmd] = out.get(cmd, 0) + g.GetInt(cmd, 0)
+    return out
+
+
+def top_commands(workbench, n=8):
+    """The n most used commands: this workbench's first, then everywhere."""
+    own = stats(workbench)
+    everywhere = stats()
+    ranked = sorted(own, key=lambda c: -own[c])
+    for cmd in sorted(everywhere, key=lambda c: -everywhere[c]):
+        if cmd not in ranked:
+            ranked.append(cmd)
+    return [c for c in ranked if not is_pie_command(c)][:n]
+
+
+def smart_pie(workbench):
+    """A transient pie of the most used commands for this workbench."""
+    pie = Pie(SMART_NAME, slots=8, per_ring=8)
+    normalise(pie)
+    for i, cmd in enumerate(top_commands(workbench, 8)):
+        pie.items[i] = [Binding(cmd)]
+    return pie
 
 
 def get_schema_version():

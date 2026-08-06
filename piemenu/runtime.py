@@ -40,6 +40,8 @@ def behaviour():
         "toggle": p.GetBool("GlobalKeyToggle", True),
         "rclick": p.GetBool("RightClickTrigger", False),
         "rclick_delay": p.GetInt("DelayRightClick", 0) or 350,
+        "animate": p.GetBool("Animate", True),
+        "autoopen": p.GetBool("AutoOpenSelection", False),
     }
 
 
@@ -162,6 +164,10 @@ def command_icon(cmd):
     """
     if cmd in _ICON_CACHE:
         return _ICON_CACHE[cmd]
+    if cmd.startswith(model.MACRO_PREFIX):
+        icon = command_icon("Std_DlgMacroExecute")
+        _ICON_CACHE[cmd] = icon
+        return icon
     icon = None
     action = command_action(cmd)
     if action is not None and not action.icon().isNull():
@@ -207,19 +213,6 @@ class PieWidget(QtWidgets.QWidget):
     def __init__(self, pies, name, counts, fire, parent=None):
         super().__init__(parent, QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
-        fill = custom_colour("FillColor")
-        out = custom_colour("OutlineColor")
-        fill_css = fill.name() if fill else "palette(button)"
-        alt_css = fill.lighter(114).name() if fill \
-            else "palette(alternate-base)"
-        out_css = out.name() if out else "palette(mid)"
-        self.setStyleSheet(
-            f"QToolButton{{background:{fill_css};"
-            f"border:1px solid {out_css};border-radius:6px;}}"
-            f'QToolButton[alt="true"]{{background:{alt_css};}}'
-            f"QToolButton:hover{{border:2px solid {accent().name()};}}"
-            "QToolButton:disabled{background:palette(window);"
-            f"border:1px dashed {out_css};}}")
         self.pies = pies
         self.counts = counts
         self.fire = fire
@@ -227,6 +220,8 @@ class PieWidget(QtWidgets.QWidget):
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
         self.run_mode = None          # how this pie actually runs, see build()
+        self._stack = []              # door trail, for the back button
+        self._anim = None
         self.setMouseTracking(True)
         self.build(name)
 
@@ -239,6 +234,21 @@ class PieWidget(QtWidgets.QWidget):
         self._aim = None
         pie = self.pies[name]
         model.normalise(pie)
+        own = QtGui.QColor(pie.accent) if pie.accent else QtGui.QColor()
+        self._accent = own if own.isValid() else accent()
+        fill = custom_colour("FillColor")
+        out = custom_colour("OutlineColor")
+        fill_css = fill.name() if fill else "palette(button)"
+        alt_css = fill.lighter(114).name() if fill \
+            else "palette(alternate-base)"
+        out_css = out.name() if out else "palette(mid)"
+        self.setStyleSheet(
+            f"QToolButton{{background:{fill_css};"
+            f"border:1px solid {out_css};border-radius:6px;}}"
+            f'QToolButton[alt="true"]{{background:{alt_css};}}'
+            f"QToolButton:hover{{border:2px solid {self._accent.name()};}}"
+            "QToolButton:disabled{background:palette(window);"
+            f"border:1px dashed {out_css};}}")
         self.pie = pie
         # entered mid-gesture, a sub-pie stays a gesture pie: glide, release
         self.run_mode = "release" if self.run_mode == "release" \
@@ -276,6 +286,19 @@ class PieWidget(QtWidgets.QWidget):
         for (x, y), btn in zip(pos, self.buttons):
             btn.move(int(x - min_x - btn.width() / 2),
                      int(y - min_y - btn.height() / 2))
+        digit = 0
+        for btn in self.buttons:      # 1..9 fire slots from the keyboard
+            if digit >= 9:
+                break
+            if btn.isHidden() or not btn.isEnabled():
+                continue
+            digit += 1
+            tag = QtWidgets.QLabel(str(digit), btn)
+            tag.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+            tag.setStyleSheet("color:#888;font-size:9px;background:none;")
+            tag.adjustSize()
+            tag.move(btn.width() - tag.width() - 3, 1)
+            tag.setVisible(True)
 
     def _slot_button(self, slot, index):
         pie = self.pie
@@ -318,7 +341,7 @@ class PieWidget(QtWidgets.QWidget):
             btn.setIcon(pie_icon(self.pies.get(target)))
             tip = f"Open {target}"
             dead = not model.pie_live(target, self.pies, self.counts)
-            colour = "#808080" if (dead or not live) else accent().name()
+            colour = "#808080" if (dead or not live) else self._accent.name()
             btn.setStyleSheet(
                 f"QToolButton{{border:2px solid {colour};"
                 f"border-radius:{self.pie.button // 2}px;}}")
@@ -362,16 +385,68 @@ class PieWidget(QtWidgets.QWidget):
             target = pie_target(cmd)
             if target in self.pies:
                 # the sub-pie spawns where the hand already is
+                self._stack.append(self.pie.name)
                 self.build(target)
+                self._back_button()
                 self.popup_at(QtGui.QCursor.pos())
                 return
         self.close()
         self.fire(cmd)
 
+    def back(self):
+        """One step up the door trail."""
+        if not self._stack:
+            return
+        anchor = self.mapToGlobal(
+            QtCore.QPoint(int(self._origin[0]), int(self._origin[1])))
+        self.build(self._stack.pop())
+        self._back_button()
+        self.popup_at(anchor)
+
+    def _back_button(self):
+        if not self._stack:
+            return
+        btn = QtWidgets.QToolButton(self)
+        size = 24
+        btn.setFixedSize(size, size)
+        btn.setText("◂")
+        btn.setStyleSheet(f"QToolButton{{border-radius:{size // 2}px;}}")
+        btn.setToolTip(f"Back to {self._stack[-1]} (Backspace)")
+        btn.move(int(self._origin[0] - size / 2),
+                 int(self._origin[1] - size / 2))
+        btn.clicked.connect(self.back)
+        btn.setVisible(True)
+
+    def keyPressEvent(self, event):
+        key = event.key()
+        if QtCore.Qt.Key_1 <= key <= QtCore.Qt.Key_9:
+            index = key - QtCore.Qt.Key_1
+            if index < len(self.buttons):
+                btn = self.buttons[index]
+                if btn.isEnabled() and not btn.isHidden():
+                    btn.click()
+                    return
+        if key == QtCore.Qt.Key_Backspace and self._stack:
+            self.back()
+            return
+        super().keyPressEvent(event)
+
     def popup_at(self, global_pos):
         self.move(int(global_pos.x() - self._origin[0]),
                   int(global_pos.y() - self._origin[1]))
-        self.show()
+        if not self.isVisible() and App is not None \
+                and behaviour()["animate"]:
+            self.setWindowOpacity(0.0)
+            self.show()
+            anim = QtCore.QPropertyAnimation(self, b"windowOpacity", self)
+            anim.setDuration(90)
+            anim.setStartValue(0.0)
+            anim.setEndValue(1.0)
+            anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
+            self._anim = anim
+        else:
+            self.setWindowOpacity(1.0)
+            self.show()
 
     def nearest_slot(self, global_pos):
         """The enabled button nearest the cursor, for gesture release."""
@@ -439,7 +514,7 @@ class PieWidget(QtWidgets.QWidget):
             return
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        colour = arrow_colour()
+        colour = custom_colour("ArrowColor") or self._accent
         # minimal: one thin solid line, one small solid head
         ux, uy = (p2.x() - p1.x()) / length, (p2.y() - p1.y()) / length
         nx, ny = -uy, ux
@@ -472,7 +547,10 @@ class _DwellRing(QtWidgets.QWidget):
             return
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        painter.setPen(QtGui.QPen(accent(), 3,
+        pie_widget = self.parentWidget().parentWidget() \
+            if self.parentWidget() else None
+        colour = getattr(pie_widget, "_accent", None) or accent()
+        painter.setPen(QtGui.QPen(colour, 3,
                                   QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
         painter.drawArc(self.rect().adjusted(2, 2, -2, -2),
                         90 * 16, int(-360 * 16 * self.progress))
@@ -816,6 +894,25 @@ class _PieCommand:
             runtime.open_pie(self.name)
 
 
+class _SelectionWatch:
+    """Feeds selection changes to the runtime (debounced there)."""
+
+    def __init__(self, rt):
+        self.rt = rt
+
+    def addSelection(self, *_args):
+        self.rt._selection_poke()
+
+    def removeSelection(self, *_args):
+        self.rt._selection_poke()
+
+    def setSelection(self, *_args):
+        self.rt._selection_poke()
+
+    def clearSelection(self, *_args):
+        pass
+
+
 class Runtime:
     def __init__(self, gui):
         self.gui = gui
@@ -829,11 +926,17 @@ class Runtime:
             fallback=lambda: self._resolve(None),
             mode_of=lambda n: self.pies[n].run_on if n in self.pies
             else "click")
+        self._sel_observer = _SelectionWatch(self)
+        self._sel_timer = QtCore.QTimer()
+        self._sel_timer.setSingleShot(True)
+        self._sel_timer.setInterval(200)
+        self._sel_timer.timeout.connect(self._auto_open)
 
     # -- model access
 
     def reload(self):
         self.pies = model.load_pies()
+        self.pies.pop(model.SMART_NAME, None)   # Smart is never persisted
         self.binds = model.load_binds()
         self._keys = {}
         for scope in self.binds.values():
@@ -842,7 +945,7 @@ class Runtime:
         self._register_commands()
 
     def _register_commands(self):
-        for name in self.pies:
+        for name in list(self.pies) + [model.SMART_NAME]:
             if name in self._registered:
                 continue
             try:
@@ -886,9 +989,15 @@ class Runtime:
         return self.open_pie(name, at)
 
     def open_pie(self, name, at=None):
-        if name not in self.pies:
+        pies = self.pies
+        if name == model.SMART_NAME:
+            # built fresh every open: your most used tools, here, right now
+            pies = dict(self.pies)
+            pies[model.SMART_NAME] = model.smart_pie(
+                workbench_scope(self.gui))
+        if name not in pies:
             return None
-        widget = PieWidget(self.pies, name, self.counts(), self.fire)
+        widget = PieWidget(pies, name, self.counts(), self.fire)
         widget.popup_at(at if at is not None and not at.isNull()
                         else QtGui.QCursor.pos())
         self.dispatcher.current = widget
@@ -896,10 +1005,49 @@ class Runtime:
 
     def fire(self, cmd):
         try:
-            self.gui.runCommand(cmd, 0)
+            if cmd.startswith(model.MACRO_PREFIX):
+                path = os.path.join(App.getUserMacroDir(True),
+                                    cmd[len(model.MACRO_PREFIX):])
+                self.gui.doCommand(
+                    f"exec(open({path!r}).read())")
+            else:
+                self.gui.runCommand(cmd, 0)
+            model.bump_stat(workbench_scope(self.gui), cmd)
         except Exception as exc:  # noqa: BLE001 -- a broken command must not kill the pie
             if App is not None:
                 App.Console.PrintWarning(f"PieMenu: {cmd} failed: {exc}\n")
+
+    # -- auto-open on selection (off unless the behaviour switch is on)
+
+    def watch_selection(self):
+        try:
+            import FreeCADGui as Gui
+            Gui.Selection.addObserver(self._sel_observer)
+        except Exception:  # noqa: BLE001 -- no Selection outside the GUI
+            return
+
+    def _selection_poke(self):
+        if App is None or not behaviour()["autoopen"]:
+            return
+        self._sel_timer.start()
+
+    def _auto_open(self):
+        disp = self.dispatcher
+        if disp.current is not None and disp.current.isVisible():
+            return
+        if disp._typing_focus():
+            return
+        name = self._resolve(None)
+        if not name or name not in self.pies:
+            return
+        counts = self.counts()
+        if not counts:
+            return
+        pie = self.pies[name]
+        live = any(b.rule and model.match_rule(b.rule, counts)
+                   for slot in pie.items for b in (slot or []))
+        if live:
+            self.open_pie(name)
 
 
 def start(gui):
@@ -908,6 +1056,7 @@ def start(gui):
     global runtime
     runtime = Runtime(gui)
     runtime.reload()
+    runtime.watch_selection()
     app = QtWidgets.QApplication.instance()
     if app is not None:
         app.installEventFilter(runtime.dispatcher)

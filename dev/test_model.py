@@ -143,6 +143,24 @@ assert auto_plan[0] < auto_plan[1]      # the roomier ring holds more
 assert M.ring_plan(Pie("U", slots=24, per_ring=8)) == [8, 8, 8]  # uniform
 print("PASS ring counts")
 
+# ---- usage stats and the Smart pie ------------------------------------------
+M.bump_stat("PartDesign", "A")
+M.bump_stat("PartDesign", "A")
+M.bump_stat("PartDesign", "B")
+M.bump_stat("Sketcher", "C")
+M.bump_stat("Sketcher", "C")
+M.bump_stat("Sketcher", "C")
+assert M.stats("PartDesign") == {"A": 2, "B": 1}
+assert M.stats() == {"A": 2, "B": 1, "C": 3}
+assert M.top_commands("PartDesign", 8) == ["A", "B", "C"]  # own first
+smart = M.smart_pie("PartDesign")
+assert smart.name == M.SMART_NAME
+assert smart.items[0][0].cmd == "A" and smart.items[2][0].cmd == "C"
+M.bump_stat("Any", M.PIE_PREFIX + "Main")
+assert M.PIE_PREFIX + "Main" not in M.top_commands("Any", 8)  # no doors
+M.App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
+print("PASS stats + smart")
+
 # ---- liveness with cycles -------------------------------------------------
 pies = {
     "A": M.normalise(Pie("A", slots=2,
