@@ -265,8 +265,9 @@ gmaps = {"F6": {"press": "Main"}}
 run_of = {"Main": "click", "Sub": "click"}
 
 
-def opener(name):
+def opener(name, at=None):
     fw = FakeWidget(FakePie(name, run_of[name]))
+    fw.at = at
     opened.append(fw)
     return fw
 
@@ -332,8 +333,29 @@ assert disp.held is not None
 release(disp)
 assert opened[0].committed           # and release commits as usual
 
+opened.clear()                       # moving the mouse cuts the wait short:
+gmaps["F6"] = {"press": "Main", "double": "Sub"}   # gesturing, not tapping
+run_of["Main"] = "release"
+disp.close()
+disp.last_tap.clear()
+QtGui.QCursor.setPos(QtCore.QPoint(300, 300))
+press(disp)
+assert opened == []                  # deferred
+QtGui.QCursor.setPos(QtCore.QPoint(340, 300))      # 40px: clearly a gesture
+move = QtGui.QMouseEvent(QtCore.QEvent.MouseMove,
+                         QtCore.QPointF(0, 0), QtCore.QPointF(340, 300),
+                         QtCore.Qt.NoButton, QtCore.Qt.NoButton,
+                         QtCore.Qt.NoModifier)
+disp.eventFilter(None, move)
+assert [w.pie.name for w in opened] == ["Main"] and opened[0].visible
+assert opened[0].at == QtCore.QPoint(300, 300)     # anchored at the press
+assert disp.held is not None
+release(disp)
+assert opened[0].committed
+
 opened.clear()                       # only a double bound: first press arms
 gmaps["F6"] = {"double": "Sub"}
+run_of["Main"] = "click"
 disp.close()
 disp.last_tap.clear()
 press(disp)

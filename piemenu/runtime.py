@@ -565,6 +565,7 @@ class Dispatcher(QtCore.QObject):
         self._defer.setInterval(self.DEFER_MS)
         self._defer.timeout.connect(self._open_deferred)
         self._deferred = None         # (key, pie name) waiting on the timer
+        self._press_pos = QtCore.QPoint()
 
     # -- helpers
 
@@ -586,12 +587,13 @@ class Dispatcher(QtCore.QObject):
         key, name = self._deferred
         self._deferred = None
         if self.held == key:          # the hand is still down: gesture on
-            self.open_pie(name)
+            # anchor at the press point, so movement so far counts as aim
+            self.open_pie(name, at=self._press_pos)
             self.held = key           # open_pie's close() cleared it
 
-    def open_pie(self, name):
+    def open_pie(self, name, at=None):
         self.close()
-        self.current = self.opener(name)
+        self.current = self.opener(name, at)
         return self.current
 
     def _reuse(self, name):
@@ -613,6 +615,15 @@ class Dispatcher(QtCore.QObject):
             return self._key_press(event)
         if etype == QtCore.QEvent.KeyRelease and not event.isAutoRepeat():
             return self._key_release(event)
+        if etype == QtCore.QEvent.MouseMove and self._deferred is not None:
+            # moving right after the press means a gesture, not a tap:
+            # show the pie now instead of waiting out the double window
+            pos = QtGui.QCursor.pos()
+            dx = pos.x() - self._press_pos.x()
+            dy = pos.y() - self._press_pos.y()
+            if dx * dx + dy * dy > 100:
+                self._defer.stop()
+                self._open_deferred()
         if App is not None and behaviour()["rclick"]:
             if etype == QtCore.QEvent.MouseButtonPress \
                     and event.button() == QtCore.Qt.RightButton:
@@ -666,8 +677,10 @@ class Dispatcher(QtCore.QObject):
                     return True
             elif "double" in gmap and self.mode_of(name) == "release":
                 # defer the gesture pie so a quick tap is a clean no-op and
-                # a double-tap swaps without any flicker
+                # a double-tap swaps without any flicker; moving the mouse
+                # ends the wait early (gesturing, not tapping)
                 self._deferred = (key, name)
+                self._press_pos = QtGui.QCursor.pos()
                 self._defer.start()
             else:
                 self.open_pie(name)
@@ -811,14 +824,15 @@ class Runtime:
 
     # -- opening
 
-    def _open_for_dispatch(self, name):
-        return self.open_pie(name)
+    def _open_for_dispatch(self, name, at=None):
+        return self.open_pie(name, at)
 
-    def open_pie(self, name):
+    def open_pie(self, name, at=None):
         if name not in self.pies:
             return None
         widget = PieWidget(self.pies, name, self.counts(), self.fire)
-        widget.popup_at(QtGui.QCursor.pos())
+        widget.popup_at(at if at is not None and not at.isNull()
+                        else QtGui.QCursor.pos())
         self.dispatcher.current = widget
         return widget
 
