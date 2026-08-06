@@ -878,7 +878,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         sc_frame, sc_lay = _panel()
         sc_lay.addWidget(QtWidgets.QLabel("Shortcuts"))
         self.shortcuts = ShortcutsTable(workbenches=workbenches)
-        self.shortcuts.setMinimumHeight(160)
+        self.shortcuts.setMinimumHeight(280)
         self.shortcuts.changed.connect(self._binds_changed)
         self.shortcuts.jump_to_pie.connect(self.select_pie)
         sc_lay.addWidget(self.shortcuts)

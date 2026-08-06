@@ -120,6 +120,10 @@ for pie in (main, modelling, patterns, sketching, view,
 # (inherited tap) while holding F3 gestures through Modelling -- one key,
 # two pies, and per-workbench meanings on top.
 model.set_bind(ANY_SCOPE, "F3", "Main")
+# In PartDesign the tap goes straight to Modelling (Main mostly leads there
+# anyway); the double-press is the way back out to Main.
+model.set_bind("PartDesign", "F3", "Modelling")
+model.set_bind("PartDesign", "F3", "Main", "double")
 model.set_bind("PartDesign", "F3", "Modelling", "hold")
 model.set_bind("Sketcher", "F3", "Sketching", "hold")
 model.set_bind(ANY_SCOPE, "F4", "Modelling", "hold")
