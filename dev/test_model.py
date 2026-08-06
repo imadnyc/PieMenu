@@ -176,6 +176,14 @@ gated = [M.Binding("A", {"Face": (">=", 1)}), M.Binding("B")]
 assert M.slot_face(gated, {}, "A").cmd == "B"         # pick no longer applies
 assert M.slot_face([M.Binding("A", {"Face": (">=", 1)})], {}) is None
 
+# the context checker: conditional + always mixed in one slot is flagged
+mixed = [M.Binding("A", {"Object": (">=", 2)}), M.Binding("B")]
+assert [i for i, _ in M.slot_check(mixed)] == [1]     # the always-on culprit
+assert M.slot_check([M.Binding("A"), M.Binding("B")]) == []   # pure overload
+assert M.slot_check([M.Binding("A", {"Face": (">=", 1)}),
+                     M.Binding("B", {"Edge": (">=", 1)})]) == []
+assert M.slot_check(None) == [] and M.slot_check([]) == []
+
 sticky = M.Pie("Sticky", slots=2, per_ring=2, alt_size=40, door_hover=False)
 M.normalise(sticky)
 sticky.items[0] = [M.Binding("A"), M.Binding("B")]

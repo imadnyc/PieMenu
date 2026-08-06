@@ -108,6 +108,16 @@ app.processEvents()
 assert not dlg._refresh_queued
 dlg._set_family("circle")
 app.processEvents()
+# the context checker surfaces in the tree: conditional + always in one slot
+orig_slot = dlg.pie().items[2]
+dlg.pie().items[2] = [Binding("Std_New", {"Face": (">=", 2)}),
+                      Binding("Std_Open")]
+dlg._fill_slots()
+texts = [dlg.slots.topLevelItem(k).text(0)
+         for k in range(dlg.slots.topLevelItemCount())]
+assert any("context clash" in t for t in texts), texts
+dlg.pie().items[2] = orig_slot
+dlg._fill_slots()
 print("PASS edits")
 
 # ---- rule field -------------------------------------------------------------

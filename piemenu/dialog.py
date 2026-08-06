@@ -1116,14 +1116,21 @@ class PieMenuPreferences(QtWidgets.QDialog):
             f"{sum(1 for s in pie.items if s)}/{model.slot_count(pie)}")
         self.slots.clear()
         tint = self.palette().alternateBase()
+        warn = QtGui.QBrush(QtGui.QColor(200, 70, 60))
         for i, slot in enumerate(pie.items):
+            problems = dict(model.slot_check(slot))
             label = f"Slot {i + 1}"
             if slot and len(slot) > 1:
                 label += f"   — {len(slot)} tools, first match wins"
             elif not slot:
                 label += "   — empty"
+            if problems:
+                label += "   ⚠ context clash"
             top = QtWidgets.QTreeWidgetItem([label, ""])
             top.setData(0, QtCore.Qt.UserRole, (i, None))
+            if problems:
+                top.setForeground(0, warn)
+                top.setToolTip(0, "\n".join(problems.values()))
             self.slots.addTopLevelItem(top)
             rows = [top]
             for j, b in enumerate(slot or []):
@@ -1133,6 +1140,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
                 child.setData(0, QtCore.Qt.UserRole, (i, j))
                 child.setForeground(1, QtGui.QBrush(QtGui.QColor(128, 128,
                                                                  128)))
+                if j in problems:
+                    child.setForeground(0, warn)
+                    child.setForeground(1, warn)
+                    child.setText(1, "always  ⚠")
+                    child.setToolTip(0, problems[j])
+                    child.setToolTip(1, problems[j])
                 top.addChild(child)
                 rows.append(child)
             if i % 2:                    # alternate whole slot groups

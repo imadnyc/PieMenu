@@ -165,14 +165,21 @@ print("PASS gesture faces")
 # ---- doors on hover, chooser size ------------------------------------------
 fired.clear()
 pies["Main"].run_on = "release"
-pies["Main"].delay = 60
+pies["Main"].delay = 200
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 w.popup_at(QtCore.QPoint(400, 400))
 app.sendEvent(w.buttons[2], QtCore.QEvent(QtCore.QEvent.Enter))
-wait(30)                                 # mid-dwell: the ring is filling
 ring = w.buttons[2].findChild(runtime._DwellRing)
-assert ring is not None and ring.isVisible() and 0 < ring.progress <= 1
-wait(140)                                # dwell out -> descend
+assert ring is not None and ring.isVisible()   # armed the moment we enter
+for _ in range(40):                      # the ring fills (deadline, not race)
+    if ring.progress > 0:
+        break
+    wait(25)
+assert 0 < ring.progress <= 1
+for _ in range(40):                      # then the dwell opens the door
+    if w.pie.name == "Sub":
+        break
+    wait(50)
 assert w.pie.name == "Sub" and fired == [], (w.pie.name, fired)
 assert any(not b.isHidden() for b in w.buttons)
 # Sub is a click pie, but it was entered mid-gesture: release still fires
@@ -202,6 +209,7 @@ assert w.buttons[1].property("alt") is True      # odd slots alternate fill
 assert not w.buttons[0].property("alt")
 w.deleteLater()
 pies["Main"].alt_size = 24
+pies["Main"].delay = 250
 pies["Main"].last_used.clear()
 print("PASS door hover + chooser size")
 

@@ -105,6 +105,25 @@ def live_bindings(slot, counts):
     return [b for b in (slot or []) if match_rule(b.rule, counts)]
 
 
+def slot_check(slot):
+    """Per-slot context lint: [(binding index, message)] for suspect mixes.
+
+    Mixing an always-on binding with conditional ones is flagged: the
+    always-on binding matches in every context, so the slot never goes
+    dead and the conditions stop gating anything.  A slot that is all
+    conditional, or all always-on (a plain overload), is fine.
+    """
+    slot = slot or []
+    always = [i for i, b in enumerate(slot) if not b.rule]
+    gated = [i for i, b in enumerate(slot) if b.rule]
+    if always and gated:
+        msg = ("always available, but this slot also has conditional tools "
+               "— the slot never goes dead, and this tool joins every "
+               "chooser")
+        return [(i, msg) for i in always]
+    return []
+
+
 def slot_face(slot, counts, last=None):
     """The binding an overloaded slot presents -- and fires on plain use:
     the last explicitly chosen one if it still applies, else the first."""
