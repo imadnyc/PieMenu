@@ -40,7 +40,6 @@ def behaviour():
         "toggle": p.GetBool("GlobalKeyToggle", True),
         "rclick": p.GetBool("RightClickTrigger", False),
         "rclick_delay": p.GetInt("DelayRightClick", 0) or 350,
-        "animate": p.GetBool("Animate", True),
         "autoopen": p.GetBool("AutoOpenSelection", False),
     }
 
@@ -221,7 +220,6 @@ class PieWidget(QtWidgets.QWidget):
         self._aim = None              # cursor point for the gesture arrow
         self.run_mode = None          # how this pie actually runs, see build()
         self._stack = []              # door trail, for the back button
-        self._anim = None
         self.setMouseTracking(True)
         self.build(name)
 
@@ -434,23 +432,7 @@ class PieWidget(QtWidgets.QWidget):
     def popup_at(self, global_pos):
         self.move(int(global_pos.x() - self._origin[0]),
                   int(global_pos.y() - self._origin[1]))
-        platform = QtWidgets.QApplication.platformName() \
-            if QtWidgets.QApplication.instance() else ""
-        if not self.isVisible() and App is not None \
-                and behaviour()["animate"] and platform != "wayland":
-            # Wayland cannot set window opacity: animating there only
-            # spams "plugin does not support" warnings
-            self.setWindowOpacity(0.0)
-            self.show()
-            anim = QtCore.QPropertyAnimation(self, b"windowOpacity", self)
-            anim.setDuration(90)
-            anim.setStartValue(0.0)
-            anim.setEndValue(1.0)
-            anim.start(QtCore.QAbstractAnimation.DeleteWhenStopped)
-            self._anim = anim
-        else:
-            self.setWindowOpacity(1.0)
-            self.show()
+        self.show()
 
     def nearest_slot(self, global_pos):
         """The enabled button nearest the cursor, for gesture release."""
@@ -898,6 +880,13 @@ class _PieCommand:
             runtime.open_pie(self.name)
 
 
+def _flush_params():
+    try:
+        App.saveParameter()
+    except Exception:  # noqa: BLE001 -- older builds save on exit only
+        return
+
+
 class _SelectionWatch:
     """Feeds selection changes to the runtime (debounced there)."""
 
@@ -935,6 +924,12 @@ class Runtime:
         self._sel_timer.setSingleShot(True)
         self._sel_timer.setInterval(200)
         self._sel_timer.timeout.connect(self._auto_open)
+        # FreeCAD only writes user.cfg on a clean exit; flush shortly after
+        # activity so stats and edits survive crashes and kills too
+        self._save_timer = QtCore.QTimer()
+        self._save_timer.setSingleShot(True)
+        self._save_timer.setInterval(4000)
+        self._save_timer.timeout.connect(_flush_params)
 
     # -- model access
 
@@ -947,6 +942,7 @@ class Runtime:
             for key in scope:
                 self._keys[QtGui.QKeySequence(key).toString()] = key
         self._register_commands()
+        self._save_timer.start()     # edits survive a killed session too
 
     def _register_commands(self):
         for name in list(self.pies) + [model.SMART_NAME]:
@@ -1017,6 +1013,7 @@ class Runtime:
             else:
                 self.gui.runCommand(cmd, 0)
             model.bump_stat(workbench_scope(self.gui), cmd)
+            self._save_timer.start()
         except Exception as exc:  # noqa: BLE001 -- a broken command must not kill the pie
             if App is not None:
                 App.Console.PrintWarning(f"PieMenu: {cmd} failed: {exc}\n")
