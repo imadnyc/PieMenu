@@ -281,8 +281,8 @@ assert len(opened) == 1 and not opened[0].visible    # tap toggled shut
 
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", False)
 press(disp)
-press(disp)
-assert len(opened) == 3                              # reopens instead
+press(disp)                          # second press keeps the open pie as-is
+assert len(opened) == 2 and opened[1].visible
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", True)
 
 opened.clear()                       # tap now, double pie on the second tap
@@ -334,7 +334,23 @@ press(disp)
 disp._press_ms -= 400
 release(disp)
 assert not opened[0].visible and not opened[0].committed
-run_of["Main"] = "click"
+
+opened.clear()                       # tap == hold: a quick tap must NOT
+gmaps["F6"] = {"tap": "Main", "hold": "Main"}   # close-and-reopen (flicker)
+disp.close()
+disp.last_tap.clear()
+press(disp)
+release(disp)                        # released instantly
+assert len(opened) == 1 and opened[0].visible
+
+opened.clear()                       # a slow second tap on a double key
+gmaps["F6"] = {"tap": "Main", "double": "Sub"}  # keeps the tap pie open
+disp.close()
+disp.last_tap.clear()
+press(disp)
+disp.last_tap.clear()                # pretend the window expired
+press(disp)
+assert len(opened) == 1 and opened[0].visible    # no toggle-close, no reopen
 print("PASS dispatch")
 
 

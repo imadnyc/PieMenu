@@ -585,6 +585,15 @@ class ShortcutsTable(QtWidgets.QWidget):
             h = max(self.left.rowHeight(row), self.right.rowHeight(row))
             self.left.setRowHeight(row, h)
             self.right.setRowHeight(row, h)
+        # the table takes the height its rows take, capped by the screen
+        needed = (self.right.horizontalHeader().sizeHint().height()
+                  + sum(self.right.rowHeight(r) for r in range(len(keys)))
+                  + self.right.horizontalScrollBar().sizeHint().height()
+                  + 2 * self.right.frameWidth() + 4)
+        screen = QtWidgets.QApplication.primaryScreen()
+        cap = int(screen.availableGeometry().height() * 0.45) if screen \
+            else 500
+        self.setFixedHeight(max(120, min(needed, cap)))
 
         cur = current_scope()
         if cur in self.workbenches:
@@ -878,7 +887,6 @@ class PieMenuPreferences(QtWidgets.QDialog):
         sc_frame, sc_lay = _panel()
         sc_lay.addWidget(QtWidgets.QLabel("Shortcuts"))
         self.shortcuts = ShortcutsTable(workbenches=workbenches)
-        self.shortcuts.setMinimumHeight(280)
         self.shortcuts.changed.connect(self._binds_changed)
         self.shortcuts.jump_to_pie.connect(self.select_pie)
         sc_lay.addWidget(self.shortcuts)

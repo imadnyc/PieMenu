@@ -569,6 +569,11 @@ class Dispatcher(QtCore.QObject):
         self.current = self.opener(name)
         return self.current
 
+    def _reuse(self, name):
+        """True when the open pie already is `name` — keep it, no flicker."""
+        return (self.current is not None and self.current.isVisible()
+                and self.current.pie.name == name)
+
     def close(self):
         if self.current is not None:
             self.current.close()
@@ -618,20 +623,25 @@ class Dispatcher(QtCore.QObject):
         double_ready = self._double(key, now)
         if "double" in gmap and double_ready:
             # second tap within the window: the double pie takes over
-            self.open_pie(gmap["double"])
+            if not self._reuse(gmap["double"]):
+                self.open_pie(gmap["double"])
             return True
         if "hold" in gmap:
-            self.open_pie(gmap["hold"])
+            if not self._reuse(gmap["hold"]):
+                self.open_pie(gmap["hold"])
             self.held = key          # after open_pie, whose close() clears it
             self._press_ms = now
             self._tap_fallback = gmap.get("tap")
             return True
         if "tap" in gmap:
+            # toggling would swallow slow double-taps, so only keys without
+            # a double bound get press-again-to-close
             if (self.current is not None and self.current.isVisible()
-                    and behaviour()["toggle"]):
+                    and behaviour()["toggle"] and "double" not in gmap):
                 self.close()
                 return True
-            self.open_pie(gmap["tap"])
+            if not self._reuse(gmap["tap"]):
+                self.open_pie(gmap["tap"])
             return True
         # only a double is bound: the first tap arms silently
         return True
@@ -646,8 +656,10 @@ class Dispatcher(QtCore.QObject):
         if widget is None:
             return False
         if (_now_ms() - self._press_ms) < 250 and self._tap_fallback:
-            # a quick tap on a hold-bound key is the tap, not a failed hold
-            self.open_pie(self._tap_fallback)
+            # a quick tap on a hold-bound key is the tap, not a failed hold;
+            # when both name the same pie the open one simply stays
+            if not self._reuse(self._tap_fallback):
+                self.open_pie(self._tap_fallback)
             return True
         if getattr(widget, "run_mode", widget.pie.run_on) == "release":
             widget.commit_gesture()
