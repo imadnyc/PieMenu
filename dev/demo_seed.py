@@ -71,11 +71,13 @@ for i, cmd in enumerate(("Std_ViewFitAll", "Std_ViewFront", "Std_ViewTop",
 for pie in (main, modelling, patterns, sketching, view):
     model.save_pie(pie)
 
-# TAB is scoped: Main everywhere, but the Modelling pie inside PartDesign and
-# the Sketching pie inside Sketcher -- one key, three meanings, by workbench.
-model.set_bind(ANY_SCOPE, "TAB", "Main")
-model.set_bind("PartDesign", "TAB", "Modelling")
-model.set_bind("Sketcher", "TAB", "Sketching")
+# The primary key is scoped: Main everywhere, but the Modelling pie inside
+# PartDesign and the Sketching pie inside Sketcher -- one key, three meanings,
+# by workbench.  Ctrl+Shift+M is a direct line to Modelling from anywhere.
+model.set_bind(ANY_SCOPE, "Ctrl+Shift+P", "Main")
+model.set_bind("PartDesign", "Ctrl+Shift+P", "Modelling")
+model.set_bind("Sketcher", "Ctrl+Shift+P", "Sketching")
+model.set_bind(ANY_SCOPE, "Ctrl+Shift+M", "Modelling")
 model.set_bind(ANY_SCOPE, "F6", "View")
 
 model.set_schema_version(model.SCHEMA_VERSION)

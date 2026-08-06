@@ -167,7 +167,7 @@ def migrate():
         starter = _starter_pie()
         starter.default = True
         model.save_pie(starter)
-        key = main.GetString("GlobalShortcutKey", "") or "TAB"
+        key = main.GetString("GlobalShortcutKey", "") or "Ctrl+Shift+P"
         model.set_bind(ANY_SCOPE, key, starter.name)
         model.set_schema_version(model.SCHEMA_VERSION)
         return True
