@@ -61,6 +61,10 @@ def run():
             w.close()
 
         print("SNAP step: pies done, building dialog", flush=True)
+        try:  # so the current-workbench column highlight shows in the PNG
+            Gui.activateWorkbench("PartDesignWorkbench")
+        except Exception as exc:  # noqa: BLE001 -- best-effort
+            print(f"SNAP note: PartDesign activate failed: {exc}", flush=True)
         dlg = dialog.PieMenuPreferences(Gui.getMainWindow(),
                                         on_change=run_.reload)
         dlg.resize(1280, 760)

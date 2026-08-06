@@ -118,6 +118,26 @@ def workbench_scopes():
         return ["Assembly", "Draft", "Part", "PartDesign", "Sketcher"]
 
 
+def current_scope():
+    """The active workbench's scope name, or None outside the GUI."""
+    try:
+        import FreeCADGui as Gui
+        return runtime.workbench_scope(Gui)
+    except Exception:  # noqa: BLE001 -- console mode / tests
+        return None
+
+
+def _panel(margin=6):
+    """A framed panel, mockup-style: a visible line around each region."""
+    frame = QtWidgets.QFrame()
+    frame.setObjectName("pmPanel")
+    frame.setStyleSheet(
+        "#pmPanel{border:1px solid palette(mid);border-radius:4px;}")
+    lay = QtWidgets.QVBoxLayout(frame)
+    lay.setContentsMargins(margin, margin, margin, margin)
+    return frame, lay
+
+
 def command_icon(cmd, actions):
     if is_pie_command(cmd):
         return QtGui.QIcon(runtime.LOGO)
@@ -572,6 +592,26 @@ class ShortcutsTable(QtWidgets.QWidget):
                 self.right.setItem(row, col, self._cell(key, wb))
         self.left.resizeRowsToContents()
 
+        cur = current_scope()
+        if cur in self.workbenches:
+            col = self.workbenches.index(cur)
+            hdr = self.right.horizontalHeaderItem(col)
+            if hdr is not None:
+                font = hdr.font()
+                font.setBold(True)
+                hdr.setFont(font)
+                hdr.setToolTip("current workbench")
+            tint = self.palette().highlight().color()
+            tint.setAlpha(45)
+            for row in range(self.right.rowCount()):
+                item = self.right.item(row, col)
+                if item is not None:
+                    item.setBackground(QtGui.QBrush(tint))
+            if self.right.rowCount():
+                self.right.scrollTo(
+                    self.right.model().index(0, col),
+                    QtWidgets.QAbstractItemView.EnsureVisible)
+
     def _cell(self, key, scope):
         own = self.binds.get(scope, {}).get(key)
         item = QtWidgets.QTableWidgetItem()
@@ -806,7 +846,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         outer.addLayout(top, 1)
 
         # -- pies list
-        left = QtWidgets.QVBoxLayout()
+        left_frame, left = _panel()
         bar = QtWidgets.QHBoxLayout()
         bar.addWidget(QtWidgets.QLabel("Pies"))
         bar.addStretch(1)
@@ -822,7 +862,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.pie_list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.pie_list.customContextMenuRequested.connect(self._pie_menu)
         left.addWidget(self.pie_list, 1)
-        top.addLayout(left)
+        top.addWidget(left_frame)
 
         # -- preview
         self.preview = PreviewWidget()
@@ -830,10 +870,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.preview.slot_activated.connect(lambda i: self.add_tool(i))
         self.preview.slots_swapped.connect(self._swap)
         self.preview.slot_menu.connect(self._slot_context)
-        top.addWidget(self.preview, 1)
+        pv_frame, pv_lay = _panel()
+        pv_lay.addWidget(self.preview)
+        top.addWidget(pv_frame, 1)
 
         # -- slots table
-        mid = QtWidgets.QVBoxLayout()
+        mid_frame, mid = _panel()
         mid_bar = QtWidgets.QHBoxLayout()
         self.slots_label = QtWidgets.QLabel("Slots")
         mid_bar.addWidget(self.slots_label)
@@ -855,26 +897,28 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.slots.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.slots.customContextMenuRequested.connect(self._binding_menu)
         mid.addWidget(self.slots, 1)
-        top.addLayout(mid)
+        top.addWidget(mid_frame)
 
         # -- settings
         self.settings_area = QtWidgets.QScrollArea()
         self.settings_area.setWidgetResizable(True)
         self.settings_area.setFixedWidth(340)
-        self.settings_area.setFrameShape(QtWidgets.QFrame.NoFrame)
         self.settings_area.setStyleSheet(
-            "QScrollArea{background:transparent}"
+            "QScrollArea{background:transparent;"
+            "border:1px solid palette(mid);border-radius:4px}"
             "QScrollArea>QWidget>QWidget{background:transparent}")
         top.addWidget(self.settings_area)
 
         # -- shortcuts
-        outer.addWidget(QtWidgets.QLabel("Shortcuts — every key, every "
-                                         "workbench"))
+        sc_frame, sc_lay = _panel()
+        sc_lay.addWidget(QtWidgets.QLabel("Shortcuts — every key, every "
+                                          "workbench"))
         self.shortcuts = ShortcutsTable(workbenches=workbenches)
         self.shortcuts.setMinimumHeight(160)
         self.shortcuts.changed.connect(self._binds_changed)
         self.shortcuts.jump_to_pie.connect(self.select_pie)
-        outer.addWidget(self.shortcuts)
+        sc_lay.addWidget(self.shortcuts)
+        outer.addWidget(sc_frame)
 
         foot = QtWidgets.QHBoxLayout()
         add_key = QtWidgets.QPushButton("Add a shortcut key…")
