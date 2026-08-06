@@ -118,16 +118,34 @@ texts = [dlg.slots.topLevelItem(k).text(0)
 assert any("context clash" in t for t in texts), texts
 dlg.pie().items[2] = orig_slot
 dlg._fill_slots()
+# shrinking stashes what fell off; growing back within the dialog restores it
+kept = dlg.pie().items[1]
+assert kept, "test wants slot 2 occupied"
+old_n = dlg.pie().slots
+dlg._set("slots", 1, structure=True)
+app.processEvents()
+assert len(model.load_pie("Main").items) == 1        # the shrink saved small
+dlg._set("slots", old_n, structure=True)
+app.processEvents()
+assert dlg.pie().items[1] == kept                    # ...but nothing was lost
+assert model.load_pie("Main").items[1][0].cmd == kept[0].cmd
 print("PASS edits")
 
 # ---- rule field -------------------------------------------------------------
 field = dialog.RuleField({"Face": (">=", 2)})
-assert field.preset.currentText() == "two or more faces"
-field._change("Edge", (">=", 1))
-assert field.preset.currentText() == "Custom…"
+tick, sign, num = field.axis_rows["Face"]
+assert tick.isChecked() and sign.currentText() == ">=" and num.value() == 2
+etick, esign, enum = field.axis_rows["Edge"]
+assert not etick.isChecked() and not esign.isEnabled()
+etick.setChecked(True)                       # a fresh tick defaults to >= 1
+assert field.rule == {"Edge": (">=", 1), "Face": (">=", 2)}
 assert dialog.rule_text(field.rule) == "Edge >= 1 · Face >= 2"
-field._remove("Edge")
-field._remove("Face")
+enum.setValue(3)
+assert field.rule["Edge"] == (">=", 3)
+tick.setChecked(False)                       # untick drops the constraint
+assert "Face" not in field.rule and "always" not in field.reads.text()
+etick.setChecked(False)                      # untick the last one
+assert field.rule == {}
 assert dialog.rule_text(field.rule) == "always"
 print("PASS rule field")
 

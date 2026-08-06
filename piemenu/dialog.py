@@ -20,18 +20,6 @@ from .model import ANY_SCOPE, AXES, Binding, Pie, is_pie_command, pie_target
 
 SIGNS = ("<", "<=", "==", "!=", ">", ">=")
 
-PRESETS = [
-    ("always", {}),
-    ("a vertex", {"Vertex": (">=", 1)}),
-    ("an edge", {"Edge": (">=", 1)}),
-    ("a face", {"Face": (">=", 1)}),
-    ("two or more faces", {"Face": (">=", 2)}),
-    ("a face and an edge", {"Face": (">=", 1), "Edge": (">=", 1)}),
-    ("a whole body", {"Object": (">=", 1)}),
-    ("nothing selected", {a: ("==", 0) for a in
-                          ("Vertex", "Edge", "Face", "Object")}),
-]
-
 HELP = {
     "Family": "Circle arranges the slots around the cursor; grid stacks them "
               "into blocks. These two replace the eleven old shapes.",
@@ -162,8 +150,8 @@ def command_label(cmd):
 # ---- rule editing ----------------------------------------------------------
 
 class RuleField(QtWidgets.QWidget):
-    """Presets in front, the six raw axes behind Custom; only the axes a rule
-    constrains are ever shown."""
+    """The v1-style chart: one row per axis — tick it, pick the sign, set
+    the count.  Unticked axes don't constrain; nothing ticked = always."""
 
     changed = QtCore.Signal()
 
@@ -172,96 +160,52 @@ class RuleField(QtWidgets.QWidget):
         self.rule = dict(rule)
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
-        self.preset = QtWidgets.QComboBox()
-        for label, _ in PRESETS:
-            self.preset.addItem(label)
-        self.preset.addItem("Custom…")
-        self.preset.activated.connect(self._preset_picked)
-        lay.addWidget(self.preset)
-        self.rows = QtWidgets.QWidget()
-        self.rows_lay = QtWidgets.QVBoxLayout(self.rows)
-        self.rows_lay.setContentsMargins(0, 4, 0, 0)
-        lay.addWidget(self.rows)
+        grid = QtWidgets.QGridLayout()
+        grid.setContentsMargins(0, 0, 0, 4)
+        self.axis_rows = {}
+        for r, axis in enumerate(AXES):
+            tick = QtWidgets.QCheckBox(axis)
+            sign = QtWidgets.QComboBox()
+            sign.addItems(SIGNS)
+            num = QtWidgets.QSpinBox()
+            num.setRange(0, 99)
+            if axis in self.rule:
+                tick.setChecked(True)
+                sign.setCurrentText(self.rule[axis][0])
+                num.setValue(self.rule[axis][1])
+            else:
+                sign.setCurrentText(">=")
+                num.setValue(1)
+                sign.setEnabled(False)
+                num.setEnabled(False)
+            tick.toggled.connect(self._sync)
+            sign.currentTextChanged.connect(self._sync)
+            num.valueChanged.connect(self._sync)
+            grid.addWidget(tick, r, 0)
+            grid.addWidget(sign, r, 1)
+            grid.addWidget(num, r, 2)
+            self.axis_rows[axis] = (tick, sign, num)
+        grid.setColumnStretch(3, 1)
+        lay.addLayout(grid)
         self.reads = QtWidgets.QLabel()
         self.reads.setStyleSheet("color: gray;")
         lay.addWidget(self.reads)
-        self._sync()
+        self._render()
 
-    def _preset_picked(self, index):
-        if index < len(PRESETS):
-            self.rule = dict(PRESETS[index][1])
-        elif not self.rule:
-            self.rule = {"Face": (">=", 1)}
-        self._sync()
+    def _sync(self, *_args):
+        rule = {}
+        for axis, (tick, sign, num) in self.axis_rows.items():
+            on = tick.isChecked()
+            sign.setEnabled(on)
+            num.setEnabled(on)
+            if on:
+                rule[axis] = (sign.currentText(), num.value())
+        self.rule = rule
+        self._render()
         self.changed.emit()
 
-    def _sync(self):
-        idx = next((i for i, (_, r) in enumerate(PRESETS)
-                    if r == self.rule), len(PRESETS))
-        self.preset.setCurrentIndex(idx)
-        custom = idx == len(PRESETS)
-        self.rows.setVisible(custom)
-        while self.rows_lay.count():
-            item = self.rows_lay.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
-        if custom:
-            for axis in [a for a in AXES if a in self.rule]:
-                self.rows_lay.addWidget(self._row(axis))
-            free = next((a for a in AXES if a not in self.rule), None)
-            if free is not None:
-                add = QtWidgets.QPushButton("Add a condition")
-                add.clicked.connect(
-                    lambda _=False, a=free: self._change(a, (">=", 1)))
-                self.rows_lay.addWidget(add)
+    def _render(self):
         self.reads.setText("reads as: " + rule_text(self.rule))
-
-    def _row(self, axis):
-        row = QtWidgets.QWidget()
-        lay = QtWidgets.QHBoxLayout(row)
-        lay.setContentsMargins(0, 0, 0, 0)
-        ax = QtWidgets.QComboBox()
-        for a in AXES:
-            ax.addItem(a)
-            if a != axis and a in self.rule:
-                ax.model().item(ax.count() - 1).setEnabled(False)
-        ax.setCurrentText(axis)
-        ax.currentTextChanged.connect(
-            lambda new, old=axis: self._move(old, new))
-        sign = QtWidgets.QComboBox()
-        sign.addItems(SIGNS)
-        sign.setCurrentText(self.rule[axis][0])
-        sign.currentTextChanged.connect(
-            lambda s, a=axis: self._change(a, (s, self.rule[a][1])))
-        value = QtWidgets.QSpinBox()
-        value.setRange(0, 99)
-        value.setValue(self.rule[axis][1])
-        value.valueChanged.connect(
-            lambda v, a=axis: self._change(a, (self.rule[a][0], v)))
-        drop = QtWidgets.QToolButton()
-        drop.setText("✕")
-        drop.clicked.connect(lambda _=False, a=axis: self._remove(a))
-        for w in (ax, sign, value, drop):
-            lay.addWidget(w)
-        return row
-
-    def _change(self, axis, sv):
-        self.rule[axis] = sv
-        self._sync()
-        self.changed.emit()
-
-    def _move(self, old, new):
-        if new in self.rule:
-            self._sync()
-            return
-        self.rule[new] = self.rule.pop(old)
-        self._sync()
-        self.changed.emit()
-
-    def _remove(self, axis):
-        self.rule.pop(axis, None)
-        self._sync()
-        self.changed.emit()
 
 
 def edit_rule(parent, binding, on_done):
@@ -848,6 +792,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.current = min(self.pies)
         self.slot = 0
         self.binding = 0
+        self._trimmed = {}    # pie -> {slot index: bindings cut by a shrink}
 
         outer = QtWidgets.QVBoxLayout(self)
         top = QtWidgets.QHBoxLayout()
@@ -1413,14 +1358,30 @@ class PieMenuPreferences(QtWidgets.QDialog):
         return grid
 
     def _set(self, field, value, structure=False):
-        setattr(self.pie(), field, value)
         if structure:
-            model.normalise(self.pie())
-        self._changed(structure)
+            self._structural(lambda p: setattr(p, field, value))
+        else:
+            setattr(self.pie(), field, value)
+            self._changed(False)
 
     def _set_family(self, family):
-        self.pie().family = family
-        model.normalise(self.pie())
+        self._structural(lambda p: setattr(p, "family", family))
+
+    def _structural(self, mutate):
+        """A shape change (slots, grid, family, anchors).  Whatever falls
+        off the end is stashed for this dialog's lifetime, so mistyping a
+        count and typing it back loses nothing."""
+        pie = self.pie()
+        old_items = list(pie.items)
+        mutate(pie)
+        model.normalise(pie)
+        stash = self._trimmed.setdefault(pie.name, {})
+        for i, slot in enumerate(old_items):
+            if i >= len(pie.items) and slot:
+                stash[i] = slot
+        for i in sorted(stash):
+            if i < len(pie.items) and not pie.items[i]:
+                pie.items[i] = stash.pop(i)
         self._changed(True)
 
 
