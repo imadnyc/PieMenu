@@ -73,11 +73,12 @@ for pie in (main, modelling, patterns, sketching, view):
 
 # The primary key is scoped: Main everywhere, but the Modelling pie inside
 # PartDesign and the Sketching pie inside Sketcher -- one key, three meanings,
-# by workbench.  Ctrl+Shift+M is a direct line to Modelling from anywhere.
-model.set_bind(ANY_SCOPE, "Ctrl+Shift+P", "Main")
-model.set_bind("PartDesign", "Ctrl+Shift+P", "Modelling")
-model.set_bind("Sketcher", "Ctrl+Shift+P", "Sketching")
-model.set_bind(ANY_SCOPE, "Ctrl+Shift+M", "Modelling")
+# by workbench.  F4 is a direct line to Modelling from anywhere.  (F1 help,
+# F2 rename, F5 recompute and F11 fullscreen are taken by FreeCAD itself.)
+model.set_bind(ANY_SCOPE, "F3", "Main")
+model.set_bind("PartDesign", "F3", "Modelling")
+model.set_bind("Sketcher", "F3", "Sketching")
+model.set_bind(ANY_SCOPE, "F4", "Modelling")
 model.set_bind(ANY_SCOPE, "F6", "View")
 
 model.set_schema_version(model.SCHEMA_VERSION)
