@@ -440,34 +440,20 @@ class PieWidget(QtWidgets.QWidget):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
         colour = arrow_colour()
-        # a tapered swoosh: hairline at the origin widening toward the tip,
-        # fading in as it goes, finished with a slender head
+        # minimal: one thin solid line, one small solid head
         ux, uy = (p2.x() - p1.x()) / length, (p2.y() - p1.y()) / length
         nx, ny = -uy, ux
-        head = min(18.0, length * 0.35)
+        head = min(11.0, length * 0.3)
         neck = QtCore.QPointF(p2.x() - ux * head, p2.y() - uy * head)
-        w0, w1, wh = 0.8, 4.0, 8.5
-        faint = QtGui.QColor(colour)
-        faint.setAlpha(46)
-        solid = QtGui.QColor(colour)
-        solid.setAlpha(235)
-        grad = QtGui.QLinearGradient(p1, p2)
-        grad.setColorAt(0.0, faint)
-        grad.setColorAt(1.0, solid)
+        painter.setPen(QtGui.QPen(colour, 2, QtCore.Qt.SolidLine,
+                                  QtCore.Qt.RoundCap))
+        painter.drawLine(QtCore.QLineF(p1, neck))
         painter.setPen(QtCore.Qt.NoPen)
-        painter.setBrush(grad)
-        painter.drawPolygon(QtGui.QPolygonF([
-            QtCore.QPointF(p1.x() + nx * w0, p1.y() + ny * w0),
-            QtCore.QPointF(neck.x() + nx * w1, neck.y() + ny * w1),
-            QtCore.QPointF(neck.x() - nx * w1, neck.y() - ny * w1),
-            QtCore.QPointF(p1.x() - nx * w0, p1.y() - ny * w0)]))
-        painter.setBrush(solid)
+        painter.setBrush(colour)
         painter.drawPolygon(QtGui.QPolygonF([
             p2,
-            QtCore.QPointF(neck.x() + nx * wh, neck.y() + ny * wh),
-            QtCore.QPointF(neck.x() - nx * wh, neck.y() - ny * wh)]))
-        painter.setBrush(faint)
-        painter.drawEllipse(p1, 3, 3)
+            QtCore.QPointF(neck.x() + nx * 4.5, neck.y() + ny * 4.5),
+            QtCore.QPointF(neck.x() - nx * 4.5, neck.y() - ny * 4.5)]))
         painter.end()
 
 
