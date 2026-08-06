@@ -120,6 +120,12 @@ class PieWidget(QtWidgets.QWidget):
     def __init__(self, pies, name, counts, fire, quick_menu=None, parent=None):
         super().__init__(parent, QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        self.setStyleSheet(
+            "QToolButton{background:palette(button);"
+            "border:1px solid palette(mid);border-radius:6px;}"
+            "QToolButton:hover{border:2px solid palette(highlight);}"
+            "QToolButton:disabled{background:palette(window);"
+            "border:1px dashed palette(mid);}")
         self.pies = pies
         self.counts = counts
         self.fire = fire

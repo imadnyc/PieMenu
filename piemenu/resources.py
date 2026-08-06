@@ -1,6 +1,8 @@
 
 import os
+
 import PieMenuLocator as locator
+
 path = locator.path()
 respath = os.path.join(path, "Resources", "icons")
 stylepath = os.path.join(path, "Resources", "Stylesheets")

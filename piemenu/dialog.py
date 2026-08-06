@@ -113,7 +113,7 @@ def workbench_scopes():
         import FreeCADGui as Gui
         names = sorted({str(w).split("Workbench")[0]
                         for w in Gui.listWorkbenches()})
-        return [n for n in names if n]
+        return [n for n in names if n and n != "None"]
     except Exception:  # noqa: BLE001 -- console mode / tests
         return ["Assembly", "Draft", "Part", "PartDesign", "Sketcher"]
 
@@ -441,7 +441,12 @@ class PreviewWidget(QtWidgets.QWidget):
                 else:
                     painter.drawRoundedRect(rect, 4, 4)
                 icon = command_icon(first.cmd, self.actions)
-                icon.paint(painter, rect.adjusted(6, 6, -6, -6))
+                if icon.isNull():
+                    painter.setPen(pal.color(QtGui.QPalette.ButtonText))
+                    painter.drawText(rect, QtCore.Qt.AlignCenter,
+                                     command_label(first.cmd)[:6])
+                else:
+                    icon.paint(painter, rect.adjusted(6, 6, -6, -6))
                 conditional = any(b.rule for b in slot)
                 if len(slot) > 1:
                     badge = QtCore.QRect(rect.right() - 9, rect.top() - 5,
@@ -469,8 +474,10 @@ class PreviewWidget(QtWidgets.QWidget):
         centre = QtCore.QRect(int(self.width() / 2 - 11),
                               int(self.height() / 2 - 11), 22, 22)
         painter.setPen(QtGui.QPen(pal.color(QtGui.QPalette.Mid), 1))
-        painter.setBrush(pal.color(QtGui.QPalette.AlternateBase))
+        painter.setBrush(pal.color(QtGui.QPalette.Button))
         painter.drawEllipse(centre)
+        icon = QtGui.QIcon(runtime.LOGO)
+        icon.paint(painter, centre.adjusted(3, 3, -3, -3))
         painter.end()
 
     def mousePressEvent(self, event):
@@ -519,7 +526,8 @@ class ShortcutsTable(QtWidgets.QWidget):
         self.left = QtWidgets.QTableWidget(0, 1)
         self.left.setHorizontalHeaderLabels(["Any workbench"])
         self.left.verticalHeader().setSectionsClickable(True)
-        self.left.setFixedWidth(210)
+        self.left.setFixedWidth(240)
+        self.left.horizontalHeader().setStretchLastSection(True)
         self.left.verticalHeader().sectionDoubleClicked.connect(self._rekey)
         self.left.verticalHeader().setContextMenuPolicy(
             QtCore.Qt.CustomContextMenu)
@@ -839,7 +847,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.slots = QtWidgets.QTreeWidget()
         self.slots.setColumnCount(2)
         self.slots.setHeaderLabels(["Tool", "When"])
-        self.slots.setFixedWidth(300)
+        self.slots.setFixedWidth(360)
+        self.slots.header().setStretchLastSection(True)
         self.slots.setMouseTracking(True)
         self.slots.itemClicked.connect(self._slot_row_clicked)
         self.slots.itemEntered.connect(self._slot_row_hover)
@@ -851,7 +860,11 @@ class PieMenuPreferences(QtWidgets.QDialog):
         # -- settings
         self.settings_area = QtWidgets.QScrollArea()
         self.settings_area.setWidgetResizable(True)
-        self.settings_area.setFixedWidth(300)
+        self.settings_area.setFixedWidth(340)
+        self.settings_area.setFrameShape(QtWidgets.QFrame.NoFrame)
+        self.settings_area.setStyleSheet(
+            "QScrollArea{background:transparent}"
+            "QScrollArea>QWidget>QWidget{background:transparent}")
         top.addWidget(self.settings_area)
 
         # -- shortcuts
@@ -1059,7 +1072,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
                                                                  128)))
                 top.addChild(child)
             top.setExpanded(True)
-        self.slots.resizeColumnToContents(0)
+        self.slots.setColumnWidth(0, 210)
 
     def _slot_picked(self, index):
         self.slot = index
