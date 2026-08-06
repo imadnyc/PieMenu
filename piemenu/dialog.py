@@ -54,8 +54,6 @@ HELP = {
     "Doors on hover": "Dwelling on a door slot for the delay opens that pie "
                       "at the cursor — glide in, aim, release.",
     "Command names": "Write each tool's name in its slot as well as its icon.",
-    "Show QuickMenu": "The small button at the centre of every pie; it opens "
-                      "a utility menu. Off hides it everywhere.",
     "Toggle show/hide": "Pressing a pie's shortcut while it is open closes "
                         "it. Off means the key only ever opens.",
     "Long right-click to open": "Hold the right mouse button for the delay "
@@ -419,6 +417,15 @@ class PreviewWidget(QtWidgets.QWidget):
                                      command_label(first.cmd)[:6])
                 else:
                     icon.paint(painter, rect.adjusted(6, 6, -6, -6))
+                if pie.show_names:
+                    painter.setPen(pal.color(QtGui.QPalette.ButtonText))
+                    below = QtCore.QRect(
+                        rect.left() - 24, rect.bottom() + 2,
+                        rect.width() + 48,
+                        painter.fontMetrics().height())
+                    painter.drawText(below,
+                                     QtCore.Qt.AlignHCenter | QtCore.Qt.AlignTop,
+                                     command_label(first.cmd))
                 conditional = any(b.rule for b in slot)
                 if len(slot) > 1:
                     badge = QtCore.QRect(rect.right() - 9, rect.top() - 5,
@@ -442,14 +449,11 @@ class PreviewWidget(QtWidgets.QWidget):
                 painter.setPen(QtGui.QPen(accent, 3, QtCore.Qt.DotLine))
                 painter.setBrush(QtCore.Qt.NoBrush)
                 painter.drawRoundedRect(rect.adjusted(-5, -5, 5, 5), 8, 8)
-        # the QuickMenu centre
-        centre = QtCore.QRect(int(self.width() / 2 - 11),
-                              int(self.height() / 2 - 11), 22, 22)
+        # the cursor anchor: where the pie opens relative to the hand
         painter.setPen(QtGui.QPen(pal.color(QtGui.QPalette.Mid), 1))
-        painter.setBrush(pal.color(QtGui.QPalette.Button))
-        painter.drawEllipse(centre)
-        icon = QtGui.QIcon(runtime.LOGO)
-        icon.paint(painter, centre.adjusted(3, 3, -3, -3))
+        painter.setBrush(pal.color(QtGui.QPalette.Mid))
+        painter.drawEllipse(QtCore.QPoint(int(self.width() / 2),
+                                          int(self.height() / 2)), 3, 3)
         painter.end()
 
     def mousePressEvent(self, event):
@@ -696,7 +700,6 @@ def behaviour_dialog(parent):
         form.addWidget(cb)
         return cb
 
-    check("Show QuickMenu", "ShowQuickMenu", True)
     check("Toggle show/hide", "GlobalKeyToggle", True)
     check("Long right-click to open", "RightClickTrigger", False)
     delay_row = QtWidgets.QHBoxLayout()
@@ -811,6 +814,9 @@ class PieMenuPreferences(QtWidgets.QDialog):
         left.addLayout(bar)
         self.pie_list = QtWidgets.QListWidget()
         self.pie_list.setFixedWidth(200)
+        self.pie_list.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOff)
+        self.pie_list.setTextElideMode(QtCore.Qt.ElideRight)
         self.pie_list.currentTextChanged.connect(self._pie_picked)
         self.pie_list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.pie_list.customContextMenuRequested.connect(self._pie_menu)
@@ -842,7 +848,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.slots = QtWidgets.QTreeWidget()
         self.slots.setColumnCount(2)
         self.slots.setHeaderLabels(["Tool", "When"])
-        self.slots.setFixedWidth(360)
+        self.slots.setFixedWidth(380)
+        self.slots.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOff)
+        self.slots.setTextElideMode(QtCore.Qt.ElideRight)
         self.slots.header().setStretchLastSection(True)
         self.slots.setMouseTracking(True)
         self.slots.itemClicked.connect(self._slot_row_clicked)
@@ -855,7 +864,9 @@ class PieMenuPreferences(QtWidgets.QDialog):
         # -- settings
         self.settings_area = QtWidgets.QScrollArea()
         self.settings_area.setWidgetResizable(True)
-        self.settings_area.setFixedWidth(340)
+        self.settings_area.setFixedWidth(360)
+        self.settings_area.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarAlwaysOff)
         self.settings_area.setStyleSheet(
             "QScrollArea{background:transparent;"
             "border:1px solid palette(mid);border-radius:4px}"
@@ -864,8 +875,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
 
         # -- shortcuts
         sc_frame, sc_lay = _panel()
-        sc_lay.addWidget(QtWidgets.QLabel("Shortcuts — every key, every "
-                                          "workbench"))
+        sc_lay.addWidget(QtWidgets.QLabel("Shortcuts"))
         self.shortcuts = ShortcutsTable(workbenches=workbenches)
         self.shortcuts.setMinimumHeight(160)
         self.shortcuts.changed.connect(self._binds_changed)
@@ -1063,7 +1073,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
             f"Slots — {pie.name}  "
             f"{sum(1 for s in pie.items if s)}/{model.slot_count(pie)}")
         self.slots.clear()
-        tint = self.palette().alternateBase()
+        # a subtle self-derived tint: alternateBase varies wildly per theme
+        tint_c = self.palette().color(QtGui.QPalette.Text)
+        tint_c.setAlpha(16)
+        tint = QtGui.QBrush(tint_c)
         warn = QtGui.QBrush(QtGui.QColor(200, 70, 60))
         for i, slot in enumerate(pie.items):
             problems = dict(model.slot_check(slot))
@@ -1270,7 +1283,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
             row("Anchors", self._anchor_cross(pie))
             row("Offset", self._slider(pie.radius, 0, 300, "radius"))
         row("Button", self._slider(pie.button, 16, 96, "button"))
-        row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
+        spacing = row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
+        if pie.family == "circle" and model.slot_count(pie) <= pie.per_ring:
+            # nothing to space: one ring's slots sit on the radius
+            spacing.setEnabled(False)
+            spacing.setToolTip("Spacing separates rings and grid cells — "
+                               "this pie has a single ring, so there is "
+                               "nothing to space. Radius moves its slots.")
         row("Chooser size", self._slider(pie.alt_size, 16, 64, "alt_size"))
 
         open_on = row("Open on", QtWidgets.QComboBox())
@@ -1286,7 +1305,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         delay.setValue(pie.delay)
         delay.valueChanged.connect(lambda v: self._set("delay", v))
         doors = row("Doors on hover",
-                    QtWidgets.QCheckBox("descend after the delay"))
+                    QtWidgets.QCheckBox("after the delay"))
         doors.setChecked(pie.door_hover)
         doors.toggled.connect(lambda v: self._set("door_hover", v))
         names = row("Command names", QtWidgets.QCheckBox("show in slots"))

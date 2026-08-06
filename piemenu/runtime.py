@@ -36,7 +36,6 @@ def _param():
 def behaviour():
     p = _param()
     return {
-        "quick": p.GetBool("ShowQuickMenu", True),
         "toggle": p.GetBool("GlobalKeyToggle", True),
         "rclick": p.GetBool("RightClickTrigger", False),
         "rclick_delay": p.GetInt("DelayRightClick", 0) or 350,
@@ -164,7 +163,7 @@ class PieWidget(QtWidgets.QWidget):
     place) so fire only ever sees runnable commands.
     """
 
-    def __init__(self, pies, name, counts, fire, quick_menu=None, parent=None):
+    def __init__(self, pies, name, counts, fire, parent=None):
         super().__init__(parent, QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.setStyleSheet(
@@ -177,7 +176,6 @@ class PieWidget(QtWidgets.QWidget):
         self.pies = pies
         self.counts = counts
         self.fire = fire
-        self.quick_menu = quick_menu
         self._hover_timer = None
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
@@ -214,8 +212,6 @@ class PieWidget(QtWidgets.QWidget):
         for (x, y), btn in zip(pos, self.buttons):
             btn.move(int(x - min_x - btn.width() / 2),
                      int(y - min_y - btn.height() / 2))
-        if behaviour_quick(self):
-            self._centre_button()
 
     def _slot_button(self, slot, index):
         pie = self.pie
@@ -284,20 +280,6 @@ class PieWidget(QtWidgets.QWidget):
             tip += f"  ({n_live} apply — hover to choose)"
         btn.setToolTip(tip)
         btn.setEnabled(bool(live))
-
-    def _centre_button(self):
-        pie = self.pie
-        size = max(22, int(pie.button * 0.7))
-        btn = QtWidgets.QToolButton(self)
-        btn.setFixedSize(size, size)
-        btn.setIcon(QtGui.QIcon(LOGO))
-        btn.setStyleSheet(f"QToolButton{{border-radius:{size // 2}px;}}")
-        btn.move(int(self._origin[0] - size / 2), int(self._origin[1] - size / 2))
-        btn.setToolTip("QuickMenu")
-        if self.quick_menu is not None:
-            btn.clicked.connect(lambda: self.quick_menu(self))
-        btn.setVisible(True)          # may be rebuilt while the pie is shown
-        self._centre = btn
 
     # -- behaviour
 
@@ -391,13 +373,6 @@ class PieWidget(QtWidgets.QWidget):
             barb.setLength(min(14.0, line.length()))
             painter.drawLine(barb)
         painter.end()
-
-
-def behaviour_quick(_widget):
-    try:
-        return behaviour()["quick"]
-    except Exception:  # noqa: BLE001 -- no params outside FreeCAD
-        return True
 
 
 class _DwellRing(QtWidgets.QWidget):
@@ -742,8 +717,7 @@ class Runtime:
     def open_pie(self, name):
         if name not in self.pies:
             return None
-        widget = PieWidget(self.pies, name, self.counts(), self.fire,
-                           quick_menu=self._quick_menu)
+        widget = PieWidget(self.pies, name, self.counts(), self.fire)
         widget.popup_at(QtGui.QCursor.pos())
         self.dispatcher.current = widget
         return widget
@@ -754,20 +728,6 @@ class Runtime:
         except Exception as exc:  # noqa: BLE001 -- a broken command must not kill the pie
             if App is not None:
                 App.Console.PrintWarning(f"PieMenu: {cmd} failed: {exc}\n")
-
-    def _quick_menu(self, widget):
-        menu = QtWidgets.QMenu(widget)
-        act = menu.addAction("Preferences…")
-        if self.open_preferences is not None:
-            act.triggered.connect(lambda: (widget.close(),
-                                           self.open_preferences()))
-        else:
-            act.setEnabled(False)
-        sub = menu.addMenu("Open pie")
-        for name in sorted(self.pies):
-            sub.addAction(name, lambda n=name: (widget.close(),
-                                                self.open_pie(n)))
-        menu.exec_(QtGui.QCursor.pos())
 
 
 def start(gui):
