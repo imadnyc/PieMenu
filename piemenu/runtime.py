@@ -398,7 +398,21 @@ class Dispatcher(QtCore.QObject):
                 return True
         return False
 
+    def _typing_focus(self):
+        """Never hijack keys aimed at a text field or a modal dialog."""
+        app = QtWidgets.QApplication.instance()
+        if app is None:
+            return False
+        if app.activeModalWidget() is not None:
+            return True
+        w = app.focusWidget()
+        return isinstance(w, (QtWidgets.QLineEdit, QtWidgets.QAbstractSpinBox,
+                              QtWidgets.QTextEdit, QtWidgets.QPlainTextEdit,
+                              QtWidgets.QKeySequenceEdit))
+
     def _key_press(self, event):
+        if self._typing_focus():
+            return False
         key = self._key_of(event)
         name = self.resolver(key)
         if not name:
