@@ -83,6 +83,9 @@ w.popup_at(QtCore.QPoint(400, 400))
 w.buttons[2].click()                                 # the door
 assert w.pie.name == "Sub" and fired == []           # descended, nothing ran
 assert w.isVisible()
+# the sub-pie's buttons were born on an already-visible parent: they must
+# have been shown explicitly, or the "spawned" pie is an empty ghost
+assert any(not b.isHidden() for b in w.buttons), "sub-pie buttons invisible"
 w.close()
 w.deleteLater()
 print("PASS firing and doors")
@@ -291,6 +294,7 @@ wait(20)
 assert rt.dispatcher.eventFilter(
     None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F6))
 assert w.isVisible() and w.pie.name == "Sub", (w.isVisible(), w.pie.name)
+assert any(not b.isHidden() for b in w.buttons), "sub-pie buttons invisible"
 assert rt.dispatcher.current is w        # still tracked for the next key
 assert gui.ran == []                     # a descend runs nothing
 w.close()

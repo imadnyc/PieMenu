@@ -186,6 +186,10 @@ class PieWidget(QtWidgets.QWidget):
             if pie.run_on == "hover":
                 btn.installEventFilter(_HoverFire(self, btn, face.cmd,
                                                   pie.delay))
+        # explicit: children born on an ALREADY-VISIBLE parent stay hidden
+        # otherwise -- a door descend rebuilds while shown, and every button
+        # of the sub-pie would be invisible (the pie "not spawning")
+        btn.setVisible(True)
         return btn
 
     def _decorate(self, btn, binding, live, n_live):
@@ -225,6 +229,7 @@ class PieWidget(QtWidgets.QWidget):
         btn.setToolTip("QuickMenu")
         if self.quick_menu is not None:
             btn.clicked.connect(lambda: self.quick_menu(self))
+        btn.setVisible(True)          # may be rebuilt while the pie is shown
         self._centre = btn
 
     # -- behaviour
