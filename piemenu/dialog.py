@@ -458,7 +458,19 @@ class PreviewWidget(QtWidgets.QWidget):
         self.selected = 0
         self.highlight = -1
         self._drag_from = None
+        self._mock_chooser = None    # (slot index, size): chooser-size demo
         self.setMinimumSize(420, 320)
+
+    def flash_chooser(self, index, size):
+        """Show a mock chooser under a slot for a moment, so the
+        chooser-size knob has something visible to change."""
+        self._mock_chooser = (index, size)
+        self.update()
+        QtCore.QTimer.singleShot(1400, self._unflash)
+
+    def _unflash(self):
+        self._mock_chooser = None
+        self.update()
 
     def set_pie(self, pie, actions):
         self.pie = pie
@@ -563,6 +575,25 @@ class PreviewWidget(QtWidgets.QWidget):
         painter.setBrush(pal.color(QtGui.QPalette.Mid))
         painter.drawEllipse(QtCore.QPoint(int(self.width() / 2),
                                           int(self.height() / 2)), 3, 3)
+        if self._mock_chooser is not None:
+            index, alt = self._mock_chooser
+            geo = self._geometry()
+            if index < len(geo):
+                x, y = geo[index]
+                slot = pie.items[index] if index < len(pie.items) else None
+                count = max(2, len(slot or []))
+                total = count * alt + (count - 1) * 2
+                cx = int(x + size / 2 - total / 2)
+                cy = int(y + size + 4)
+                painter.setPen(QtGui.QPen(pal.color(QtGui.QPalette.Mid), 1))
+                for j in range(count):
+                    r = QtCore.QRect(cx + j * (alt + 2), cy, alt, alt)
+                    painter.setBrush(pal.color(QtGui.QPalette.Button))
+                    painter.drawRoundedRect(r, 3, 3)
+                    if slot and j < len(slot):
+                        icon = command_icon(slot[j].cmd, self.actions)
+                        if not icon.isNull():
+                            icon.paint(painter, r.adjusted(3, 3, -3, -3))
         painter.end()
 
     def mousePressEvent(self, event):
@@ -1541,6 +1572,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
         else:
             setattr(self.pie(), field, value)
             self._changed(False)
+            if field == "alt_size":
+                # the chooser only exists in live pies: demo it right here
+                pie = self.pie()
+                index = next((i for i, s in enumerate(pie.items)
+                              if s and len(s) > 1), self.slot)
+                self.preview.flash_chooser(index, value)
 
     def _set_family(self, family):
         self._structural(lambda p: setattr(p, "family", family))

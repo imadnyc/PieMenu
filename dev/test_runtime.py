@@ -221,6 +221,14 @@ pies["Main"].show_names = True           # names need room, buttons grow
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 assert w.buttons[1].text() == "Undo"
 assert w.buttons[1].height() > pies["Main"].button
+long_pie = Pie("Long", slots=2, per_ring=2, show_names=True)
+model.normalise(long_pie)
+long_pie.items[0] = [Binding("Sketcher_ConstrainPerpendicular")]
+lw = runtime.PieWidget({"Long": long_pie}, "Long", {}, fire)
+fm = lw.buttons[0].fontMetrics()
+assert lw.buttons[0].width() >= \
+    fm.horizontalAdvance("ConstrainPerpendicular") + 16   # never truncated
+lw.deleteLater()
 shown = [b.geometry() for b in w.buttons if not b.isHidden()]
 for i, r1 in enumerate(shown):           # ...and the layout spreads so no
     for r2 in shown[i + 1:]:             # name is covered by a neighbour

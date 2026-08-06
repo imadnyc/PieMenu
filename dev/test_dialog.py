@@ -182,6 +182,14 @@ assert binding.cmd == "Std_Redo" and binding.rule == {"Object": (">=", 2)}
 assert "Redo" in picker.echo.text()
 print("PASS picker")
 
+# ---- the chooser-size knob demos a mock chooser in the preview ---------------
+dlg.select_pie("Main")
+dlg._set("alt_size", 36)
+assert dlg.preview._mock_chooser is not None
+assert dlg.preview._mock_chooser[1] == 36
+dlg.preview._unflash()
+assert dlg.preview._mock_chooser is None
+
 # ---- the global surface is just accent + backup ------------------------------
 assert not hasattr(dlg, "g_toggle")      # the behaviour toggles are gone
 assert not hasattr(dlg, "g_rclick")

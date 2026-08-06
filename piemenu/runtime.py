@@ -308,10 +308,11 @@ class PieWidget(QtWidgets.QWidget):
                 else cmd.split("_", 1)[-1]
             btn.setText(text)
             # a 34px square clips text-under-icon into nothing: grow to fit
+            # (generously -- the style pads the label on both sides)
             fm = btn.fontMetrics()
             btn.setFixedSize(
-                max(self.pie.button, fm.horizontalAdvance(text) + 12),
-                self.pie.button + fm.height() + 2)
+                max(self.pie.button, fm.horizontalAdvance(text) + 24),
+                self.pie.button + fm.height() + 6)
         if n_live > 1:
             tip += f"  ({n_live} apply — hover to choose)"
         btn.setToolTip(tip)
