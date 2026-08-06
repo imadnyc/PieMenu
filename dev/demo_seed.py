@@ -32,13 +32,15 @@ main.items[3] = [Binding("PieMenu_Modelling", {"Face": (">=", 1)}),
 main.items[4] = [Binding("Std_Undo")]
 main.items[5] = [Binding("PieMenu_View")]
 
-modelling = Pie("Modelling", slots=8, per_ring=8, radius=90,
+# two rings: 8 inner, 4 outer -- the second ring is the deeper PartDesign kit
+modelling = Pie("Modelling", slots=12, per_ring=8, radius=90,
                 open_on="hold", run_on="release")
 model.normalise(modelling)
 modelling.items[0] = [Binding("PartDesign_Pad", {"Face": (">=", 1)}),
                       Binding("PartDesign_Pocket", {"Face": (">=", 1)}),
                       Binding("PartDesign_Groove", {"Face": ("==", 1)})]
 modelling.items[1] = [Binding("PartDesign_Fillet", {"Edge": (">=", 1)}),
+                      Binding("PartDesign_Chamfer", {"Edge": (">=", 1)}),
                       Binding("PartDesign_Thickness", {"Face": (">=", 2)})]
 modelling.items[2] = [Binding("Part_Cut", {"Object": (">=", 2)})]
 modelling.items[3] = [Binding("PartDesign_Draft",
@@ -47,12 +49,18 @@ modelling.items[4] = [Binding("PartDesign_Revolution", {"Face": (">=", 1)})]
 modelling.items[5] = [Binding("Std_Redo")]
 modelling.items[6] = [Binding("PieMenu_Patterns")]
 modelling.items[7] = [Binding("PieMenu_Datums")]
+modelling.items[8] = [Binding("PartDesign_AdditiveLoft"),
+                      Binding("PartDesign_SubtractiveLoft")]
+modelling.items[9] = [Binding("PartDesign_AdditivePipe")]
+modelling.items[10] = [Binding("PartDesign_Hole", {"Face": (">=", 1)})]
+modelling.items[11] = [Binding("PartDesign_Boolean", {"Object": (">=", 2)})]
 
 patterns = Pie("Patterns", slots=4, per_ring=4, radius=70)
 model.normalise(patterns)
 patterns.items[0] = [Binding("PartDesign_Mirrored")]
 patterns.items[1] = [Binding("PartDesign_LinearPattern")]
 patterns.items[2] = [Binding("PartDesign_PolarPattern")]
+patterns.items[3] = [Binding("PartDesign_MultiTransform")]
 
 sketching = Pie("Sketching", family="grid", cols=3, rows=2, radius=80,
                 anchors=["Top", "Bottom"])
