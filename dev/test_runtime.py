@@ -213,6 +213,10 @@ pies["Main"].show_names = True           # names need room, buttons grow
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 assert w.buttons[1].text() == "Undo"
 assert w.buttons[1].height() > pies["Main"].button
+shown = [b.geometry() for b in w.buttons if not b.isHidden()]
+for i, r1 in enumerate(shown):           # ...and the layout spreads so no
+    for r2 in shown[i + 1:]:             # name is covered by a neighbour
+        assert not r1.intersects(r2), (r1, r2)
 w.deleteLater()
 pies["Main"].show_names = False
 pies["Main"].alt_size = 24

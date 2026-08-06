@@ -42,6 +42,20 @@ def behaviour():
     }
 
 
+def accent():
+    """The accent colour: the user's override, else the palette highlight."""
+    if App is not None:
+        try:
+            value = _param().GetString("AccentColor", "")
+        except Exception:  # noqa: BLE001 -- no params outside FreeCAD
+            value = ""
+        if value:
+            colour = QtGui.QColor(value)
+            if colour.isValid():
+                return colour
+    return QtWidgets.QApplication.palette().highlight().color()
+
+
 def workbench_scope(gui):
     """The active workbench as a scope name ("PartDesign")."""
     try:
@@ -107,6 +121,20 @@ def command_action(name):
     return mw.findChild(QtGui.QAction, name)
 
 
+def pie_icon(pie):
+    """A pie's own face: its icon field (a command name), else the first
+    real tool inside it, else the logo."""
+    if pie is not None:
+        candidates = [pie.icon] if pie.icon else []
+        candidates += [b.cmd for slot in (pie.items or []) for b in (slot or [])
+                       if not is_pie_command(b.cmd)]
+        for cmd in candidates:
+            icon = command_icon(cmd)
+            if icon is not None and not icon.isNull():
+                return icon
+    return QtGui.QIcon(LOGO)
+
+
 _ICON_CACHE = {}
 
 
@@ -170,7 +198,7 @@ class PieWidget(QtWidgets.QWidget):
             "QToolButton{background:palette(button);"
             "border:1px solid palette(mid);border-radius:6px;}"
             'QToolButton[alt="true"]{background:palette(alternate-base);}'
-            "QToolButton:hover{border:2px solid palette(highlight);}"
+            f"QToolButton:hover{{border:2px solid {accent().name()};}}"
             "QToolButton:disabled{background:palette(window);"
             "border:1px dashed palette(mid);}")
         self.pies = pies
@@ -202,6 +230,14 @@ class PieWidget(QtWidgets.QWidget):
         # from the real widgets, not from pie.button
         self.buttons = [self._slot_button(pie.items[i], i)
                         for i in range(len(pos))]
+        if pie.show_names and len(pos) > 1:
+            # grown buttons need grown distances or names cover each other:
+            # scale the whole layout by the worst growth factor
+            base = pie.button + pie.spacing
+            grow = max(max(b.width() for b in self.buttons) + pie.spacing,
+                       max(b.height() for b in self.buttons) + pie.spacing)
+            scale = max(1.0, grow / base)
+            pos = [(x * scale, y * scale) for x, y in pos]
         min_x = min(x - b.width() / 2 for (x, _), b in zip(pos, self.buttons)) - pad
         max_x = max(x + b.width() / 2 for (x, _), b in zip(pos, self.buttons)) + pad
         min_y = min(y - b.height() / 2 for (_, y), b in zip(pos, self.buttons)) - pad
@@ -251,10 +287,10 @@ class PieWidget(QtWidgets.QWidget):
         tip = cmd
         if is_pie_command(cmd):
             target = pie_target(cmd)
-            btn.setIcon(QtGui.QIcon(LOGO))
+            btn.setIcon(pie_icon(self.pies.get(target)))
             tip = f"Open {target}"
             dead = not model.pie_live(target, self.pies, self.counts)
-            colour = "#808080" if (dead or not live) else "palette(highlight)"
+            colour = "#808080" if (dead or not live) else accent().name()
             btn.setStyleSheet(
                 f"QToolButton{{border:2px solid {colour};"
                 f"border-radius:{self.pie.button // 2}px;}}")
@@ -364,7 +400,7 @@ class PieWidget(QtWidgets.QWidget):
             return
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        painter.setPen(QtGui.QPen(self.palette().highlight().color(), 3,
+        painter.setPen(QtGui.QPen(accent(), 3,
                                   QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
         painter.drawLine(line)
         for splay in (30, -30):        # two barbs make the head
@@ -390,7 +426,7 @@ class _DwellRing(QtWidgets.QWidget):
             return
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        painter.setPen(QtGui.QPen(self.palette().highlight().color(), 3,
+        painter.setPen(QtGui.QPen(accent(), 3,
                                   QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
         painter.drawArc(self.rect().adjusted(2, 2, -2, -2),
                         90 * 16, int(-360 * 16 * self.progress))

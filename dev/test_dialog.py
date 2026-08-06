@@ -174,9 +174,11 @@ assert binding.cmd == "Std_Redo" and binding.rule == {"Object": (">=", 2)}
 assert "Redo" in picker.echo.text()
 print("PASS picker")
 
-# ---- behaviour dialog constructs --------------------------------------------
-bd = dialog.behaviour_dialog(None)
-assert isinstance(bd, QtWidgets.QDialog)
+# ---- globals inlined in the footer ------------------------------------------
+assert isinstance(dlg.g_toggle, QtWidgets.QCheckBox)
+assert isinstance(dlg.g_rclick, QtWidgets.QCheckBox)
+assert dlg.g_delay.value() >= 100
+assert not hasattr(dialog, "behaviour_dialog")
 print("PASS behaviour dialog")
 
 ROOT.RemGroup("V2")

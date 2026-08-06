@@ -109,6 +109,27 @@ def workbench_scopes():
         return ["Assembly", "Draft", "Part", "PartDesign", "Sketcher"]
 
 
+def workbench_icon(scope):
+    """The workbench's own icon for a scope name, or None."""
+    try:
+        import FreeCADGui as Gui
+        benches = Gui.listWorkbenches()
+        wb = benches.get(scope + "Workbench") or next(
+            (w for k, w in benches.items() if k.startswith(scope)), None)
+        xpm = getattr(wb, "Icon", "") if wb is not None else ""
+        if xpm.startswith((":", "/")) or xpm.endswith((".svg", ".png")):
+            icon = QtGui.QIcon(xpm)      # C++ benches give a resource path
+            if not icon.isNull():
+                return icon
+        elif xpm:
+            pixmap = QtGui.QPixmap()
+            if pixmap.loadFromData(bytes(xpm, "utf-8"), "XPM"):
+                return QtGui.QIcon(pixmap)
+    except Exception:  # noqa: BLE001 -- console mode / exotic benches
+        return None
+    return None
+
+
 def current_scope():
     """The active workbench's scope name, or None outside the GUI."""
     try:
@@ -511,6 +532,11 @@ class ShortcutsTable(QtWidgets.QWidget):
             self._key_menu)
         self.right = QtWidgets.QTableWidget(0, len(self.workbenches))
         self.right.setHorizontalHeaderLabels(self.workbenches)
+        for col, wb in enumerate(self.workbenches):
+            icon = workbench_icon(wb)
+            hdr = self.right.horizontalHeaderItem(col)
+            if icon is not None and hdr is not None:
+                hdr.setIcon(icon)
         self.right.verticalHeader().setVisible(False)
         for table in (self.left, self.right):
             table.setSelectionMode(QtWidgets.QAbstractItemView.NoSelection)
@@ -684,68 +710,6 @@ def record_key(parent, current):
 
 # ---- behaviour -------------------------------------------------------------
 
-def behaviour_dialog(parent):
-    p = App.ParamGet(runtime.MAIN)
-    dlg = QtWidgets.QDialog(parent)
-    dlg.setWindowTitle("PieMenu preferences — applies to every pie")
-    lay = QtWidgets.QVBoxLayout(dlg)
-    box = QtWidgets.QGroupBox("Behaviour")
-    form = QtWidgets.QVBoxLayout(box)
-
-    def check(label, name, default):
-        cb = QtWidgets.QCheckBox(label)
-        cb.setChecked(p.GetBool(name, default))
-        cb.toggled.connect(lambda v, n=name: p.SetBool(n, v))
-        cb.setToolTip(HELP.get(label, ""))
-        form.addWidget(cb)
-        return cb
-
-    check("Toggle show/hide", "GlobalKeyToggle", True)
-    check("Long right-click to open", "RightClickTrigger", False)
-    delay_row = QtWidgets.QHBoxLayout()
-    delay_row.addWidget(QtWidgets.QLabel("Right-click delay (ms):"))
-    delay = QtWidgets.QSpinBox()
-    delay.setRange(100, 2000)
-    delay.setValue(p.GetInt("DelayRightClick", 0) or 350)
-    delay.valueChanged.connect(lambda v: p.SetInt("DelayRightClick", v))
-    delay_row.addWidget(delay)
-    form.addLayout(delay_row)
-    ctx = check("Global context", "GlobalContextPlaceholder", False)
-    ctx.setEnabled(False)
-    lay.addWidget(box)
-
-    files = QtWidgets.QGroupBox("Backup")
-    frow = QtWidgets.QHBoxLayout(files)
-    root = App.ParamGet("User parameter:BaseApp/PieMenu")
-
-    def export_all():
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            dlg, "Export all PieMenu settings", "piemenu.FCParam")
-        if path:
-            root.Export(path)
-
-    def import_all():
-        path, _ = QtWidgets.QFileDialog.getOpenFileName(
-            dlg, "Import PieMenu settings")
-        if path:
-            root.Import(path)
-
-    for label, fn in (("Export all settings…", export_all),
-                      ("Import all settings…", import_all)):
-        btn = QtWidgets.QPushButton(label)
-        btn.clicked.connect(fn)
-        if not hasattr(root, "Export"):
-            btn.setEnabled(False)
-        frow.addWidget(btn)
-    lay.addWidget(files)
-
-    bb = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close)
-    bb.rejected.connect(dlg.reject)
-    bb.clicked.connect(dlg.accept)
-    lay.addWidget(bb)
-    return dlg
-
-
 # ---- the main dialog -------------------------------------------------------
 
 class SliderSpin(QtWidgets.QWidget):
@@ -831,6 +795,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.preview.slot_menu.connect(self._slot_context)
         pv_frame, pv_lay = _panel()
         pv_lay.addWidget(self.preview)
+        legend = QtWidgets.QLabel(
+            "n badge — several tools share the slot  ·  dot — conditional  ·  "
+            "ring — opens another pie  ·  dashed — empty  ·  red — context "
+            "clash")
+        legend.setStyleSheet("color: gray;")
+        legend.setWordWrap(True)
+        pv_lay.addWidget(legend)
         top.addWidget(pv_frame, 1)
 
         # -- slots table
@@ -883,14 +854,78 @@ class PieMenuPreferences(QtWidgets.QDialog):
         sc_lay.addWidget(self.shortcuts)
         outer.addWidget(sc_frame)
 
+        # the whole global surface, inlined: two behaviour toggles, the
+        # accent override and backup -- no second dialog
         foot = QtWidgets.QHBoxLayout()
         add_key = QtWidgets.QPushButton("Add a shortcut key…")
         add_key.clicked.connect(self.shortcuts.add_key)
         foot.addWidget(add_key)
-        prefs = QtWidgets.QPushButton("Preferences…")
-        prefs.clicked.connect(lambda: behaviour_dialog(self).exec_())
-        foot.addWidget(prefs)
+        foot.addSpacing(16)
+        p = App.ParamGet(runtime.MAIN)
+        self.g_toggle = QtWidgets.QCheckBox("Key toggles open/close")
+        self.g_toggle.setChecked(p.GetBool("GlobalKeyToggle", True))
+        self.g_toggle.toggled.connect(
+            lambda v: p.SetBool("GlobalKeyToggle", v))
+        self.g_toggle.setToolTip(HELP.get("Toggle show/hide", ""))
+        foot.addWidget(self.g_toggle)
+        self.g_rclick = QtWidgets.QCheckBox("Long right-click opens")
+        self.g_rclick.setChecked(p.GetBool("RightClickTrigger", False))
+        self.g_rclick.toggled.connect(
+            lambda v: p.SetBool("RightClickTrigger", v))
+        self.g_rclick.setToolTip(HELP.get("Long right-click to open", ""))
+        foot.addWidget(self.g_rclick)
+        self.g_delay = QtWidgets.QSpinBox()
+        self.g_delay.setRange(100, 2000)
+        self.g_delay.setSuffix(" ms")
+        self.g_delay.setValue(p.GetInt("DelayRightClick", 0) or 350)
+        self.g_delay.valueChanged.connect(
+            lambda v: p.SetInt("DelayRightClick", v))
+        self.g_delay.setToolTip("How long the right button is held before "
+                                "the pie opens.")
+        foot.addWidget(self.g_delay)
+        accent_btn = QtWidgets.QPushButton("Accent…")
+        accent_btn.setToolTip("Colour for door rings, hover borders, the "
+                              "gesture arrow and dwell rings. Default: the "
+                              "theme's highlight.")
+
+        def pick_accent():
+            colour = QtWidgets.QColorDialog.getColor(
+                runtime.accent(), self, "Pie accent colour")
+            if colour.isValid():
+                p.SetString("AccentColor", colour.name())
+                self.on_change()
+
+        accent_btn.clicked.connect(pick_accent)
+        foot.addWidget(accent_btn)
+        accent_reset = QtWidgets.QToolButton()
+        accent_reset.setText("✕")
+        accent_reset.setToolTip("Back to the theme's highlight colour")
+        accent_reset.clicked.connect(
+            lambda: (p.RemString("AccentColor"), self.on_change()))
+        foot.addWidget(accent_reset)
         foot.addStretch(1)
+
+        root = App.ParamGet("User parameter:BaseApp/PieMenu")
+
+        def export_all():
+            path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Export all PieMenu settings", "piemenu.FCParam")
+            if path:
+                root.Export(path)
+
+        def import_all():
+            path, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self, "Import PieMenu settings")
+            if path:
+                root.Import(path)
+                self._binds_changed()
+
+        for label, fn in (("Export…", export_all), ("Import…", import_all)):
+            btn = QtWidgets.QPushButton(label)
+            btn.clicked.connect(fn)
+            if not hasattr(root, "Export"):
+                btn.setEnabled(False)
+            foot.addWidget(btn)
         close = QtWidgets.QPushButton("Close")
         close.clicked.connect(self.accept)
         foot.addWidget(close)
@@ -945,6 +980,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
                 label += "   (unused)"
             item = QtWidgets.QListWidgetItem(label)
             item.setData(QtCore.Qt.UserRole, name)
+            item.setIcon(runtime.pie_icon(pies[name]))
             self.pie_list.addItem(item)
             if name == self.current:
                 self.pie_list.setCurrentItem(item)
@@ -1097,7 +1133,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
             for j, b in enumerate(slot or []):
                 child = QtWidgets.QTreeWidgetItem(
                     [command_label(b.cmd), rule_text(b.rule)])
-                child.setIcon(0, command_icon(b.cmd, self.actions))
+                child.setIcon(0, runtime.pie_icon(
+                    self.pies.get(pie_target(b.cmd)))
+                    if is_pie_command(b.cmd)
+                    else command_icon(b.cmd, self.actions))
                 child.setData(0, QtCore.Qt.UserRole, (i, j))
                 child.setForeground(1, QtGui.QBrush(QtGui.QColor(128, 128,
                                                                  128)))
@@ -1259,6 +1298,14 @@ class PieMenuPreferences(QtWidgets.QDialog):
                 f"→ {rings} ring{'s' if rings > 1 else ''}")
             per_lay.addWidget(self._rings_label)
             row("Per ring", per)
+            spacing = row("Spacing",
+                          self._slider(pie.spacing, 0, 60, "spacing"))
+            if model.slot_count(pie) <= pie.per_ring:
+                # nothing to space: one ring's slots sit on the radius
+                spacing.setEnabled(False)
+                spacing.setToolTip(
+                    "Spacing separates rings — this pie has a single ring, "
+                    "so there is nothing to space. Radius moves its slots.")
             row("Radius", self._slider(pie.radius, 20, 300, "radius"))
             row("Arc", self._slider(pie.arc, 10, 360, "arc"))
             row("Facing", self._slider(pie.arc_face, -180, 180, "arc_face"))
@@ -1283,13 +1330,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
             row("Anchors", self._anchor_cross(pie))
             row("Offset", self._slider(pie.radius, 0, 300, "radius"))
         row("Button", self._slider(pie.button, 16, 96, "button"))
-        spacing = row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
-        if pie.family == "circle" and model.slot_count(pie) <= pie.per_ring:
-            # nothing to space: one ring's slots sit on the radius
-            spacing.setEnabled(False)
-            spacing.setToolTip("Spacing separates rings and grid cells — "
-                               "this pie has a single ring, so there is "
-                               "nothing to space. Radius moves its slots.")
+        if pie.family == "grid":
+            row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
         row("Chooser size", self._slider(pie.alt_size, 16, 64, "alt_size"))
 
         open_on = row("Open on", QtWidgets.QComboBox())
