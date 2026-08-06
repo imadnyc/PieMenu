@@ -148,8 +148,11 @@ class Pie:
     # circle
     slots: int = 8
     per_ring: int = 8
-    # explicit slots-per-ring, e.g. [8, 16]: outer rings have more room.
-    # The last entry repeats outward; empty means per_ring everywhere.
+    # how rings fill: "uniform" = per_ring everywhere, "auto" = as many as
+    # each ring's circumference fits, "custom" = ring_counts below
+    ring_mode: str = "uniform"
+    # custom mode: slots per ring, e.g. [8, 16]; the last entry repeats
+    # outward, empty falls back to per_ring
     ring_counts: list = field(default_factory=list)
     radius: int = 80
     arc: int = 360
@@ -197,9 +200,14 @@ def normalise(pie):
 def ring_plan(pie, n=None):
     """How many slots each ring takes, in order, covering n slots."""
     n = slot_count(pie) if n is None else n
+    span = math.radians(min(360, max(10, pie.arc)))
+    pitch = max(8, pie.button + pie.spacing)
     plan, taken, ring = [], 0, 0
     while taken < n:
-        if pie.ring_counts:
+        if pie.ring_mode == "auto":
+            radius = pie.radius + ring * (pie.button + pie.spacing + 10)
+            count = int(span * radius / pitch)
+        elif pie.ring_mode == "custom" and pie.ring_counts:
             count = pie.ring_counts[min(ring, len(pie.ring_counts) - 1)]
         else:
             count = pie.per_ring
@@ -338,7 +346,7 @@ def _grp(path=""):
 _BOOLS = ("default", "stagger", "show_names", "door_hover")
 _INTS = ("slots", "per_ring", "radius", "arc", "arc_face", "stagger_by",
          "cols", "rows", "button", "spacing", "delay", "alt_size")
-_STRINGS = ("family", "icon", "open_on", "run_on")
+_STRINGS = ("family", "icon", "open_on", "run_on", "ring_mode")
 _PARAM = {f: "".join(w.capitalize() for w in f.split("_")) for f in
           _BOOLS + _INTS + _STRINGS}
 
@@ -393,6 +401,8 @@ def load_pie(name):
     pie.ring_counts = [int(c) for c in
                        g.GetString("RingCounts", "").split(",")
                        if c.strip().isdigit() and int(c) > 0]
+    if pie.ring_counts and not g.GetString("RingMode", ""):
+        pie.ring_mode = "custom"     # counts written before modes existed
     for a in ANCHOR_ORDER:
         v = g.GetInt("Offset" + a, -1)
         if v >= 0:

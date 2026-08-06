@@ -28,12 +28,12 @@ HELP = {
               "into blocks. These two replace the eleven old shapes.",
     "Slots": "How many positions this pie has. Empty slots stay empty — tools "
              "no longer fill positions in list order.",
+    "Rings": "How rings fill. Uniform: the same count each ring. Auto: as "
+             "many as each ring's circumference fits, so outer rings hold "
+             "more. Custom: set every ring yourself.",
     "Per ring": "How many slots go in each ring before a new one starts "
-                "further out.",
-    "Ring counts": "Different counts per ring, comma-separated — 8,16 puts "
-                   "8 in the first ring and 16 in the roomier second. The "
-                   "last number repeats outward; empty uses Per ring "
-                   "everywhere.",
+                "further out. In custom mode, one number per ring — the "
+                "last repeats outward.",
     "Radius": "Distance from the cursor to the first ring.",
     "Arc": "How much of the circle the slots span. 360 is the full circle.",
     "Facing": "Which way a partial arc points. A 90° arc facing right sits "
@@ -1508,35 +1508,50 @@ class PieMenuPreferences(QtWidgets.QDialog):
             slots.setValue(pie.slots)
             slots.valueChanged.connect(
                 lambda v: self._set("slots", v, structure=True))
-            per = QtWidgets.QWidget()
-            per_lay = QtWidgets.QHBoxLayout(per)
-            per_lay.setContentsMargins(0, 0, 0, 0)
-            per_spin = QtWidgets.QSpinBox()
-            per_spin.setRange(1, 48)
-            per_spin.setValue(pie.per_ring)
-            per_spin.valueChanged.connect(
-                lambda v: self._set("per_ring", v, structure=True))
-            per_lay.addWidget(per_spin)
-            rings = len(model.ring_plan(pie))
-            self._rings_label = QtWidgets.QLabel(
-                f"→ {rings} ring{'s' if rings > 1 else ''}")
-            per_lay.addWidget(self._rings_label)
-            row("Per ring", per)
-            ring_edit = QtWidgets.QLineEdit(
-                ",".join(str(c) for c in pie.ring_counts))
-            ring_edit.setPlaceholderText("custom, e.g. 8,16")
+            mode = row("Rings", QtWidgets.QComboBox())
+            mode.addItems(["uniform", "auto", "custom"])
+            mode.setCurrentText(pie.ring_mode)
+            mode.currentTextChanged.connect(
+                lambda v: self._set("ring_mode", v, structure=True))
+            plan = model.ring_plan(pie)
+            if pie.ring_mode == "uniform":
+                per = QtWidgets.QWidget()
+                per_lay = QtWidgets.QHBoxLayout(per)
+                per_lay.setContentsMargins(0, 0, 0, 0)
+                per_spin = QtWidgets.QSpinBox()
+                per_spin.setRange(1, 48)
+                per_spin.setValue(pie.per_ring)
+                per_spin.valueChanged.connect(
+                    lambda v: self._set("per_ring", v, structure=True))
+                per_lay.addWidget(per_spin)
+                per_lay.addWidget(QtWidgets.QLabel(
+                    f"→ {len(plan)} ring{'s' if len(plan) > 1 else ''}"))
+                row("Per ring", per)
+            elif pie.ring_mode == "auto":
+                # each ring takes what its circumference fits
+                row("Per ring", QtWidgets.QLabel(
+                    " · ".join(str(c) for c in plan) + "  (by radius)"))
+            else:
+                # custom: one spinner per ring, no lists to type
+                box = QtWidgets.QWidget()
+                box_lay = QtWidgets.QHBoxLayout(box)
+                box_lay.setContentsMargins(0, 0, 0, 0)
+                spins = []
+                for count in plan:
+                    spin = QtWidgets.QSpinBox()
+                    spin.setRange(1, 48)
+                    spin.setValue(count)
+                    box_lay.addWidget(spin)
+                    spins.append(spin)
 
-            def ring_counts_done(edit=ring_edit):
-                values = []
-                for part in edit.text().replace(" ", "").split(","):
-                    if part.isdigit() and int(part) > 0:
-                        values.append(int(part))
-                    elif part:
-                        return               # garbage: change nothing
-                self._set("ring_counts", values, structure=True)
+                def counts_changed(_=0, spins=spins):
+                    self._set("ring_counts",
+                              [s.value() for s in spins], structure=True)
 
-            ring_edit.editingFinished.connect(ring_counts_done)
-            row("Ring counts", ring_edit)
+                for spin in spins:
+                    spin.valueChanged.connect(counts_changed)
+                box_lay.addStretch(1)
+                row("Per ring", box)
             spacing = row("Spacing",
                           self._slider(pie.spacing, 0, 60, "spacing"))
             if len(model.ring_plan(pie)) <= 1:

@@ -110,7 +110,8 @@ M.delete_pie("G2")
 print("PASS anchor offsets")
 
 # ---- per-ring counts ---------------------------------------------------------
-r3 = Pie("R3", slots=24, per_ring=8, radius=80, spacing=6, button=34)
+r3 = Pie("R3", slots=24, per_ring=8, radius=80, spacing=6, button=34,
+         ring_mode="custom")
 M.normalise(r3)
 r3.ring_counts = [8, 16]
 assert M.ring_plan(r3) == [8, 16]
@@ -125,11 +126,21 @@ r3.ring_counts = []
 assert M.ring_plan(r3) == [8, 8, 8]                     # falls back to per_ring
 r3.ring_counts = [8, 16]
 M.save_pie(r3)
-assert M.load_pie("R3").ring_counts == [8, 16]
+back = M.load_pie("R3")
+assert back.ring_counts == [8, 16] and back.ring_mode == "custom"
 r3.ring_counts = []
 M.save_pie(r3)
 assert M.load_pie("R3").ring_counts == []
 M.delete_pie("R3")
+
+# auto mode: each ring takes what its circumference fits, outer rings more
+r4 = Pie("R4", slots=40, per_ring=8, radius=80, spacing=6, button=34,
+         ring_mode="auto")
+M.normalise(r4)
+auto_plan = M.ring_plan(r4)
+assert sum(auto_plan) == 40
+assert auto_plan[0] < auto_plan[1]      # the roomier ring holds more
+assert M.ring_plan(Pie("U", slots=24, per_ring=8)) == [8, 8, 8]  # uniform
 print("PASS ring counts")
 
 # ---- liveness with cycles -------------------------------------------------
