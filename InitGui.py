@@ -43,9 +43,17 @@ def pieMenuStart():
     rt.open_preferences = open_prefs
 
     def add_menu_entry():
-        """A Tools > Accessories entry, created if the submenu is absent."""
+        """A Tools > Accessories entry, created if the submenu is absent.
+
+        FreeCAD rebuilds the menu bar whenever a workbench activates, which
+        destroys custom entries -- so this runs on a repeating timer and
+        re-adds itself when it finds the action gone (the v1 approach).
+        """
+        from PySide import QtGui
         mw = Gui.getMainWindow()
         if mw is None:
+            return
+        if mw.findChild(QtGui.QAction, "PieMenuPreferencesAction") is not None:
             return
         tools = None
         for menu_action in mw.menuBar().actions():
@@ -65,9 +73,13 @@ def pieMenuStart():
             tools.insertMenu(tools.actions()[0] if tools.actions() else None,
                              accessories)
         action = accessories.addAction("PieMenu preferences…")
+        action.setObjectName("PieMenuPreferencesAction")
         action.triggered.connect(open_prefs)
 
-    QtCore.QTimer.singleShot(500, add_menu_entry)
+    menu_timer = QtCore.QTimer()
+    menu_timer.timeout.connect(add_menu_entry)
+    menu_timer.start(1500)
+    rt._menu_timer = menu_timer      # keep the timer alive
     App.Console.PrintMessage("PieMenu v2 ready\n")
 
 
