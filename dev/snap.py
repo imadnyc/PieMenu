@@ -60,6 +60,12 @@ def run():
             snap(w, "pie-modelling-gesture-arrow")
             w.close()
 
+        if "Constraints" in run_.pies:   # foreign-workbench icon resolution
+            w = rt.PieWidget(run_.pies, "Constraints", {}, fire)
+            w.popup_at(QtCore.QPoint(600, 400))
+            snap(w, "pie-constraints")
+            w.close()
+
         print("SNAP step: pies done, building dialog", flush=True)
         try:  # so the current-workbench column highlight shows in the PNG
             Gui.activateWorkbench("PartDesignWorkbench")

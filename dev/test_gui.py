@@ -69,6 +69,13 @@ def check():
         dlg.deleteLater()
         print(f"E2E dialog ok: {len(dlg.actions)} commands in the picker")
 
+        # foreign-workbench icons resolve via the command registry, without
+        # that workbench ever having been activated
+        icon = rt.command_icon("Sketcher_ConstrainCoincident")
+        assert icon is not None and not icon.isNull(), \
+            "registry icon fallback failed"
+        print("E2E registry icons ok")
+
         print("E2E-PASS")
     except Exception:  # noqa: BLE001 -- any failure must print E2E-FAIL
         traceback.print_exc()

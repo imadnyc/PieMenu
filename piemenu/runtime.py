@@ -108,6 +108,53 @@ def command_action(name):
     return mw.findChild(QtGui.QAction, name)
 
 
+_ICON_CACHE = {}
+
+
+def command_icon(cmd):
+    """A QIcon for a command, or None.
+
+    A command's QAction only exists once its workbench has been activated,
+    so an action-only lookup left every foreign-workbench slot iconless.
+    Fall back to the command registry, importing the owning GUI module
+    (SketcherGui, PartGui, ...) on first need -- which also registers the
+    command so firing it from the pie works before ever visiting its bench.
+    """
+    if cmd in _ICON_CACHE:
+        return _ICON_CACHE[cmd]
+    icon = None
+    action = command_action(cmd)
+    if action is not None and not action.icon().isNull():
+        icon = action.icon()
+    else:
+        icon = _registry_icon(cmd)
+    _ICON_CACHE[cmd] = icon
+    return icon
+
+
+def _registry_icon(cmd):
+    if App is None or not App.GuiUp:
+        return None
+    import FreeCADGui as Gui
+    getter = getattr(Gui.Command, "get", None)
+    if getter is None:
+        return None
+    command = getter(cmd)
+    if command is None:
+        try:
+            __import__(cmd.split("_", 1)[0] + "Gui")
+        except ImportError:
+            return None
+        command = getter(cmd)
+    if command is None:
+        return None
+    try:
+        pixmap = (command.getInfo() or {}).get("pixmap") or ""
+        return Gui.getIcon(pixmap) if pixmap else None
+    except Exception:  # noqa: BLE001 -- a broken command stays iconless
+        return None
+
+
 # ---- the pie widget --------------------------------------------------------
 
 class PieWidget(QtWidgets.QWidget):
@@ -217,9 +264,11 @@ class PieWidget(QtWidgets.QWidget):
                 f"border-radius:{self.pie.button // 2}px;}}")
             live = live and not dead
         else:
+            icon = command_icon(cmd)
+            if icon is not None:
+                btn.setIcon(icon)
             action = command_action(cmd)
             if action is not None:
-                btn.setIcon(action.icon())
                 tip = action.toolTip() or cmd
         if self.pie.show_names:
             btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)

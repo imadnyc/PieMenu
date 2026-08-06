@@ -147,7 +147,10 @@ def command_icon(cmd, actions):
     if is_pie_command(cmd):
         return QtGui.QIcon(runtime.LOGO)
     action = actions.get(cmd)
-    return action.icon() if action is not None else QtGui.QIcon()
+    if action is not None and not action.icon().isNull():
+        return action.icon()
+    icon = runtime.command_icon(cmd)     # registry, loads the owning module
+    return icon if icon is not None else QtGui.QIcon()
 
 
 def command_label(cmd):
