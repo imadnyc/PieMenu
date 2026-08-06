@@ -91,6 +91,23 @@ M.normalise(g)
 assert len(g.items) == 6
 print("PASS grid layout")
 
+# ---- per-anchor offsets ------------------------------------------------------
+g2 = Pie("G2", family="grid", cols=2, rows=1, radius=60,
+         anchors=["Top", "Bottom"])
+M.normalise(g2)
+even = M.positions(g2)
+g2.anchor_offsets["Bottom"] = 220              # push only the bottom block
+far = M.positions(g2)
+assert far[0][1] == even[0][1]                 # top block unmoved
+assert far[2][1] > even[2][1]                  # bottom block further out
+M.save_pie(g2)
+assert M.load_pie("G2").anchor_offsets == {"Bottom": 220}
+g2.anchor_offsets.clear()
+M.save_pie(g2)
+assert M.load_pie("G2").anchor_offsets == {}   # cleared offsets stay cleared
+M.delete_pie("G2")
+print("PASS anchor offsets")
+
 # ---- liveness with cycles -------------------------------------------------
 pies = {
     "A": M.normalise(Pie("A", slots=2,

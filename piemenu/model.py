@@ -171,6 +171,9 @@ class Pie:
     items: list = field(default_factory=list)
     # slot index -> cmd the user last picked from that slot's chooser
     last_used: dict = field(default_factory=dict)
+    # grid: anchor -> its own offset from the cursor (falls back to radius),
+    # so blocks can be spaced independently and never collide
+    anchor_offsets: dict = field(default_factory=dict)
 
 
 def slot_count(pie):
@@ -225,8 +228,9 @@ def positions(pie):
         anchor = order[blk]
         x = (k % cols - (cols - 1) / 2) * step
         y = (k // cols - (rows - 1) / 2) * step
-        off_y = pie.radius / 2 + ((rows - 1) / 2) * step
-        off_x = pie.radius / 2 + ((cols - 1) / 2) * step
+        off = pie.anchor_offsets.get(anchor, pie.radius)
+        off_y = off / 2 + ((rows - 1) / 2) * step
+        off_x = off / 2 + ((cols - 1) / 2) * step
         if anchor == "Top":
             y -= off_y
         elif anchor == "Bottom":
@@ -327,6 +331,11 @@ def save_pie(pie):
     for f in _STRINGS:
         g.SetString(_PARAM[f], getattr(pie, f))
     g.SetString("Anchors", ",".join(pie.anchors))
+    for a in ANCHOR_ORDER:
+        if a in pie.anchor_offsets:
+            g.SetInt("Offset" + a, int(pie.anchor_offsets[a]))
+        else:
+            g.RemInt("Offset" + a)
     g.RemGroup("Slots")
     slots = g.GetGroup("Slots")
     for i, slot in enumerate(pie.items):
@@ -358,6 +367,10 @@ def load_pie(name):
     anchors = [a for a in g.GetString("Anchors", "Center").split(",")
                if a in ANCHOR_ORDER]
     pie.anchors = anchors or ["Center"]
+    for a in ANCHOR_ORDER:
+        v = g.GetInt("Offset" + a, -1)
+        if v >= 0:
+            pie.anchor_offsets[a] = v
     normalise(pie)
     slots = g.GetGroup("Slots")
     for sname in slots.GetGroups():

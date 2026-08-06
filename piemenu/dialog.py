@@ -1477,7 +1477,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
 
         def row(label, widget):
             lab = QtWidgets.QLabel(label + ":")
-            tip = HELP.get(label, "")
+            tip = HELP.get(label) or HELP.get(label.split()[0], "")
             image = _tip_image(label)
             if image:
                 tip = f"<img src='{image}'><br>{tip}"
@@ -1545,7 +1545,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
             rows_w.valueChanged.connect(
                 lambda v: self._set("rows", v, structure=True))
             row("Anchors", self._anchor_cross(pie))
-            row("Offset", self._slider(pie.radius, 0, 300, "radius"))
+            # one offset per block, so grids can be spaced independently
+            for a in [x for x in model.ANCHOR_ORDER
+                      if x in pie.anchors and x != "Center"]:
+                w = SliderSpin(pie.anchor_offsets.get(a, pie.radius), 0, 300)
+                w.changed.connect(
+                    lambda v, a=a: self._set_anchor_offset(a, v))
+                row(f"Offset {a}", w)
         row("Button", self._slider(pie.button, 16, 96, "button"))
         if pie.family == "grid":
             row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
@@ -1600,6 +1606,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
         w = SliderSpin(value, lo, hi)
         w.changed.connect(lambda v: self._set(field, v))
         return w
+
+    def _set_anchor_offset(self, anchor, value):
+        self.pie().anchor_offsets[anchor] = value
+        self._changed(False)
 
     def _anchor_cross(self, pie):
         grid = QtWidgets.QWidget()
