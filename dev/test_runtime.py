@@ -225,9 +225,9 @@ long_pie = Pie("Long", slots=2, per_ring=2, show_names=True)
 model.normalise(long_pie)
 long_pie.items[0] = [Binding("Sketcher_ConstrainPerpendicular")]
 lw = runtime.PieWidget({"Long": long_pie}, "Long", {}, fire)
-fm = lw.buttons[0].fontMetrics()
-assert lw.buttons[0].width() >= \
-    fm.horizontalAdvance("ConstrainPerpendicular") + 16   # never truncated
+hint = lw.buttons[0].sizeHint()
+assert lw.buttons[0].width() >= hint.width()      # style says it fits
+assert lw.buttons[0].height() >= hint.height()
 lw.deleteLater()
 shown = [b.geometry() for b in w.buttons if not b.isHidden()]
 for i, r1 in enumerate(shown):           # ...and the layout spreads so no

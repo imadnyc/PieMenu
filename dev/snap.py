@@ -66,6 +66,13 @@ def run():
             snap(w, "pie-constraints")
             w.close()
 
+            run_.pies["Constraints"].show_names = True
+            w = rt.PieWidget(run_.pies, "Constraints", {}, fire)
+            w.popup_at(QtCore.QPoint(600, 400))
+            snap(w, "pie-constraints-names")
+            w.close()
+            run_.pies["Constraints"].show_names = False
+
         print("SNAP step: pies done, building dialog", flush=True)
         try:  # so the current-workbench column highlight shows in the PNG
             Gui.activateWorkbench("PartDesignWorkbench")

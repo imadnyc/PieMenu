@@ -11,6 +11,7 @@ Structured for testability: the widget and the dispatcher take their inputs
 FreeCAD GUI; ``start()`` wires the real thing.
 """
 
+import math
 import os
 
 from PySide import QtCore, QtGui, QtWidgets
@@ -231,12 +232,17 @@ class PieWidget(QtWidgets.QWidget):
         self.buttons = [self._slot_button(pie.items[i], i)
                         for i in range(len(pos))]
         if pie.show_names and len(pos) > 1:
-            # grown buttons need grown distances or names cover each other:
-            # scale the whole layout by the worst growth factor
-            base = pie.button + pie.spacing
-            grow = max(max(b.width() for b in self.buttons) + pie.spacing,
-                       max(b.height() for b in self.buttons) + pie.spacing)
-            scale = max(1.0, grow / base)
+            # grown buttons need grown distances or names cover each other
+            maxw = max(b.width() for b in self.buttons) + 6
+            maxh = max(b.height() for b in self.buttons) + 6
+            if pie.family == "circle":
+                # neighbours sit a chord apart: scale the radius just enough
+                per = max(2, min(pie.per_ring, len(pos)))
+                chord = 2 * math.sin(math.pi / per) * max(1, pie.radius)
+                scale = max(1.0, maxw / chord, maxh / chord)
+            else:
+                base = pie.button + pie.spacing
+                scale = max(1.0, maxw / base, maxh / base)
             pos = [(x * scale, y * scale) for x, y in pos]
         min_x = min(x - b.width() / 2 for (x, _), b in zip(pos, self.buttons)) - pad
         max_x = max(x + b.width() / 2 for (x, _), b in zip(pos, self.buttons)) + pad
@@ -307,12 +313,14 @@ class PieWidget(QtWidgets.QWidget):
             text = pie_target(cmd) if is_pie_command(cmd) \
                 else cmd.split("_", 1)[-1]
             btn.setText(text)
-            # a 34px square clips text-under-icon into nothing: grow to fit
-            # (generously -- the style pads the label on both sides)
-            fm = btn.fontMetrics()
+            # a 34px square clips text-under-icon into nothing: size from the
+            # style's own hint (font metrics undercount once a theme
+            # stylesheet swaps fonts in), plus margin
+            hint = btn.sizeHint()
             btn.setFixedSize(
-                max(self.pie.button, fm.horizontalAdvance(text) + 24),
-                self.pie.button + fm.height() + 6)
+                max(self.pie.button, hint.width() + 10),
+                max(self.pie.button + btn.fontMetrics().height() + 6,
+                    hint.height() + 4))
         if n_live > 1:
             tip += f"  ({n_live} apply — hover to choose)"
         btn.setToolTip(tip)

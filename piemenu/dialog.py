@@ -462,17 +462,18 @@ class PreviewWidget(QtWidgets.QWidget):
         self.setMinimumSize(420, 320)
 
     def flash_chooser(self, index, size):
-        """Show a mock chooser under a slot for a moment, so the
-        chooser-size knob has something visible to change."""
+        """Show a mock chooser under a slot, so the chooser-size knob has
+        something visible to change. Stays until another pie is shown."""
         self._mock_chooser = (index, size)
         self.update()
-        QtCore.QTimer.singleShot(1400, self._unflash)
 
     def _unflash(self):
         self._mock_chooser = None
         self.update()
 
     def set_pie(self, pie, actions):
+        if pie is not self.pie:      # switching pies retires the chooser demo
+            self._mock_chooser = None
         self.pie = pie
         self.actions = actions
         self.update()
