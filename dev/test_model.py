@@ -176,7 +176,7 @@ gated = [M.Binding("A", {"Face": (">=", 1)}), M.Binding("B")]
 assert M.slot_face(gated, {}, "A").cmd == "B"         # pick no longer applies
 assert M.slot_face([M.Binding("A", {"Face": (">=", 1)})], {}) is None
 
-sticky = M.Pie("Sticky", slots=2, per_ring=2)
+sticky = M.Pie("Sticky", slots=2, per_ring=2, alt_size=40, door_hover=False)
 M.normalise(sticky)
 sticky.items[0] = [M.Binding("A"), M.Binding("B")]
 sticky.last_used[0] = "B"
@@ -184,6 +184,7 @@ M.save_pie(sticky)
 M.set_last_used("Sticky", 0, "A")                     # the targeted setter
 back = M.load_pie("Sticky")
 assert back.last_used == {0: "A"}
+assert back.alt_size == 40 and back.door_hover is False
 M.delete_pie("Sticky")
 App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 print("PASS slot face")

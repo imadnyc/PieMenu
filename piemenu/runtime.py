@@ -186,6 +186,10 @@ class PieWidget(QtWidgets.QWidget):
             if pie.run_on == "hover":
                 btn.installEventFilter(_HoverFire(self, btn, face.cmd,
                                                   pie.delay))
+            elif pie.door_hover and is_pie_command(face.cmd):
+                # dwelling on a door descends into it mid-gesture
+                btn.installEventFilter(_HoverFire(self, btn, face.cmd,
+                                                  pie.delay))
         # explicit: children born on an ALREADY-VISIBLE parent stay hidden
         # otherwise -- a door descend rebuilds while shown, and every button
         # of the sub-pie would be invisible (the pie "not spawning")
@@ -245,10 +249,9 @@ class PieWidget(QtWidgets.QWidget):
         if is_pie_command(cmd):
             target = pie_target(cmd)
             if target in self.pies:
-                anchor = self.mapToGlobal(
-                    QtCore.QPoint(int(self._origin[0]), int(self._origin[1])))
+                # the sub-pie spawns where the hand already is
                 self.build(target)
-                self.popup_at(anchor)
+                self.popup_at(QtGui.QCursor.pos())
                 return
         self.close()
         self.fire(cmd)
@@ -372,11 +375,12 @@ def _chooser_widget(pie_widget, btn, bindings):
     lay = QtWidgets.QHBoxLayout(box)
     lay.setContentsMargins(2, 2, 2, 2)
     lay.setSpacing(2)
+    size = max(16, pie_widget.pie.alt_size)
     for b in bindings:
         alt = QtWidgets.QToolButton(box)
-        alt.setIconSize(QtCore.QSize(18, 18))
+        alt.setIconSize(QtCore.QSize(int(size * 0.75), int(size * 0.75)))
         pie_widget._decorate(alt, b, True, 1)
-        alt.setFixedSize(24, 24)
+        alt.setFixedSize(size, size)
         alt.clicked.connect(
             lambda _=False, cmd=b.cmd: pie_widget.choose(index, cmd))
         lay.addWidget(alt)

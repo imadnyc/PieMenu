@@ -146,6 +146,8 @@ class Pie:
     run_on: str = "click"           # click | hover | release
     delay: int = 250
     show_names: bool = False
+    alt_size: int = 24              # chooser (overload menu) button size
+    door_hover: bool = True         # dwelling on a door descends into it
     # items[i] is a slot: a list of Bindings, or None for an empty slot
     items: list = field(default_factory=list)
     # slot index -> cmd the user last picked from that slot's chooser
@@ -262,9 +264,9 @@ def _grp(path=""):
     return App.ParamGet(V2_ROOT + ("/" + path if path else ""))
 
 
-_BOOLS = ("default", "stagger", "show_names")
+_BOOLS = ("default", "stagger", "show_names", "door_hover")
 _INTS = ("slots", "per_ring", "radius", "arc", "arc_face", "stagger_by",
-         "cols", "rows", "button", "spacing", "delay")
+         "cols", "rows", "button", "spacing", "delay", "alt_size")
 _STRINGS = ("family", "icon", "open_on", "run_on")
 _PARAM = {f: "".join(w.capitalize() for w in f.split("_")) for f in
           _BOOLS + _INTS + _STRINGS}

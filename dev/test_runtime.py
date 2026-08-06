@@ -162,6 +162,40 @@ pies["Main"].run_on = "click"
 pies["Main"].last_used.clear()
 print("PASS gesture faces")
 
+# ---- doors on hover, chooser size ------------------------------------------
+fired.clear()
+pies["Main"].run_on = "release"
+pies["Main"].delay = 60
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+app.sendEvent(w.buttons[2], QtCore.QEvent(QtCore.QEvent.Enter))
+wait(150)                                # dwell on the door -> descend
+assert w.pie.name == "Sub" and fired == [], (w.pie.name, fired)
+assert any(not b.isHidden() for b in w.buttons)
+w.close()
+w.deleteLater()
+
+pies["Main"].door_hover = False          # knob off: dwelling stays put
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+app.sendEvent(w.buttons[2], QtCore.QEvent(QtCore.QEvent.Enter))
+wait(150)
+assert w.pie.name == "Main"
+w.close()
+w.deleteLater()
+pies["Main"].door_hover = True
+pies["Main"].run_on = "click"
+
+pies["Main"].alt_size = 40
+w = runtime.PieWidget(pies, "Main", {}, fire)
+w.show_chooser(w.buttons[4], model.live_bindings(pies["Main"].items[4], {}))
+alts = w._chooser.findChildren(QtWidgets.QToolButton)
+assert alts and alts[0].width() == 40    # the chooser-size knob
+w.deleteLater()
+pies["Main"].alt_size = 24
+pies["Main"].last_used.clear()
+print("PASS door hover + chooser size")
+
 
 # ---- dispatcher ------------------------------------------------------------
 class FakePie:

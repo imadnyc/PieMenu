@@ -5,6 +5,9 @@ repo="${PIEMENU_REPO:-/home/dre/Projects/PieMenu}"
 # own sub-scratch: the themed main profile hangs the OFFSCREEN platform (the
 # Theme/StyleSheet load), so captures run against a theme-free config
 dev="${PIEMENU_DEV:-/tmp/piemenu-dev}/snap"
+# always fresh: a timeout-killed run leaves the scratch wedged (locks), and a
+# stale scratch has twice hung the next capture at startup
+rm -rf "$dev"
 
 [ -f "$repo/InitGui.py" ] || {
   echo "pm-snap: no InitGui.py under '$repo' (set PIEMENU_REPO)" >&2

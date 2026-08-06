@@ -59,7 +59,12 @@ HELP = {
                "hold are much harder to trigger by accident.",
     "Run on": "How a tool fires once the pie is open. Release is the marking-"
               "menu gesture: flick and let go.",
-    "Delay": "Milliseconds before a hover fires a tool.",
+    "Delay": "Milliseconds before a hover fires a tool, opens a chooser pick "
+             "or descends into a door.",
+    "Chooser size": "Size of the buttons in the little overload menu, in "
+                    "pixels.",
+    "Doors on hover": "Dwelling on a door slot for the delay opens that pie "
+                      "at the cursor — glide in, aim, release.",
     "Command names": "Write each tool's name in its slot as well as its icon.",
     "Show QuickMenu": "The small button at the centre of every pie; it opens "
                       "a utility menu. Off hides it everywhere.",
@@ -1298,6 +1303,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
             row("Offset", self._slider(pie.radius, 0, 300, "radius"))
         row("Button", self._slider(pie.button, 16, 96, "button"))
         row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
+        row("Chooser size", self._slider(pie.alt_size, 16, 64, "alt_size"))
 
         open_on = row("Open on", QtWidgets.QComboBox())
         open_on.addItems(["single", "double", "hold", "double-hold"])
@@ -1311,6 +1317,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
         delay.setRange(0, 2000)
         delay.setValue(pie.delay)
         delay.valueChanged.connect(lambda v: self._set("delay", v))
+        doors = row("Doors on hover",
+                    QtWidgets.QCheckBox("descend after the delay"))
+        doors.setChecked(pie.door_hover)
+        doors.toggled.connect(lambda v: self._set("door_hover", v))
         names = row("Command names", QtWidgets.QCheckBox("show in slots"))
         names.setChecked(pie.show_names)
         names.toggled.connect(lambda v: self._set("show_names", v))
