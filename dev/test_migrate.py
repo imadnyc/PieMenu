@@ -79,9 +79,9 @@ assert tb.family == "grid" and tb.anchors == ["Top", "Bottom"]
 assert tb.cols == 2 and model.slot_count(tb) >= 4
 
 binds = model.load_binds()
-assert binds[model.ANY_SCOPE]["TAB"] == {"tap": "Main"}   # the pie's own key
-assert binds[model.ANY_SCOPE]["Space"] == {"tap": "Main"}   # global fallback
-assert binds["PartDesign"]["Space"] == {"tap": "Modelling"}   # wb override
+assert binds[model.ANY_SCOPE]["TAB"] == {"press": "Main"}   # the pie's key
+assert binds[model.ANY_SCOPE]["Space"] == {"press": "Main"}   # global
+assert binds["PartDesign"]["Space"] == {"press": "Modelling"}   # override
 assert model.resolve_key("Space", "PartDesign", binds) == ("Modelling", "PartDesign")
 assert model.resolve_key("Space", "Sketcher", binds) == ("Main", model.ANY_SCOPE)
 print("PASS migration")

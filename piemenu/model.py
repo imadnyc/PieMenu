@@ -263,14 +263,15 @@ def pie_live(name, pies, counts, _seen=None):
 
 
 # ---- shortcuts ------------------------------------------------------------
-# A binding is key x scope x GESTURE -> pie. The gesture (tap, double press,
-# press-and-hold) lives on the binding, so one key can reach several pies in
-# one workbench; each gesture inherits through the Any scope independently.
-# run_on (click/hover/release) stays on the pie.
+# A binding is key x scope x GESTURE -> pie: "press" or "double" (double
+# press). One key can reach two pies per workbench; each gesture inherits
+# through the Any scope independently. What RELEASE means is the pie's own
+# run_on: a release pie opens on press, follows the aim and never outlives
+# the key; a click/hover pie stays for the mouse and toggles.
 
-GESTURES = ("tap", "double", "hold")
+GESTURES = ("press", "double")
 
-def resolve_key(key, workbench, binds, gesture="tap"):
+def resolve_key(key, workbench, binds, gesture="press"):
     """(pie name, scope) for a key + gesture in a workbench, or None.
 
     The whole rule: the workbench's own binding beats the Any scope; if
@@ -294,10 +295,10 @@ def gestures_for(key, workbench, binds):
 
 
 def key_gestures(key, binds):
-    """The gestures a key uses in any scope, canonical order, tap always."""
+    """The gestures a key uses in any scope, canonical order, press always."""
     used = {g for scope in binds.values()
             for g in (scope.get(key) or {})}
-    used.add("tap")
+    used.add("press")
     return [g for g in GESTURES if g in used]
 
 
@@ -389,10 +390,10 @@ def delete_pie(name):
 
 
 def _bind_param(key, gesture):
-    """Param name for a binding: bare key = tap (which is also what every
+    """Param name for a binding: bare key = press (which is also what every
     pre-gesture config stored), 'KEY gesture' otherwise. Keys never contain
     spaces (QKeySequence writes Ctrl+Shift+P), so the split is safe."""
-    return key if gesture == "tap" else f"{key} {gesture}"
+    return key if gesture == "press" else f"{key} {gesture}"
 
 
 def load_binds():
@@ -407,7 +408,8 @@ def load_binds():
             if not name:
                 continue
             key, _, gesture = pname.partition(" ")
-            gesture = gesture or "tap"
+            if gesture in ("", "tap", "hold"):
+                gesture = "press"    # older spellings fold into press
             if gesture not in GESTURES:
                 continue
             keys.setdefault(key, {})[gesture] = name
@@ -415,21 +417,24 @@ def load_binds():
     return binds
 
 
-def set_bind(scope, key, pie_name, gesture="tap"):
+def set_bind(scope, key, pie_name, gesture="press"):
     _grp("Shortcuts").GetGroup(scope).SetString(_bind_param(key, gesture),
                                                 pie_name)
 
 
-def clear_bind(scope, key, gesture="tap"):
+def clear_bind(scope, key, gesture="press"):
     _grp("Shortcuts").GetGroup(scope).RemString(_bind_param(key, gesture))
+    if gesture == "press":               # older spellings of the same thing
+        _grp("Shortcuts").GetGroup(scope).RemString(f"{key} tap")
+        _grp("Shortcuts").GetGroup(scope).RemString(f"{key} hold")
 
 
 def remove_key(key):
     """Drop a key from every scope at once (the shortcuts-table row delete)."""
     root = _grp("Shortcuts")
     for scope in root.GetGroups():
-        for gesture in GESTURES:
-            root.GetGroup(scope).RemString(_bind_param(key, gesture))
+        for pname in (key, f"{key} double", f"{key} tap", f"{key} hold"):
+            root.GetGroup(scope).RemString(pname)
 
 
 def get_schema_version():

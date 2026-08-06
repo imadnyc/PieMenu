@@ -133,6 +133,14 @@ pies["Main"].last_used.clear()
 pies["Main"].run_on = "release"
 w = runtime.PieWidget(pies, "Main", {}, fire)        # slot 4 has 2 live
 w.popup_at(QtCore.QPoint(400, 400))
+centre = w.mapToGlobal(QtCore.QPoint(int(w._origin[0]), int(w._origin[1])))
+w.commit_gesture(pos=centre)             # released from the dead-zone
+assert fired == [] and not w.isVisible() # no aim: vanish, fire nothing
+w.deleteLater()
+
+fired.clear()
+w = runtime.PieWidget(pies, "Main", {}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
 aim = w.buttons[4].mapToGlobal(QtCore.QPoint(17, 17))
 w.commit_gesture(pos=aim)                # overloaded slot fires its face
 assert fired == ["Std_New"], fired
@@ -225,7 +233,7 @@ pies["Main"].last_used.clear()
 print("PASS door hover + chooser size")
 
 
-# ---- dispatcher: the gesture belongs to the binding -------------------------
+# ---- dispatcher: press and double-press; release is the pie's run_on --------
 class FakePie:
     def __init__(self, name, run_on):
         self.name, self.run_on = name, run_on
@@ -253,7 +261,7 @@ def key_event(kind, key):
 
 
 opened = []
-gmaps = {"F6": {"tap": "Main"}}
+gmaps = {"F6": {"press": "Main"}}
 run_of = {"Main": "click", "Sub": "click"}
 
 
@@ -271,13 +279,17 @@ def release(disp, key=QtCore.Qt.Key_F6):
     return disp.eventFilter(None, key_event(QtCore.QEvent.KeyRelease, key))
 
 
-disp = runtime.Dispatcher(opener, lambda k: dict(gmaps.get(k, {})))
+disp = runtime.Dispatcher(opener, lambda k: dict(gmaps.get(k, {})),
+                          mode_of=lambda n: run_of[n])
 
+# a persistent pie: press opens, release leaves it up, press again toggles
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", True)
 assert press(disp)
 assert len(opened) == 1 and opened[0].visible
-assert press(disp)
-assert len(opened) == 1 and not opened[0].visible    # tap toggled shut
+assert release(disp)
+assert opened[0].visible and not opened[0].committed
+press(disp)
+assert len(opened) == 1 and not opened[0].visible    # toggled shut
 
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", False)
 press(disp)
@@ -285,17 +297,42 @@ press(disp)                          # second press keeps the open pie as-is
 assert len(opened) == 2 and opened[1].visible
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", True)
 
-opened.clear()                       # tap now, double pie on the second tap
-gmaps["F6"] = {"tap": "Main", "double": "Sub"}
+opened.clear()                       # a gesture pie: press opens NOW,
+gmaps["F6"] = {"press": "Main"}      # release commits the aim
+run_of["Main"] = "release"
 disp.close()
 disp.last_tap.clear()
 press(disp)
-assert [w.pie.name for w in opened] == ["Main"]
-press(disp)                          # within the window: the double takes over
-assert [w.pie.name for w in opened] == ["Main", "Sub"]
-assert not opened[0].visible and opened[1].visible
+assert len(opened) == 1 and opened[0].visible
+release(disp)
+assert opened[0].committed
 
-opened.clear()                       # only a double bound: first tap arms
+opened.clear()                       # gesture pie + double: press DEFERS,
+gmaps["F6"] = {"press": "Main", "double": "Sub"}   # a quick tap is a no-op
+disp.close()
+disp.last_tap.clear()
+press(disp)
+assert opened == []                  # nothing shown yet
+release(disp)
+assert opened == []                  # pure tap: nothing at all
+press(disp)                          # second press within the window
+assert [w.pie.name for w in opened] == ["Sub"]     # the double, no flicker
+assert opened[0].visible
+release(disp)
+assert opened[0].visible             # Sub is a click pie: it stays
+
+opened.clear()                       # held past the defer: the gesture pie
+disp.close()                         # appears mid-hold
+disp.last_tap.clear()
+press(disp)
+assert opened == []
+wait(320)                            # defer timer fires while held
+assert [w.pie.name for w in opened] == ["Main"] and opened[0].visible
+assert disp.held is not None
+release(disp)
+assert opened[0].committed           # and release commits as usual
+
+opened.clear()                       # only a double bound: first press arms
 gmaps["F6"] = {"double": "Sub"}
 disp.close()
 disp.last_tap.clear()
@@ -303,54 +340,6 @@ press(disp)
 assert opened == []
 press(disp)
 assert [w.pie.name for w in opened] == ["Sub"]
-
-opened.clear()                       # hold + release commits the aim
-gmaps["F6"] = {"hold": "Main"}
-run_of["Main"] = "release"
-disp.close()
-disp.last_tap.clear()
-press(disp)
-assert len(opened) == 1 and opened[0].visible
-disp._press_ms -= 400                # pretend the key was held a while
-release(disp)
-assert opened[0].committed
-
-opened.clear()                       # a quick tap on a hold key = the tap pie
-gmaps["F6"] = {"tap": "Sub", "hold": "Main"}
-disp.close()
-disp.last_tap.clear()
-press(disp)
-assert [w.pie.name for w in opened] == ["Main"]
-release(disp)                        # released instantly: tap fallback
-assert [w.pie.name for w in opened] == ["Main", "Sub"]
-assert not opened[0].visible and opened[1].visible
-
-opened.clear()                       # hold with run_on click is momentary
-gmaps["F6"] = {"hold": "Main"}
-run_of["Main"] = "click"
-disp.close()
-disp.last_tap.clear()
-press(disp)
-disp._press_ms -= 400
-release(disp)
-assert not opened[0].visible and not opened[0].committed
-
-opened.clear()                       # tap == hold: a quick tap must NOT
-gmaps["F6"] = {"tap": "Main", "hold": "Main"}   # close-and-reopen (flicker)
-disp.close()
-disp.last_tap.clear()
-press(disp)
-release(disp)                        # released instantly
-assert len(opened) == 1 and opened[0].visible
-
-opened.clear()                       # a slow second tap on a double key
-gmaps["F6"] = {"tap": "Main", "double": "Sub"}  # keeps the tap pie open
-disp.close()
-disp.last_tap.clear()
-press(disp)
-disp.last_tap.clear()                # pretend the window expired
-press(disp)
-assert len(opened) == 1 and opened[0].visible    # no toggle-close, no reopen
 print("PASS dispatch")
 
 
@@ -380,7 +369,7 @@ for pie in make_pies().values():
     model.save_pie(pie)
 model.set_bind(model.ANY_SCOPE, "F6", "Main")
 model.set_bind("PartDesign", "F7", "Sub")
-model.set_bind(model.ANY_SCOPE, "F8", "Main", "hold")
+model.set_bind(model.ANY_SCOPE, "F8", "Main")
 
 gui = FakeGui()
 rt = runtime.Runtime(gui)
@@ -398,7 +387,7 @@ widget.close()
 print("PASS runtime wrapper")
 
 # ---- keys-only door descend through the real dispatcher --------------------
-# F8 is hold-bound to Main: press opens it in gesture mode, release commits
+# F8 presses into Main, a release-mode pie: press opens, release commits
 rt.pies["Main"].run_on = "release"
 gui.ran.clear()
 assert rt.dispatcher.eventFilter(
@@ -407,7 +396,6 @@ w = rt.dispatcher.current
 assert w is not None and w.isVisible() and w.pie.name == "Main"
 QtGui.QCursor.setPos(w.buttons[2].mapToGlobal(QtCore.QPoint(17, 17)))
 wait(20)
-rt.dispatcher._press_ms -= 400           # the key was held, not tapped
 assert rt.dispatcher.eventFilter(
     None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F8))
 assert w.isVisible() and w.pie.name == "Sub", (w.isVisible(), w.pie.name)

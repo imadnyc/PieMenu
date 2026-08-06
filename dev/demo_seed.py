@@ -63,7 +63,7 @@ patterns.items[2] = [Binding("PartDesign_PolarPattern")]
 patterns.items[3] = [Binding("PartDesign_MultiTransform")]
 
 sketching = Pie("Sketching", family="grid", cols=3, rows=2, radius=80,
-                anchors=["Top", "Bottom"])
+                anchors=["Top", "Bottom"], run_on="release")
 model.normalise(sketching)
 for i, cmd in enumerate(("Sketcher_NewSketch", "Sketcher_CreateLine",
                          "Sketcher_CreateCircle", "Sketcher_CreateRectangle",
@@ -116,21 +116,20 @@ for pie in (main, modelling, patterns, sketching, view,
     model.save_pie(pie)
 
 # F3-F8, skipping F5 (FreeCAD recompute; F1 help and F2 rename also taken).
-# The gesture lives on the binding: in PartDesign a quick F3 is Main
-# (inherited tap) while holding F3 gestures through Modelling -- one key,
-# two pies, and per-workbench meanings on top.
+# Two gestures per key: press and double-press. Whether release fires is
+# the pie's run_on: Modelling/Sketching/Constraints are gesture pies
+# (press, aim, release), the rest stay open for clicking.
 model.set_bind(ANY_SCOPE, "F3", "Main")
-# In PartDesign the tap goes straight to Modelling (Main mostly leads there
-# anyway); the double-press is the way back out to Main.
+# In PartDesign pressing F3 gestures through Modelling; the double-press
+# is the way back out to Main.
 model.set_bind("PartDesign", "F3", "Modelling")
 model.set_bind("PartDesign", "F3", "Main", "double")
-model.set_bind("PartDesign", "F3", "Modelling", "hold")
-model.set_bind("Sketcher", "F3", "Sketching", "hold")
-model.set_bind(ANY_SCOPE, "F4", "Modelling", "hold")
+model.set_bind("Sketcher", "F3", "Sketching")
+model.set_bind(ANY_SCOPE, "F4", "Modelling")
 model.set_bind(ANY_SCOPE, "F4", "Patterns", "double")
 model.set_bind(ANY_SCOPE, "F6", "View")
 model.set_bind(ANY_SCOPE, "F7", "Booleans")
-model.set_bind("Sketcher", "F7", "Constraints", "hold")
+model.set_bind("Sketcher", "F7", "Constraints")
 model.set_bind(ANY_SCOPE, "F8", "Datums")
 
 model.set_schema_version(model.SCHEMA_VERSION)

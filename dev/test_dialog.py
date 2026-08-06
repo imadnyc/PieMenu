@@ -58,7 +58,7 @@ assert door_row.text(0) == "▸ Sub" and door_row.text(1) == "Edge >= 1"
 print("PASS slots table")
 
 # ---- shortcuts table --------------------------------------------------------
-model.set_bind("PartDesign", "F6", "Sub", "hold")   # a second gesture on F6
+model.set_bind("PartDesign", "F6", "Sub", "double")   # a second gesture on F6
 dlg._binds_changed()
 app.processEvents()
 table = dlg.shortcuts
@@ -75,7 +75,7 @@ assert "Sub" in own and "↳" not in own
 sk_col = table.workbenches.index("Sketcher")
 sk = table.right.cellWidget(table.keys().index("F7"), sk_col).text()
 assert "—" in sk                         # unbound gesture line
-model.clear_bind("PartDesign", "F6", "hold")
+model.clear_bind("PartDesign", "F6", "double")
 dlg._binds_changed()
 app.processEvents()
 print("PASS shortcuts table")
@@ -89,7 +89,7 @@ for label in body.findChildren(QtWidgets.QLabel):
 for btn in body.findChildren(QtWidgets.QPushButton):
     area_text.append(btn.text())
 joined = " | ".join(area_text)
-assert "key F7 (tap): in PartDesign" in joined, joined
+assert "key F7 (press): in PartDesign" in joined, joined
 assert "from Main — slot 3, Edge >= 1" in joined, joined
 print("PASS opened by")
 

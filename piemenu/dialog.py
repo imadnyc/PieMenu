@@ -164,8 +164,8 @@ def command_label(cmd):
     return cmd.split("_", 1)[-1]
 
 
-GLYPH = {"tap": "·", "double": "··", "hold": "—"}
-GNAME = {"tap": "tap", "double": "double-press", "hold": "press-and-hold"}
+GLYPH = {"press": "·", "double": "··"}
+GNAME = {"press": "press", "double": "double-press"}
 
 
 # ---- rule editing ----------------------------------------------------------
@@ -657,7 +657,7 @@ class ShortcutsTable(QtWidgets.QWidget):
         key, scope = ref
         entry = dict(self.binds.get(ANY_SCOPE, {}).get(key, {}))
         entry.update(self.binds.get(scope, {}).get(key, {}))
-        hit = entry.get("tap") or next(iter(entry.values()), None)
+        hit = entry.get("press") or next(iter(entry.values()), None)
         if hit and hit in self.pies:
             self.jump_to_pie.emit(hit)
 
@@ -685,11 +685,11 @@ class ShortcutsTable(QtWidgets.QWidget):
                                self._clear(scope, key, g))
         menu.exec_(QtGui.QCursor.pos())
 
-    def _set(self, scope, key, name, gesture="tap"):
+    def _set(self, scope, key, name, gesture="press"):
         model.set_bind(scope, key, name, gesture)
         self.changed.emit()
 
-    def _clear(self, scope, key, gesture="tap"):
+    def _clear(self, scope, key, gesture="press"):
         model.clear_bind(scope, key, gesture)
         self.changed.emit()
 
@@ -891,10 +891,11 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.shortcuts.jump_to_pie.connect(self.select_pie)
         sc_lay.addWidget(self.shortcuts)
         sc_legend = QtWidgets.QLabel(
-            "· tap   ·· double-press   — press-and-hold — one "
-            "key, several pies · ↳ italic flows in from Any workbench · "
-            "the bold tinted column is the current workbench · double-click "
-            "binds the tap, right-click everything else")
+            "· press   ·· double-press — two pies per key; whether "
+            "release fires (gesture pies) or the pie stays for clicking "
+            "is its 'Run on' · ↳ italic flows in from Any workbench · "
+            "the bold tinted column is the current workbench · "
+            "double-click binds the press, right-click everything else")
         sc_legend.setStyleSheet("color: gray;")
         sc_legend.setWordWrap(True)
         sc_lay.addWidget(sc_legend)

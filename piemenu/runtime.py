@@ -375,6 +375,12 @@ class PieWidget(QtWidgets.QWidget):
                     min(alts, key=lambda a: abs(
                         a.geometry().center().x() - local.x())).click()
                     return
+        origin = self.mapToGlobal(QtCore.QPoint(int(self._origin[0]),
+                                                int(self._origin[1])))
+        dx, dy = pos.x() - origin.x(), pos.y() - origin.y()
+        if (dx * dx + dy * dy) ** 0.5 < max(24, self.pie.radius * 0.45):
+            self.close()             # released from the dead-zone: no aim
+            return
         btn = self.nearest_slot(pos)
         if btn is None:
             self.close()
@@ -529,26 +535,36 @@ PieWidget.show_chooser = _show_chooser
 class Dispatcher(QtCore.QObject):
     """App-wide key handling: the gesture belongs to the binding.
 
-    One key can carry a tap, a double press and a press-and-hold, each
-    resolving to its own pie. Tap opens on press (toggling if the pie is
-    already up); a second press within 350ms swaps to the double pie; a
-    hold-bound key opens the hold pie for gesturing, and a quick release
-    (<250ms) falls back to the tap pie when one is bound. Also the long
-    right-click trigger.
+    A key carries a press pie and optionally a double-press pie. What
+    RELEASE means is the pie's own run mode: a release pie opens on press,
+    follows the aim and never outlives the key (release fires the aim, or
+    just closes from the centre dead-zone); a click/hover pie stays for
+    the mouse, and pressing again toggles it shut. A second press within
+    350ms swaps to the double pie — and when a double is bound, a release
+    pie's appearance is deferred ~170ms, so a quick tap is a clean no-op
+    and a double-tap never flickers. Also the long right-click trigger.
     """
 
-    def __init__(self, opener, gestures, fallback=None, parent=None):
+    DOUBLE_MS = 350
+    DEFER_MS = 170
+
+    def __init__(self, opener, gestures, fallback=None, mode_of=None,
+                 parent=None):
         super().__init__(parent)
         self.opener = opener          # opener(pie_name) -> PieWidget|None
         self.gestures = gestures      # gestures(key) -> {gesture: pie_name}
         self.fallback = fallback or (lambda: None)   # the right-click pie
+        self.mode_of = mode_of or (lambda name: "click")   # pie's run_on
         self.current = None           # the open PieWidget
         self.last_tap = {}            # key -> ms timestamp
-        self.held = None              # key currently held for a hold pie
-        self._press_ms = 0
-        self._tap_fallback = None
+        self.held = None              # the key currently down
         self._rtimer = None
         self._swallow_context = False
+        self._defer = QtCore.QTimer(self)
+        self._defer.setSingleShot(True)
+        self._defer.setInterval(self.DEFER_MS)
+        self._defer.timeout.connect(self._open_deferred)
+        self._deferred = None         # (key, pie name) waiting on the timer
 
     # -- helpers
 
@@ -562,7 +578,16 @@ class Dispatcher(QtCore.QObject):
     def _double(self, key, now):
         last = self.last_tap.get(key, -10**9)
         self.last_tap[key] = now
-        return (now - last) < 350
+        return (now - last) < self.DOUBLE_MS
+
+    def _open_deferred(self):
+        if self._deferred is None:
+            return
+        key, name = self._deferred
+        self._deferred = None
+        if self.held == key:          # the hand is still down: gesture on
+            self.open_pie(name)
+            self.held = key           # open_pie's close() cleared it
 
     def open_pie(self, name):
         self.close()
@@ -621,29 +646,34 @@ class Dispatcher(QtCore.QObject):
             return False
         now = _now_ms()
         double_ready = self._double(key, now)
+        self._defer.stop()
+        self._deferred = None
         if "double" in gmap and double_ready:
-            # second tap within the window: the double pie takes over
+            # second press within the window: the double pie takes over
             if not self._reuse(gmap["double"]):
                 self.open_pie(gmap["double"])
+            self.held = key
             return True
-        if "hold" in gmap:
-            if not self._reuse(gmap["hold"]):
-                self.open_pie(gmap["hold"])
-            self.held = key          # after open_pie, whose close() clears it
-            self._press_ms = now
-            self._tap_fallback = gmap.get("tap")
+        if "press" in gmap:
+            name = gmap["press"]
+            if self._reuse(name):
+                # the same pie is already up: a persistent pie toggles shut
+                # (unless a double is bound, which a slow second tap must
+                # not swallow); a gesture pie just re-arms
+                if (self.mode_of(name) != "release"
+                        and behaviour()["toggle"] and "double" not in gmap):
+                    self.close()
+                    return True
+            elif "double" in gmap and self.mode_of(name) == "release":
+                # defer the gesture pie so a quick tap is a clean no-op and
+                # a double-tap swaps without any flicker
+                self._deferred = (key, name)
+                self._defer.start()
+            else:
+                self.open_pie(name)
+            self.held = key
             return True
-        if "tap" in gmap:
-            # toggling would swallow slow double-taps, so only keys without
-            # a double bound get press-again-to-close
-            if (self.current is not None and self.current.isVisible()
-                    and behaviour()["toggle"] and "double" not in gmap):
-                self.close()
-                return True
-            if not self._reuse(gmap["tap"]):
-                self.open_pie(gmap["tap"])
-            return True
-        # only a double is bound: the first tap arms silently
+        # only a double is bound: the first press arms silently
         return True
 
     def _key_release(self, event):
@@ -652,22 +682,20 @@ class Dispatcher(QtCore.QObject):
         if self._key_of(event) != self.held:
             return False
         self.held = None
+        if self._deferred is not None:
+            # released before the deferred gesture pie appeared: a pure tap,
+            # which on a gesture pie means nothing at all
+            self._defer.stop()
+            self._deferred = None
+            return True
         widget = self.current
         if widget is None:
             return False
-        if (_now_ms() - self._press_ms) < 250 and self._tap_fallback:
-            # a quick tap on a hold-bound key is the tap, not a failed hold;
-            # when both name the same pie the open one simply stays
-            if not self._reuse(self._tap_fallback):
-                self.open_pie(self._tap_fallback)
-            return True
-        if getattr(widget, "run_mode", widget.pie.run_on) == "release":
-            widget.commit_gesture()
-            if widget.isVisible():
-                return True    # ambiguous aim or a door: stays up for the mouse
-        else:
-            # a held pie is momentary: letting go closes it
-            widget.close()
+        if getattr(widget, "run_mode", widget.pie.run_on) != "release":
+            return True      # a persistent pie stays for the mouse
+        widget.commit_gesture()      # fire the aim, or vanish from the centre
+        if widget.isVisible():
+            return True      # a door or a chooser keeps it up
         self.current = None
         return True
 
@@ -725,8 +753,11 @@ class Runtime:
         self._keys = {}               # normalised key -> stored key
         self._registered = set()
         self.open_preferences = None  # wired by InitGui once the dialog exists
-        self.dispatcher = Dispatcher(self._open_for_dispatch, self._gestures,
-                                     fallback=lambda: self._resolve(None))
+        self.dispatcher = Dispatcher(
+            self._open_for_dispatch, self._gestures,
+            fallback=lambda: self._resolve(None),
+            mode_of=lambda n: self.pies[n].run_on if n in self.pies
+            else "click")
 
     # -- model access
 
@@ -764,15 +795,15 @@ class Runtime:
                 in model.gestures_for(stored, wb, self.binds).items()}
 
     def _resolve(self, key):
-        """key -> tap pie name; None key = right-click, which opens whatever
-        the lowest bound key answers with (tap first, then any gesture)."""
+        """key -> press pie name; None key = right-click, which opens what
+        the lowest bound key answers with (press first, then any gesture)."""
         wb = workbench_scope(self.gui)
         if key is None:
             for k in sorted(self._keys.values()):
                 hits = model.gestures_for(k, wb, self.binds)
                 if hits:
-                    tap = hits.get("tap")
-                    return (tap or next(iter(hits.values())))[0]
+                    hit = hits.get("press")
+                    return (hit or next(iter(hits.values())))[0]
             return None
         stored = self._keys.get(key, key)
         hit = model.resolve_key(stored, wb, self.binds)

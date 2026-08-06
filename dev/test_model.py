@@ -105,8 +105,8 @@ assert not M.pie_live("missing", pies, {})
 print("PASS liveness")
 
 # ---- shortcut resolution --------------------------------------------------
-binds = {"Any": {"9": {"tap": "Sketching"}, "0": {"tap": "View"}},
-         "PartDesign": {"1": {"tap": "Main"}, "9": {"tap": "Override"}}}
+binds = {"Any": {"9": {"press": "Sketching"}, "0": {"press": "View"}},
+         "PartDesign": {"1": {"press": "Main"}, "9": {"press": "Override"}}}
 assert M.resolve_key("1", "PartDesign", binds) == ("Main", "PartDesign")
 assert M.resolve_key("9", "PartDesign", binds) == ("Override", "PartDesign")
 assert M.resolve_key("9", "Sketcher", binds) == ("Sketching", "Any")
@@ -153,25 +153,27 @@ M.set_bind("PartDesign", "1", "Main")
 M.set_bind("PartDesign", "Ctrl+1", "Modelling")   # modifier keys as param names
 M.set_bind("Sketcher", "1", "Main")
 M.set_bind("PartDesign", "1", "Patterns", "double")
-M.set_bind("Any", "1", "View", "hold")
+M.set_bind("Any", "1", "View", "hold")            # legacy spelling on disk
 b2 = M.load_binds()
-assert b2["Any"]["9"] == {"tap": "Sketching"}
-assert b2["PartDesign"]["Ctrl+1"] == {"tap": "Modelling"}
-assert b2["PartDesign"]["1"] == {"tap": "Main", "double": "Patterns"}
+assert b2["Any"]["9"] == {"press": "Sketching"}
+assert b2["PartDesign"]["Ctrl+1"] == {"press": "Modelling"}
+assert b2["PartDesign"]["1"] == {"press": "Main", "double": "Patterns"}
+assert b2["Any"]["1"] == {"press": "View"}        # 'hold' folds into press
 assert M.resolve_key("Ctrl+1", "PartDesign", b2) == ("Modelling", "PartDesign")
 assert M.resolve_key("1", "PartDesign", b2, "double") == \
     ("Patterns", "PartDesign")
-# each gesture inherits independently: the hold flows in from Any
+# each gesture inherits independently through the Any scope
 assert M.gestures_for("1", "PartDesign", b2) == {
-    "tap": ("Main", "PartDesign"),
-    "double": ("Patterns", "PartDesign"),
-    "hold": ("View", "Any")}
-assert M.key_gestures("1", b2) == ["tap", "double", "hold"]
-assert M.key_gestures("9", b2) == ["tap"]
+    "press": ("Main", "PartDesign"),
+    "double": ("Patterns", "PartDesign")}
+assert M.gestures_for("1", "Sketcher", b2) == {
+    "press": ("Main", "Sketcher")}
+assert M.key_gestures("1", b2) == ["press", "double"]
+assert M.key_gestures("9", b2) == ["press"]
 M.remove_key("1")
 b3 = M.load_binds()
 assert "1" not in b3.get("PartDesign", {}) and "1" not in b3.get("Sketcher", {})
-assert "1" not in b3.get("Any", {})               # the hold went too
+assert "1" not in b3.get("Any", {})               # the legacy hold went too
 M.clear_bind("Any", "9")
 assert "9" not in M.load_binds().get("Any", {})
 
