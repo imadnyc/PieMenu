@@ -17,8 +17,19 @@ export XDG_CONFIG_HOME="$dev/config"
 export XDG_CACHE_HOME="$dev/cache"
 mkdir -p "$XDG_CONFIG_HOME"
 
-freecadcmd -u "$XDG_CONFIG_HOME/smoke-user.cfg" "$repo/dev/smoke_freecad.py"
-freecadcmd -u "$XDG_CONFIG_HOME/model-user.cfg" "$repo/dev/test_model.py"
-freecadcmd -u "$XDG_CONFIG_HOME/migrate-user.cfg" "$repo/dev/test_migrate.py"
-freecadcmd -u "$XDG_CONFIG_HOME/runtime-user.cfg" "$repo/dev/test_runtime.py"
-exec freecadcmd -u "$XDG_CONFIG_HOME/dialog-user.cfg" "$repo/dev/test_dialog.py"
+# freecadcmd exits 0 even when the script raises, so trusting exit codes makes
+# every failure silent -- each file must print its sentinel or the suite fails
+run() {
+  out=$(freecadcmd -u "$XDG_CONFIG_HOME/$2-user.cfg" "$repo/dev/$1" 2>&1)
+  printf '%s\n' "$out"
+  printf '%s' "$out" | grep -q "$3" || {
+    echo "pm-smoke: FAIL — $1 never printed $3" >&2
+    exit 1
+  }
+}
+run smoke_freecad.py smoke SMOKE-PASS
+run test_model.py model MODEL-TESTS-PASS
+run test_migrate.py migrate MIGRATE-TESTS-PASS
+run test_runtime.py runtime RUNTIME-TESTS-PASS
+run test_dialog.py dialog DIALOG-TESTS-PASS
+echo "pm-smoke: ALL PASS"

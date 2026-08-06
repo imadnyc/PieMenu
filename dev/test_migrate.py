@@ -92,7 +92,7 @@ assert migrate.migrate() is True
 pies = model.load_pies()
 assert list(pies) == ["Main"] and pies["Main"].default
 assert pies["Main"].items[0][0].cmd == "Std_New"
-assert model.resolve_key("TAB", "PartDesign", model.load_binds())[0] == "Main"
+assert model.resolve_key("F3", "PartDesign", model.load_binds())[0] == "Main"
 print("PASS fresh install")
 
 reset()
