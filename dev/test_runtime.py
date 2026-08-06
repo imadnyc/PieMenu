@@ -124,22 +124,40 @@ w.close()
 w.deleteLater()
 print("PASS gesture aim")
 
-# ---- gesture release on an overloaded slot ---------------------------------
+# ---- gesture release: faces, choosers, sticky picks ------------------------
 fired.clear()
+pies["Main"].last_used.clear()
 pies["Main"].run_on = "release"
 w = runtime.PieWidget(pies, "Main", {}, fire)        # slot 4 has 2 live
 w.popup_at(QtCore.QPoint(400, 400))
 aim = w.buttons[4].mapToGlobal(QtCore.QPoint(17, 17))
-w.commit_gesture(pos=aim)                # ambiguous: chooser, pie stays up
-assert fired == [] and w.isVisible() and w._chooser is not None
+w.commit_gesture(pos=aim)                # overloaded slot fires its face
+assert fired == ["Std_New"], fired
+assert not w.isVisible()
+w.deleteLater()
+
+fired.clear()
+w = runtime.PieWidget(pies, "Main", {}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+w.show_chooser(w.buttons[4], model.live_bindings(pies["Main"].items[4], {}))
 alts = w._chooser.findChildren(QtWidgets.QToolButton)
 over_alt = alts[1].mapToGlobal(QtCore.QPoint(12, 12))
 w.commit_gesture(pos=over_alt)           # release over the second flavour
 assert fired == ["Std_Open"], fired
 assert not w.isVisible()
 w.deleteLater()
+
+fired.clear()                            # the pick sticks: face is now Open
+assert pies["Main"].last_used[4] == "Std_Open"
+w = runtime.PieWidget(pies, "Main", {}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+assert "Open" in w.buttons[4].toolTip()
+w.commit_gesture(pos=w.buttons[4].mapToGlobal(QtCore.QPoint(17, 17)))
+assert fired == ["Std_Open"], fired
+w.deleteLater()
 pies["Main"].run_on = "click"
-print("PASS gesture chooser")
+pies["Main"].last_used.clear()
+print("PASS gesture faces")
 
 
 # ---- dispatcher ------------------------------------------------------------
@@ -258,8 +276,25 @@ assert widget is not None and widget.isVisible()
 rt.fire("Std_Undo")
 assert gui.ran == ["Std_Undo"]
 widget.close()
-
-App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 print("PASS runtime wrapper")
 
+# ---- keys-only door descend through the real dispatcher --------------------
+rt.pies["Main"].open_on = "hold"
+rt.pies["Main"].run_on = "release"
+gui.ran.clear()
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F6))
+w = rt.dispatcher.current
+assert w is not None and w.isVisible() and w.pie.name == "Main"
+QtGui.QCursor.setPos(w.buttons[2].mapToGlobal(QtCore.QPoint(17, 17)))
+wait(20)
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F6))
+assert w.isVisible() and w.pie.name == "Sub", (w.isVisible(), w.pie.name)
+assert rt.dispatcher.current is w        # still tracked for the next key
+assert gui.ran == []                     # a descend runs nothing
+w.close()
+print("PASS door via keys")
+
+App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 print("RUNTIME-TESTS-PASS")

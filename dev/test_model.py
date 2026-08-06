@@ -167,4 +167,25 @@ assert M.get_schema_version() == 2
 App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")  # leave no trace
 print("PASS shortcut IO")
 
+# ---- slot faces and sticky picks -------------------------------------------
+slot = [M.Binding("A"), M.Binding("B")]
+assert M.slot_face(slot, {}).cmd == "A"
+assert M.slot_face(slot, {}, "B").cmd == "B"          # a pick moves the face
+assert M.slot_face(slot, {}, "Z").cmd == "A"          # a stale pick falls back
+gated = [M.Binding("A", {"Face": (">=", 1)}), M.Binding("B")]
+assert M.slot_face(gated, {}, "A").cmd == "B"         # pick no longer applies
+assert M.slot_face([M.Binding("A", {"Face": (">=", 1)})], {}) is None
+
+sticky = M.Pie("Sticky", slots=2, per_ring=2)
+M.normalise(sticky)
+sticky.items[0] = [M.Binding("A"), M.Binding("B")]
+sticky.last_used[0] = "B"
+M.save_pie(sticky)
+M.set_last_used("Sticky", 0, "A")                     # the targeted setter
+back = M.load_pie("Sticky")
+assert back.last_used == {0: "A"}
+M.delete_pie("Sticky")
+App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
+print("PASS slot face")
+
 print("MODEL-TESTS-PASS")

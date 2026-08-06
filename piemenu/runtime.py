@@ -171,7 +171,8 @@ class PieWidget(QtWidgets.QWidget):
         btn.setFixedSize(pie.button, pie.button)
         btn.setIconSize(QtCore.QSize(int(pie.button * 0.6), int(pie.button * 0.6)))
         live = model.live_bindings(slot, self.counts)
-        binding = live[0] if live else (slot[0] if slot else None)
+        face = model.slot_face(slot, self.counts, pie.last_used.get(index))
+        binding = face if face else (slot[0] if slot else None)
         if binding is None:
             btn.setEnabled(False)
             btn.setVisible(False)
@@ -180,10 +181,11 @@ class PieWidget(QtWidgets.QWidget):
         if live:
             if len(live) > 1:
                 btn.installEventFilter(_ChooserFilter(self, btn, live))
-            b = live[0]
-            btn.clicked.connect(lambda _=False, cmd=b.cmd: self.activate(cmd))
+            btn.clicked.connect(
+                lambda _=False, cmd=face.cmd: self.activate(cmd))
             if pie.run_on == "hover":
-                btn.installEventFilter(_HoverFire(self, btn, b.cmd, pie.delay))
+                btn.installEventFilter(_HoverFire(self, btn, face.cmd,
+                                                  pie.delay))
         return btn
 
     def _decorate(self, btn, binding, live, n_live):
@@ -227,6 +229,12 @@ class PieWidget(QtWidgets.QWidget):
 
     # -- behaviour
 
+    def choose(self, index, cmd):
+        """A chooser pick: remember it as the slot's face, then run it."""
+        self.pie.last_used[index] = cmd
+        model.set_last_used(self.pie.name, index, cmd)
+        self.activate(cmd)
+
     def activate(self, cmd):
         """Run a command, or descend into a pie at the same spot."""
         if is_pie_command(cmd):
@@ -266,9 +274,9 @@ class PieWidget(QtWidgets.QWidget):
     def commit_gesture(self, pos=None):
         """Release in a hold pie: run whatever the cursor is aimed at.
 
-        A chooser alternative near the cursor wins over its parent slot.
-        Releasing on an overloaded slot with no choice made opens the
-        chooser and leaves the pie up, so the mouse can settle it."""
+        A chooser alternative near the cursor wins over its parent slot;
+        an overloaded slot itself just fires its face -- the chooser is
+        only for reaching the alternatives."""
         pos = QtGui.QCursor.pos() if pos is None else pos
         if self._chooser is not None:
             local = self._chooser.mapFromGlobal(pos)
@@ -281,11 +289,6 @@ class PieWidget(QtWidgets.QWidget):
         btn = self.nearest_slot(pos)
         if btn is None:
             self.close()
-            return
-        live = model.live_bindings(self.pie.items[self.buttons.index(btn)],
-                                   self.counts)
-        if len(live) > 1:
-            self.show_chooser(btn, live)
             return
         btn.click()
 
@@ -359,6 +362,7 @@ class _ChooserFilter(QtCore.QObject):
 
 
 def _chooser_widget(pie_widget, btn, bindings):
+    index = pie_widget.buttons.index(btn)
     box = QtWidgets.QWidget(pie_widget)
     lay = QtWidgets.QHBoxLayout(box)
     lay.setContentsMargins(2, 2, 2, 2)
@@ -368,7 +372,8 @@ def _chooser_widget(pie_widget, btn, bindings):
         alt.setIconSize(QtCore.QSize(18, 18))
         pie_widget._decorate(alt, b, True, 1)
         alt.setFixedSize(24, 24)
-        alt.clicked.connect(lambda _=False, cmd=b.cmd: pie_widget.activate(cmd))
+        alt.clicked.connect(
+            lambda _=False, cmd=b.cmd: pie_widget.choose(index, cmd))
         lay.addWidget(alt)
     box.adjustSize()
     x = btn.x() + btn.width() // 2 - box.width() // 2

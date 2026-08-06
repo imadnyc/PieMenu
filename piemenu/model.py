@@ -100,9 +100,22 @@ def pie_target(cmd):
 def live_bindings(slot, counts):
     """The bindings of one slot that apply to the selection, in order.
 
-    The first is what the slot shows; several mean the chooser.
+    Several mean the chooser; slot_face() picks the one the button wears.
     """
     return [b for b in (slot or []) if match_rule(b.rule, counts)]
+
+
+def slot_face(slot, counts, last=None):
+    """The binding an overloaded slot presents -- and fires on plain use:
+    the last explicitly chosen one if it still applies, else the first."""
+    live = live_bindings(slot, counts)
+    if not live:
+        return None
+    if last:
+        for b in live:
+            if b.cmd == last:
+                return b
+    return live[0]
 
 
 # ---- pies -----------------------------------------------------------------
@@ -135,6 +148,8 @@ class Pie:
     show_names: bool = False
     # items[i] is a slot: a list of Bindings, or None for an empty slot
     items: list = field(default_factory=list)
+    # slot index -> cmd the user last picked from that slot's chooser
+    last_used: dict = field(default_factory=dict)
 
 
 def slot_count(pie):
@@ -271,10 +286,17 @@ def save_pie(pie):
         if not slot:
             continue
         sg = slots.GetGroup(f"S{i}")
+        if pie.last_used.get(i):
+            sg.SetString("Last", pie.last_used[i])
         for j, b in enumerate(slot):
             bg = sg.GetGroup(f"B{j}")
             bg.SetString("Command", b.cmd)
             bg.SetString("Rule", encode_rule(b.rule))
+
+
+def set_last_used(name, index, cmd):
+    """Record a chooser pick without rewriting the whole pie."""
+    _grp(f"Pies/{name}/Slots").GetGroup(f"S{index}").SetString("Last", cmd)
 
 
 def load_pie(name):
@@ -299,6 +321,9 @@ def load_pie(name):
         if not 0 <= i < len(pie.items):
             continue
         sg = slots.GetGroup(sname)
+        last = sg.GetString("Last", "")
+        if last:
+            pie.last_used[i] = last
         bindings = []
         for bname in sorted(sg.GetGroups(), key=lambda s: int(s[1:])):
             bg = sg.GetGroup(bname)
