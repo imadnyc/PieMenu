@@ -148,6 +148,9 @@ class Pie:
     # circle
     slots: int = 8
     per_ring: int = 8
+    # explicit slots-per-ring, e.g. [8, 16]: outer rings have more room.
+    # The last entry repeats outward; empty means per_ring everywhere.
+    ring_counts: list = field(default_factory=list)
     radius: int = 80
     arc: int = 360
     arc_face: int = -90
@@ -191,6 +194,22 @@ def normalise(pie):
     return pie
 
 
+def ring_plan(pie, n=None):
+    """How many slots each ring takes, in order, covering n slots."""
+    n = slot_count(pie) if n is None else n
+    plan, taken, ring = [], 0, 0
+    while taken < n:
+        if pie.ring_counts:
+            count = pie.ring_counts[min(ring, len(pie.ring_counts) - 1)]
+        else:
+            count = pie.per_ring
+        count = max(1, int(count))
+        plan.append(min(count, n - taken))
+        taken += plan[-1]
+        ring += 1
+    return plan
+
+
 def positions(pie):
     """Slot centres relative to the cursor, matching the mockup exactly.
 
@@ -205,19 +224,22 @@ def positions(pie):
     n = slot_count(pie)
     step = pie.button + pie.spacing
     if pie.family == "circle":
-        per = max(1, min(pie.per_ring, n))
+        plan = ring_plan(pie, n)
         span = math.radians(pie.arc)
         face = math.radians(pie.arc_face)
         start = face if pie.arc >= 360 else face - span / 2
-        for i in range(n):
-            ring, k = divmod(i, per)
-            in_ring = min(per, n - ring * per)
+        ring, k = 0, 0
+        for _ in range(n):
+            in_ring = plan[ring]
             div = in_ring if pie.arc >= 360 else max(1, in_ring - 1)
             a = start + (span / div) * k
             r = pie.radius + ring * (pie.button + pie.spacing + 10)
             if pie.stagger and k % 2:
                 r += pie.stagger_by
             out.append((math.cos(a) * r, math.sin(a) * r))
+            k += 1
+            if k >= in_ring:
+                ring, k = ring + 1, 0
         return out
     cols, rows = max(1, pie.cols), max(1, pie.rows)
     per = cols * rows
@@ -331,6 +353,7 @@ def save_pie(pie):
     for f in _STRINGS:
         g.SetString(_PARAM[f], getattr(pie, f))
     g.SetString("Anchors", ",".join(pie.anchors))
+    g.SetString("RingCounts", ",".join(str(c) for c in pie.ring_counts))
     for a in ANCHOR_ORDER:
         if a in pie.anchor_offsets:
             g.SetInt("Offset" + a, int(pie.anchor_offsets[a]))
@@ -367,6 +390,9 @@ def load_pie(name):
     anchors = [a for a in g.GetString("Anchors", "Center").split(",")
                if a in ANCHOR_ORDER]
     pie.anchors = anchors or ["Center"]
+    pie.ring_counts = [int(c) for c in
+                       g.GetString("RingCounts", "").split(",")
+                       if c.strip().isdigit() and int(c) > 0]
     for a in ANCHOR_ORDER:
         v = g.GetInt("Offset" + a, -1)
         if v >= 0:

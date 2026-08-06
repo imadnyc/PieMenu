@@ -4,6 +4,7 @@ Run via ``nix run .#smoke`` -- freecadcmd, offscreen, isolated scratch config,
 so the ParamGet round-trips exercise the real parameter tree without touching
 the user's configuration.
 """
+import math
 import os
 import sys
 
@@ -107,6 +108,29 @@ M.save_pie(g2)
 assert M.load_pie("G2").anchor_offsets == {}   # cleared offsets stay cleared
 M.delete_pie("G2")
 print("PASS anchor offsets")
+
+# ---- per-ring counts ---------------------------------------------------------
+r3 = Pie("R3", slots=24, per_ring=8, radius=80, spacing=6, button=34)
+M.normalise(r3)
+r3.ring_counts = [8, 16]
+assert M.ring_plan(r3) == [8, 16]
+rp = M.positions(r3)
+radii = [math.hypot(x, y) for x, y in rp]
+assert all(abs(r - 80) < 0.01 for r in radii[:8])       # ring one at radius
+assert all(r > 80 for r in radii[8:])                   # ring two further out
+assert len({round(r, 2) for r in radii[8:]}) == 1       # ...on ONE ring of 16
+r3.ring_counts = [8]                                    # last count repeats
+assert M.ring_plan(r3) == [8, 8, 8]
+r3.ring_counts = []
+assert M.ring_plan(r3) == [8, 8, 8]                     # falls back to per_ring
+r3.ring_counts = [8, 16]
+M.save_pie(r3)
+assert M.load_pie("R3").ring_counts == [8, 16]
+r3.ring_counts = []
+M.save_pie(r3)
+assert M.load_pie("R3").ring_counts == []
+M.delete_pie("R3")
+print("PASS ring counts")
 
 # ---- liveness with cycles -------------------------------------------------
 pies = {

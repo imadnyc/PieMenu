@@ -30,6 +30,10 @@ HELP = {
              "no longer fill positions in list order.",
     "Per ring": "How many slots go in each ring before a new one starts "
                 "further out.",
+    "Ring counts": "Different counts per ring, comma-separated — 8,16 puts "
+                   "8 in the first ring and 16 in the roomier second. The "
+                   "last number repeats outward; empty uses Per ring "
+                   "everywhere.",
     "Radius": "Distance from the cursor to the first ring.",
     "Arc": "How much of the circle the slots span. 360 is the full circle.",
     "Facing": "Which way a partial arc points. A 90° arc facing right sits "
@@ -558,8 +562,11 @@ class PreviewWidget(QtWidgets.QWidget):
             widest = max((fm.horizontalAdvance(command_label(s[0].cmd))
                           for s in pie.items if s), default=0) + 10
             if pie.family == "circle":
-                per = max(2, min(pie.per_ring, len(pos)))
-                chord = 2 * math.sin(math.pi / per) * max(1, pie.radius)
+                step = pie.button + pie.spacing + 10
+                chord = min(
+                    2 * math.sin(math.pi / max(2, c))
+                    * max(1, pie.radius + ring * step)
+                    for ring, c in enumerate(model.ring_plan(pie, len(pos))))
                 scale = max(1.0, widest / chord)
             else:
                 scale = max(1.0, widest / (pie.button + pie.spacing))
@@ -1510,14 +1517,29 @@ class PieMenuPreferences(QtWidgets.QDialog):
             per_spin.valueChanged.connect(
                 lambda v: self._set("per_ring", v, structure=True))
             per_lay.addWidget(per_spin)
-            rings = -(-model.slot_count(pie) // max(1, pie.per_ring))
+            rings = len(model.ring_plan(pie))
             self._rings_label = QtWidgets.QLabel(
                 f"→ {rings} ring{'s' if rings > 1 else ''}")
             per_lay.addWidget(self._rings_label)
             row("Per ring", per)
+            ring_edit = QtWidgets.QLineEdit(
+                ",".join(str(c) for c in pie.ring_counts))
+            ring_edit.setPlaceholderText("custom, e.g. 8,16")
+
+            def ring_counts_done(edit=ring_edit):
+                values = []
+                for part in edit.text().replace(" ", "").split(","):
+                    if part.isdigit() and int(part) > 0:
+                        values.append(int(part))
+                    elif part:
+                        return               # garbage: change nothing
+                self._set("ring_counts", values, structure=True)
+
+            ring_edit.editingFinished.connect(ring_counts_done)
+            row("Ring counts", ring_edit)
             spacing = row("Spacing",
                           self._slider(pie.spacing, 0, 60, "spacing"))
-            if model.slot_count(pie) <= pie.per_ring:
+            if len(model.ring_plan(pie)) <= 1:
                 # nothing to space: one ring's slots sit on the radius
                 spacing.setEnabled(False)
                 spacing.setToolTip(

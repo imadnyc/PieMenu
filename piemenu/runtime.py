@@ -254,9 +254,13 @@ class PieWidget(QtWidgets.QWidget):
             maxw = max(b.width() for b in self.buttons) + 6
             maxh = max(b.height() for b in self.buttons) + 6
             if pie.family == "circle":
-                # neighbours sit a chord apart: scale the radius just enough
-                per = max(2, min(pie.per_ring, len(pos)))
-                chord = 2 * math.sin(math.pi / per) * max(1, pie.radius)
+                # neighbours sit a chord apart: scale the radius just
+                # enough, judged at the tightest ring
+                step = pie.button + pie.spacing + 10
+                chord = min(
+                    2 * math.sin(math.pi / max(2, c))
+                    * max(1, pie.radius + ring * step)
+                    for ring, c in enumerate(model.ring_plan(pie, len(pos))))
                 scale = max(1.0, maxw / chord, maxh / chord)
             else:
                 base = pie.button + pie.spacing
