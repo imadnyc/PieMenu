@@ -43,18 +43,30 @@ def behaviour():
     }
 
 
+def custom_colour(name):
+    """The user's colour override for a param, or None."""
+    if App is None:
+        return None
+    try:
+        value = _param().GetString(name, "")
+    except Exception:  # noqa: BLE001 -- no params outside FreeCAD
+        return None
+    if value:
+        colour = QtGui.QColor(value)
+        if colour.isValid():
+            return colour
+    return None
+
+
 def accent():
     """The accent colour: the user's override, else the palette highlight."""
-    if App is not None:
-        try:
-            value = _param().GetString("AccentColor", "")
-        except Exception:  # noqa: BLE001 -- no params outside FreeCAD
-            value = ""
-        if value:
-            colour = QtGui.QColor(value)
-            if colour.isValid():
-                return colour
-    return QtWidgets.QApplication.palette().highlight().color()
+    return (custom_colour("AccentColor")
+            or QtWidgets.QApplication.palette().highlight().color())
+
+
+def arrow_colour():
+    """The gesture arrow's colour: its own override, else the accent."""
+    return custom_colour("ArrowColor") or accent()
 
 
 def workbench_scope(gui):
@@ -195,13 +207,19 @@ class PieWidget(QtWidgets.QWidget):
     def __init__(self, pies, name, counts, fire, parent=None):
         super().__init__(parent, QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        fill = custom_colour("FillColor")
+        out = custom_colour("OutlineColor")
+        fill_css = fill.name() if fill else "palette(button)"
+        alt_css = fill.lighter(114).name() if fill \
+            else "palette(alternate-base)"
+        out_css = out.name() if out else "palette(mid)"
         self.setStyleSheet(
-            "QToolButton{background:palette(button);"
-            "border:1px solid palette(mid);border-radius:6px;}"
-            'QToolButton[alt="true"]{background:palette(alternate-base);}'
+            f"QToolButton{{background:{fill_css};"
+            f"border:1px solid {out_css};border-radius:6px;}}"
+            f'QToolButton[alt="true"]{{background:{alt_css};}}'
             f"QToolButton:hover{{border:2px solid {accent().name()};}}"
             "QToolButton:disabled{background:palette(window);"
-            "border:1px dashed palette(mid);}")
+            f"border:1px dashed {out_css};}}")
         self.pies = pies
         self.counts = counts
         self.fire = fire
@@ -409,20 +427,43 @@ class PieWidget(QtWidgets.QWidget):
         super().paintEvent(event)
         if self.run_mode != "release" or self._aim is None:
             return
-        line = QtCore.QLineF(QtCore.QPointF(self._origin[0], self._origin[1]),
-                             QtCore.QPointF(self._aim))
-        if line.length() < 12:
+        p1 = QtCore.QPointF(self._origin[0], self._origin[1])
+        p2 = QtCore.QPointF(self._aim)
+        line = QtCore.QLineF(p1, p2)
+        length = line.length()
+        if length < 12:
             return
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        painter.setPen(QtGui.QPen(accent(), 3,
-                                  QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
-        painter.drawLine(line)
-        for splay in (30, -30):        # two barbs make the head
-            barb = QtCore.QLineF(line.p2(), line.p1())
-            barb.setAngle(line.angle() + 180 + splay)
-            barb.setLength(min(14.0, line.length()))
-            painter.drawLine(barb)
+        colour = arrow_colour()
+        # a tapered swoosh: hairline at the origin widening toward the tip,
+        # fading in as it goes, finished with a slender head
+        ux, uy = (p2.x() - p1.x()) / length, (p2.y() - p1.y()) / length
+        nx, ny = -uy, ux
+        head = min(18.0, length * 0.35)
+        neck = QtCore.QPointF(p2.x() - ux * head, p2.y() - uy * head)
+        w0, w1, wh = 0.8, 4.0, 8.5
+        faint = QtGui.QColor(colour)
+        faint.setAlpha(46)
+        solid = QtGui.QColor(colour)
+        solid.setAlpha(235)
+        grad = QtGui.QLinearGradient(p1, p2)
+        grad.setColorAt(0.0, faint)
+        grad.setColorAt(1.0, solid)
+        painter.setPen(QtCore.Qt.NoPen)
+        painter.setBrush(grad)
+        painter.drawPolygon(QtGui.QPolygonF([
+            QtCore.QPointF(p1.x() + nx * w0, p1.y() + ny * w0),
+            QtCore.QPointF(neck.x() + nx * w1, neck.y() + ny * w1),
+            QtCore.QPointF(neck.x() - nx * w1, neck.y() - ny * w1),
+            QtCore.QPointF(p1.x() - nx * w0, p1.y() - ny * w0)]))
+        painter.setBrush(solid)
+        painter.drawPolygon(QtGui.QPolygonF([
+            p2,
+            QtCore.QPointF(neck.x() + nx * wh, neck.y() + ny * wh),
+            QtCore.QPointF(neck.x() - nx * wh, neck.y() - ny * wh)]))
+        painter.setBrush(faint)
+        painter.drawEllipse(p1, 3, 3)
         painter.end()
 
 

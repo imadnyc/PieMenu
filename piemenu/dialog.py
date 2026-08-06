@@ -214,6 +214,67 @@ def _draw_anchors(p):
     p.drawEllipse(QtCore.QPointF(75, 51), 4, 4)
 
 
+COLOURS = [
+    ("Accent", "AccentColor", "door rings, hover borders, dwell rings"),
+    ("Outline", "OutlineColor", "slot button borders"),
+    ("Fill", "FillColor", "slot button background"),
+    ("Arrow", "ArrowColor", "the gesture arrow (defaults to Accent)"),
+]
+
+
+def colours_dialog(parent, on_change):
+    """Per-part colour overrides; empty = follow the FreeCAD theme."""
+    p = App.ParamGet(runtime.MAIN)
+    dlg = QtWidgets.QDialog(parent)
+    dlg.setWindowTitle("Pie colours")
+    form = QtWidgets.QFormLayout(dlg)
+
+    def swatch_css(param):
+        colour = runtime.custom_colour(param)
+        return (f"background:{colour.name()};" if colour
+                else "") + "min-width:70px;"
+
+    for label, param, what in COLOURS:
+        rowbox = QtWidgets.QHBoxLayout()
+        pick = QtWidgets.QPushButton("theme" if not
+                                     runtime.custom_colour(param) else "")
+        pick.setStyleSheet(swatch_css(param))
+        pick.setToolTip(what)
+
+        def choose(_=False, param=param, pick=pick):
+            current = runtime.custom_colour(param) or runtime.accent()
+            colour = QtWidgets.QColorDialog.getColor(
+                current, dlg, "Pie colour")
+            if colour.isValid():
+                p.SetString(param, colour.name())
+                pick.setText("")
+                pick.setStyleSheet(swatch_css(param))
+                on_change()
+
+        def reset(_=False, param=param, pick=pick):
+            p.RemString(param)
+            pick.setText("theme")
+            pick.setStyleSheet(swatch_css(param))
+            on_change()
+
+        pick.clicked.connect(choose)
+        clear = QtWidgets.QToolButton()
+        clear.setText("✕")
+        clear.setToolTip("Back to the theme colour")
+        clear.clicked.connect(reset)
+        rowbox.addWidget(pick)
+        rowbox.addWidget(clear)
+        lab = QtWidgets.QLabel(label + ":")
+        lab.setToolTip(what)
+        form.addRow(lab, rowbox)
+
+    close = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close)
+    close.rejected.connect(dlg.reject)
+    close.clicked.connect(dlg.accept)
+    form.addRow(close)
+    return dlg
+
+
 def _help_button(text):
     """A small ? whose tooltip carries what used to be an inline caption."""
     btn = QtWidgets.QToolButton()
@@ -1044,27 +1105,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
         add_key.clicked.connect(self.shortcuts.add_key)
         foot.addWidget(add_key)
         foot.addSpacing(16)
-        p = App.ParamGet(runtime.MAIN)
-        accent_btn = QtWidgets.QPushButton("Accent…")
-        accent_btn.setToolTip("Colour for door rings, hover borders, the "
-                              "gesture arrow and dwell rings. Default: the "
-                              "theme's highlight.")
-
-        def pick_accent():
-            colour = QtWidgets.QColorDialog.getColor(
-                runtime.accent(), self, "Pie accent colour")
-            if colour.isValid():
-                p.SetString("AccentColor", colour.name())
-                self.on_change()
-
-        accent_btn.clicked.connect(pick_accent)
-        foot.addWidget(accent_btn)
-        accent_reset = QtWidgets.QToolButton()
-        accent_reset.setText("✕")
-        accent_reset.setToolTip("Back to the theme's highlight colour")
-        accent_reset.clicked.connect(
-            lambda: (p.RemString("AccentColor"), self.on_change()))
-        foot.addWidget(accent_reset)
+        colours_btn = QtWidgets.QPushButton("Colours…")
+        colours_btn.setToolTip("Accent, outline, fill and arrow colours — "
+                               "each follows the FreeCAD theme unless "
+                               "overridden.")
+        colours_btn.clicked.connect(
+            lambda: colours_dialog(self, self.on_change).exec_())
+        foot.addWidget(colours_btn)
         foot.addStretch(1)
 
         root = App.ParamGet("User parameter:BaseApp/PieMenu")
