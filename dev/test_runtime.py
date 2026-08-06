@@ -169,10 +169,17 @@ pies["Main"].delay = 60
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 w.popup_at(QtCore.QPoint(400, 400))
 app.sendEvent(w.buttons[2], QtCore.QEvent(QtCore.QEvent.Enter))
-wait(150)                                # dwell on the door -> descend
+wait(30)                                 # mid-dwell: the ring is filling
+ring = w.buttons[2].findChild(runtime._DwellRing)
+assert ring is not None and ring.isVisible() and 0 < ring.progress <= 1
+wait(140)                                # dwell out -> descend
 assert w.pie.name == "Sub" and fired == [], (w.pie.name, fired)
 assert any(not b.isHidden() for b in w.buttons)
-w.close()
+# Sub is a click pie, but it was entered mid-gesture: release still fires
+assert w.run_mode == "release"
+w.commit_gesture(pos=w.buttons[1].mapToGlobal(QtCore.QPoint(17, 17)))
+assert fired == ["Std_Redo"], fired
+assert not w.isVisible()
 w.deleteLater()
 
 pies["Main"].door_hover = False          # knob off: dwelling stays put
@@ -191,6 +198,8 @@ w = runtime.PieWidget(pies, "Main", {}, fire)
 w.show_chooser(w.buttons[4], model.live_bindings(pies["Main"].items[4], {}))
 alts = w._chooser.findChildren(QtWidgets.QToolButton)
 assert alts and alts[0].width() == 40    # the chooser-size knob
+assert w.buttons[1].property("alt") is True      # odd slots alternate fill
+assert not w.buttons[0].property("alt")
 w.deleteLater()
 pies["Main"].alt_size = 24
 pies["Main"].last_used.clear()

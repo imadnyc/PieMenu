@@ -1115,6 +1115,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
             f"Slots — {pie.name}  "
             f"{sum(1 for s in pie.items if s)}/{model.slot_count(pie)}")
         self.slots.clear()
+        tint = self.palette().alternateBase()
         for i, slot in enumerate(pie.items):
             label = f"Slot {i + 1}"
             if slot and len(slot) > 1:
@@ -1124,6 +1125,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
             top = QtWidgets.QTreeWidgetItem([label, ""])
             top.setData(0, QtCore.Qt.UserRole, (i, None))
             self.slots.addTopLevelItem(top)
+            rows = [top]
             for j, b in enumerate(slot or []):
                 child = QtWidgets.QTreeWidgetItem(
                     [command_label(b.cmd), rule_text(b.rule)])
@@ -1132,6 +1134,11 @@ class PieMenuPreferences(QtWidgets.QDialog):
                 child.setForeground(1, QtGui.QBrush(QtGui.QColor(128, 128,
                                                                  128)))
                 top.addChild(child)
+                rows.append(child)
+            if i % 2:                    # alternate whole slot groups
+                for item in rows:
+                    item.setBackground(0, tint)
+                    item.setBackground(1, tint)
             top.setExpanded(True)
         self.slots.setColumnWidth(0, 210)
 

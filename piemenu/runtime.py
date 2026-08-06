@@ -123,6 +123,7 @@ class PieWidget(QtWidgets.QWidget):
         self.setStyleSheet(
             "QToolButton{background:palette(button);"
             "border:1px solid palette(mid);border-radius:6px;}"
+            'QToolButton[alt="true"]{background:palette(alternate-base);}'
             "QToolButton:hover{border:2px solid palette(highlight);}"
             "QToolButton:disabled{background:palette(window);"
             "border:1px dashed palette(mid);}")
@@ -133,6 +134,7 @@ class PieWidget(QtWidgets.QWidget):
         self._hover_timer = None
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
+        self.run_mode = None          # how this pie actually runs, see build()
         self.setMouseTracking(True)
         self.build(name)
 
@@ -146,6 +148,9 @@ class PieWidget(QtWidgets.QWidget):
         pie = self.pies[name]
         model.normalise(pie)
         self.pie = pie
+        # entered mid-gesture, a sub-pie stays a gesture pie: glide, release
+        self.run_mode = "release" if self.run_mode == "release" \
+            else pie.run_on
         pos = model.positions(pie)
         size = pie.button
         pad = 24
@@ -183,13 +188,15 @@ class PieWidget(QtWidgets.QWidget):
                 btn.installEventFilter(_ChooserFilter(self, btn, live))
             btn.clicked.connect(
                 lambda _=False, cmd=face.cmd: self.activate(cmd))
-            if pie.run_on == "hover":
+            if self.run_mode == "hover":
                 btn.installEventFilter(_HoverFire(self, btn, face.cmd,
                                                   pie.delay))
             elif pie.door_hover and is_pie_command(face.cmd):
                 # dwelling on a door descends into it mid-gesture
                 btn.installEventFilter(_HoverFire(self, btn, face.cmd,
                                                   pie.delay))
+        if index % 2 and not is_pie_command(binding.cmd):
+            btn.setProperty("alt", True)     # alternate fill, odd slots
         # explicit: children born on an ALREADY-VISIBLE parent stay hidden
         # otherwise -- a door descend rebuilds while shown, and every button
         # of the sub-pie would be invisible (the pie "not spawning")
@@ -303,7 +310,7 @@ class PieWidget(QtWidgets.QWidget):
     # -- the gesture arrow (release mode): centre -> cursor
 
     def mouseMoveEvent(self, event):
-        if self.pie.run_on == "release":
+        if self.run_mode == "release":
             self._aim = event.position().toPoint() \
                 if hasattr(event, "position") else event.pos()
             self.update()
@@ -311,7 +318,7 @@ class PieWidget(QtWidgets.QWidget):
 
     def paintEvent(self, event):
         super().paintEvent(event)
-        if self.pie.run_on != "release" or self._aim is None:
+        if self.run_mode != "release" or self._aim is None:
             return
         line = QtCore.QLineF(QtCore.QPointF(self._origin[0], self._origin[1]),
                              QtCore.QPointF(self._aim))
@@ -337,22 +344,71 @@ def behaviour_quick(_widget):
         return True
 
 
+class _DwellRing(QtWidgets.QWidget):
+    """A circular fill on a dwell-armed button: time until it activates."""
+
+    def __init__(self, btn):
+        super().__init__(btn)
+        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        self.progress = 0.0
+        self.resize(btn.size())
+        self.hide()
+
+    def paintEvent(self, _event):
+        if self.progress <= 0:
+            return
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        painter.setPen(QtGui.QPen(self.palette().highlight().color(), 3,
+                                  QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
+        painter.drawArc(self.rect().adjusted(2, 2, -2, -2),
+                        90 * 16, int(-360 * 16 * self.progress))
+        painter.end()
+
+
 class _HoverFire(QtCore.QObject):
-    """run_on == hover: dwelling on a slot for the delay fires it."""
+    """Dwelling on an armed slot for the delay fires it (hover mode slots,
+    hover doors).  A ring fills clockwise to show time-to-activation."""
+
+    TICK = 25
 
     def __init__(self, pie_widget, btn, cmd, delay):
         super().__init__(btn)
         self.w, self.cmd = pie_widget, cmd
+        self.delay = max(50, delay)
+        self.elapsed = 0
+        self.ring = _DwellRing(btn)
         self.timer = QtCore.QTimer(self)
         self.timer.setSingleShot(True)
-        self.timer.setInterval(max(50, delay))
-        self.timer.timeout.connect(lambda: self.w.activate(self.cmd))
+        self.timer.setInterval(self.delay)
+        self.timer.timeout.connect(self._fire)
+        self.tick = QtCore.QTimer(self)
+        self.tick.setInterval(self.TICK)
+        self.tick.timeout.connect(self._tick)
+
+    def _fire(self):
+        self.tick.stop()
+        self.ring.hide()
+        self.w.activate(self.cmd)
+
+    def _tick(self):
+        self.elapsed += self.TICK
+        self.ring.progress = min(1.0, self.elapsed / self.delay)
+        self.ring.update()
 
     def eventFilter(self, obj, event):
         if event.type() == QtCore.QEvent.Enter:
+            self.elapsed = 0
+            self.ring.progress = 0.0
+            self.ring.resize(obj.size())
+            self.ring.show()
+            self.ring.raise_()
             self.timer.start()
+            self.tick.start()
         elif event.type() == QtCore.QEvent.Leave:
             self.timer.stop()
+            self.tick.stop()
+            self.ring.hide()
         return False
 
 
@@ -511,7 +567,7 @@ class Dispatcher(QtCore.QObject):
         widget = self.current
         if widget is None:
             return False
-        if widget.pie.run_on == "release":
+        if getattr(widget, "run_mode", widget.pie.run_on) == "release":
             widget.commit_gesture()
             if widget.isVisible():
                 return True    # ambiguous aim or a door: stays up for the mouse
