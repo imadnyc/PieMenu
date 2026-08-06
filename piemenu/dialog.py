@@ -901,7 +901,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.binds = model.load_binds()
         self.on_change()
         if structure:
-            self.refresh()
+            self._queue_refresh()
         else:
             self.preview.set_pie(self.pie(), self.actions)
             self._fill_settings_labels()
@@ -909,6 +909,18 @@ class PieMenuPreferences(QtWidgets.QDialog):
     def _binds_changed(self):
         self.binds = model.load_binds()
         self.on_change()
+        self._queue_refresh()
+
+    def _queue_refresh(self):
+        """refresh() next tick, never now: the sender (the family combo with
+        its dropdown still delivering, a shortcut cell) is destroyed by the
+        rebuild, and tearing it down mid-signal is a use-after-free."""
+        if not getattr(self, "_refresh_queued", False):
+            self._refresh_queued = True
+            QtCore.QTimer.singleShot(0, self._run_refresh)
+
+    def _run_refresh(self):
+        self._refresh_queued = False
         self.refresh()
 
     def refresh(self):

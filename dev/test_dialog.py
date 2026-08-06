@@ -99,6 +99,15 @@ dlg._changed(True)
 assert model.load_pie("Main").items[1][0].cmd == "Std_Undo"
 dlg._set("radius", 123)
 assert model.load_pie("Main").radius == 123
+# structural rebuilds are deferred one tick: a synchronous refresh() destroys
+# the sender widget mid-signal (the grid/circle combo segfaulted this way)
+dlg._set_family("grid")
+assert dlg._refresh_queued, "family change must queue, not rebuild in place"
+assert model.load_pie("Main").family == "grid"   # the save itself is immediate
+app.processEvents()
+assert not dlg._refresh_queued
+dlg._set_family("circle")
+app.processEvents()
 print("PASS edits")
 
 # ---- rule field -------------------------------------------------------------
