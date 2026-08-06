@@ -182,6 +182,19 @@ assert binding.cmd == "Std_Redo" and binding.rule == {"Object": (">=", 2)}
 assert "Redo" in picker.echo.text()
 print("PASS picker")
 
+# ---- the auto ring readout follows the arc slider live -----------------------
+dlg.select_pie("Main")
+dlg._set("radius", 80)                   # earlier tests moved it
+dlg._set("ring_mode", "auto", structure=True)
+app.processEvents()
+before = dlg._auto_plan_label.text()
+dlg._set("arc", 120)                     # non-structural slider write
+after = dlg._auto_plan_label.text()
+assert before != after, (before, after)  # fewer degrees, tighter rings
+dlg._set("arc", 360)
+dlg._set("ring_mode", "uniform", structure=True)
+app.processEvents()
+
 # ---- the chooser-size knob demos a mock chooser in the preview ---------------
 dlg.select_pie("Main")
 dlg._set("alt_size", 36)

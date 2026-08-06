@@ -32,8 +32,8 @@ HELP = {
              "many as each ring's circumference fits, so outer rings hold "
              "more. Custom: set every ring yourself.",
     "Per ring": "How many slots go in each ring before a new one starts "
-                "further out. In custom mode, one number per ring — the "
-                "last repeats outward.",
+                "further out. In custom mode, comma-separated counts — "
+                "8,16 — with the last number repeating outward.",
     "Radius": "Distance from the cursor to the first ring.",
     "Arc": "How much of the circle the slots span. 360 is the full circle.",
     "Facing": "Which way a partial arc points. A 90° arc facing right sits "
@@ -1528,30 +1528,29 @@ class PieMenuPreferences(QtWidgets.QDialog):
                     f"→ {len(plan)} ring{'s' if len(plan) > 1 else ''}"))
                 row("Per ring", per)
             elif pie.ring_mode == "auto":
-                # each ring takes what its circumference fits
-                row("Per ring", QtWidgets.QLabel(
-                    " · ".join(str(c) for c in plan) + "  (by radius)"))
+                # each ring takes what its circumference fits; the label
+                # follows the arc/radius/spacing sliders live
+                self._auto_plan_label = QtWidgets.QLabel(
+                    " · ".join(str(c) for c in plan) + "  (by radius)")
+                row("Per ring", self._auto_plan_label)
             else:
-                # custom: one spinner per ring, no lists to type
-                box = QtWidgets.QWidget()
-                box_lay = QtWidgets.QHBoxLayout(box)
-                box_lay.setContentsMargins(0, 0, 0, 0)
-                spins = []
-                for count in plan:
-                    spin = QtWidgets.QSpinBox()
-                    spin.setRange(1, 48)
-                    spin.setValue(count)
-                    box_lay.addWidget(spin)
-                    spins.append(spin)
+                ring_edit = QtWidgets.QLineEdit(
+                    ",".join(str(c) for c in pie.ring_counts))
+                ring_edit.setPlaceholderText("e.g. 8,16 — last repeats")
 
-                def counts_changed(_=0, spins=spins):
-                    self._set("ring_counts",
-                              [s.value() for s in spins], structure=True)
+                def ring_counts_done(edit=ring_edit):
+                    values = []
+                    for part in edit.text().replace(" ", "").split(","):
+                        if part.isdigit() and int(part) > 0:
+                            values.append(int(part))
+                        elif part:
+                            return           # garbage: change nothing
+                    self._set("ring_counts", values, structure=True)
 
-                for spin in spins:
-                    spin.valueChanged.connect(counts_changed)
-                box_lay.addStretch(1)
-                row("Per ring", box)
+                ring_edit.editingFinished.connect(ring_counts_done)
+                row("Per ring", ring_edit)
+            if pie.ring_mode != "auto":
+                self._auto_plan_label = None
             spacing = row("Spacing",
                           self._slider(pie.spacing, 0, 60, "spacing"))
             if len(model.ring_plan(pie)) <= 1:
@@ -1637,7 +1636,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.settings_area.setWidget(body)
 
     def _fill_settings_labels(self):
-        pass  # sliders write straight to the model; nothing else to sync
+        # the auto ring plan depends on arc/radius/spacing sliders: keep its
+        # readout live without rebuilding the panel mid-drag
+        label = getattr(self, "_auto_plan_label", None)
+        if label is not None and self.pie().ring_mode == "auto":
+            plan = model.ring_plan(self.pie())
+            label.setText(" · ".join(str(c) for c in plan) + "  (by radius)")
 
     def _slider(self, value, lo, hi, field):
         w = SliderSpin(value, lo, hi)
