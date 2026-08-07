@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
-  <name>PieMenu v2</name>
+  <name>PieMenu v2 (beta)</name>
   <description>Marking-menu style pie menus for FreeCAD: per-workbench
 shortcuts with four gestures per key (tap, double, hold, double-hold),
 selection-conditional slots, sub-pies, and a Smart pie built from your
@@ -18,7 +18,7 @@ PieMenu.</description>
 
   <content>
     <workbench>
-      <name>PieMenu v2</name>
+      <name>PieMenu v2 (beta)</name>
       <subdirectory>./</subdirectory>
       <icon>Resources/PieMenu_Logo.svg</icon>
       <tag>pie</tag>
