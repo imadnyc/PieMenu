@@ -1,23 +1,30 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no" ?>
 <package format="1" xmlns="https://wiki.freecad.org/Package_Metadata">
-  <name>PieMenu</name>
-  <description>The PieMenu module is a tool to accelerate and simplify your workflow in usage of FreeCAD.</description>
-  <version>1.13</version>
-  <date>2026-04-05</date>
-  <maintainer>Grubuntu</maintainer>
-  <license file="LICENSE">LGPL-2.1-or-later</license>
-  <url type="repository" branch="master">https://github.com/Grubuntu/PieMenu</url>
-  <url type="bugtracker">https://github.com/Grubuntu/PieMenu/issues</url>
+  <name>PieMenu v2</name>
+  <description>Marking-menu style pie menus for FreeCAD: per-workbench
+shortcuts with four gestures per key (tap, double, hold, double-hold),
+selection-conditional slots, sub-pies, and a Smart pie built from your
+most-used tools. Beta; a ground-up, largely AI-generated rewrite of
+PieMenu.</description>
+  <version>2.0.0-beta.1</version>
+  <date>2026-08-07</date>
+  <maintainer>imadnyc</maintainer>
+  <license file="License">LGPL-2.1-or-later</license>
+  <url type="repository" branch="v2-build">https://github.com/imadnyc/PieMenu</url>
+  <url type="bugtracker">https://github.com/imadnyc/PieMenu/issues</url>
+  <url type="readme">https://github.com/imadnyc/PieMenu/blob/v2-build/README.md</url>
 
-  <icon>Resources/icons/PieMenu_Logo.svg</icon>
+  <icon>Resources/PieMenu_Logo.svg</icon>
 
   <content>
     <workbench>
-      <name>PieMenu</name>
+      <name>PieMenu v2</name>
       <subdirectory>./</subdirectory>
-      <icon>Resources/icons/PieMenu_Logo.svg</icon>
+      <icon>Resources/PieMenu_Logo.svg</icon>
       <tag>pie</tag>
-	  <tag>menu</tag>
+      <tag>menu</tag>
+      <tag>marking-menu</tag>
+      <tag>shortcuts</tag>
     </workbench>
   </content>
 
