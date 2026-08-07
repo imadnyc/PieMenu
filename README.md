@@ -1,8 +1,8 @@
 # PieMenu v2
 
-> **Heads up:** this rewrite was first and foremost generated with AI. I use
-> it daily and it works for me, but I haven't vetted the code too carefully.
-> Back up your config before trying it.
+> **Heads up:** this rewrite was first and foremost generated with AI, and
+> so is this README. I use it daily and it works for me, but I haven't
+> vetted the code too carefully. Back up your config before trying it.
 
 Pie menus for FreeCAD. Press a key, flick toward a tool, let go. This is a
 fork of [Grubuntu/PieMenu](https://github.com/Grubuntu/PieMenu) with the
@@ -19,6 +19,11 @@ internals redone from scratch.
   follows your aim with an arrow and firing happens on release. A quick
   tap on a hold binding does nothing instead of leaving a menu behind.
 * Slots can have selection conditions (a face, two objects, an edge...).
+  The same pie with nothing selected and with a face selected:
+
+  ![nothing selected](docs/pie-no-selection.png)
+  ![a face selected](docs/pie-face-selected.png)
+
   When several tools match, a small chooser pops up under the slot, and it
   remembers which one you picked last.
 
@@ -31,12 +36,23 @@ internals redone from scratch.
   you're doing now, not last month. Bind it to a key and forget about it.
 * Layouts: circles with multiple rings (uniform, auto-fit by
   circumference, or custom counts like 8,16), or grids hanging off any
-  side of the cursor with per-block offsets.
+  side of the cursor with per-block offsets. Here's a two-ring pie and
+  its slot rules in the editor:
+
+  ![a two-ring pie with conditional slots](docs/slots-and-rules.png)
 * Plus: number keys 1-9 fire slots, Shift keeps the pie open so you can
   chain tools, right-click a slot in a live pie to edit it, macros as
   slot targets, per-part colors, single-pie export/import as JSON, new
   pie from any toolbar, a stats panel, optional auto-open when your
   selection matches a conditional slot.
+
+Icons come from FreeCAD's own command registry, so a pie full of Sketcher
+tools looks right even if you've never opened Sketcher this session:
+
+![a constraints pie](docs/pie-icons.png)
+
+Command names can be shown under the buttons, and the layout spreads so
+nothing overlaps:
 
 ![command names on](docs/pie-names.png)
 
