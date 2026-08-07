@@ -173,6 +173,25 @@ assert M.PIE_PREFIX + "Main" not in M.top_commands("Any", 8)  # no doors
 M.App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 print("PASS stats + smart")
 
+# ---- pie_requires ------------------------------------------------------------
+rq = Pie("Rq", slots=8, per_ring=8)
+M.normalise(rq)
+rq.items[0] = [Binding("PartDesign_Pad"), Binding("PartDesign_Pocket")]
+rq.items[1] = [Binding("Fasteners_Screw", {"Face": (">=", 1)})]
+rq.items[2] = [Binding("Std_New")]                    # core: not listed
+rq.items[3] = [Binding("PieMenu_Other")]              # door: not listed
+rq.items[4] = [Binding("Macro:mine.FCMacro")]         # named outright
+rq.items[5] = [Binding("AssemblyWorkbench")]          # wb entry -> Assembly
+assert M.pie_requires(rq) == ["Assembly", "Fasteners",
+                              "Macro:mine.FCMacro", "PartDesign"]
+assert M.pie_requires(Pie("Empty", slots=2, per_ring=2)) == []
+big = Pie("Big", slots=48, per_ring=8)
+M.normalise(big)
+for i in range(48):                                   # stress: many prefixes
+    big.items[i] = [Binding(f"Bench{i % 7}_Tool{i}")]
+assert len(M.pie_requires(big)) == 7                  # deduped
+print("PASS pie requires")
+
 # ---- liveness with cycles -------------------------------------------------
 pies = {
     "A": M.normalise(Pie("A", slots=2,

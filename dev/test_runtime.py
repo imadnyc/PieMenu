@@ -268,6 +268,21 @@ P.RemString("OutlineColor")
 P.RemString("ArrowColor")
 assert runtime.custom_color("OutlineColor") is None
 assert runtime.arrow_color().name() == runtime.accent().name()
+
+# ---- availability (headless: permissive for commands, exact for macros) -----
+assert runtime.prefix_available("Std")
+assert runtime.prefix_available("")                   # degenerate
+assert runtime.prefix_available("NoSuchBenchXYZ")     # headless says yes
+assert runtime.command_available("PieMenu_Anything")  # doors always pass
+assert runtime.command_available("Weird")             # no underscore, no wb
+macro_dir = App.getUserMacroDir(True)
+probe = os.path.join(macro_dir, "avail-probe.FCMacro")
+with open(probe, "w") as fh:
+    fh.write("pass\n")
+assert runtime.command_available("Macro:avail-probe.FCMacro")
+os.unlink(probe)
+assert not runtime.command_available("Macro:definitely-absent.FCMacro")
+print("PASS availability")
 shown = [b.geometry() for b in w.buttons if not b.isHidden()]
 for i, r1 in enumerate(shown):           # ...and the layout spreads so no
     for r2 in shown[i + 1:]:             # name is covered by a neighbour

@@ -288,6 +288,27 @@ PRESET_INDEX = ("https://raw.githubusercontent.com/imadnyc/"
                 "PieMenu-presets/main/")
 
 
+def missing_requirements(data):
+    """Which of a preset's declared requirements this install lacks.
+
+    Tolerates junk: a non-list requires, or non-string entries, count as
+    nothing required rather than an error.
+    """
+    requires = data.get("requires")
+    if not isinstance(requires, list):
+        return []
+    missing = []
+    for req in requires:
+        if not isinstance(req, str) or not req.strip():
+            continue
+        if req.startswith(model.MACRO_PREFIX):
+            if not runtime.command_available(req):
+                missing.append(req)
+        elif not runtime.prefix_available(req):
+            missing.append(req)
+    return missing
+
+
 def _fetch(url, timeout=8):
     import urllib.request
     with urllib.request.urlopen(url, timeout=timeout) as response:
@@ -1318,7 +1339,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
             "· press &nbsp; ·· double-press &nbsp; — press-and-hold &nbsp; "
             "··— double-press-and-hold — four pies per key; whether release "
             "fires (gesture pies) or the pie stays for clicking is its "
-            "'Run on'<br>↳ italic flows in from Any workbench<br>"
+            "'Run on'<br>an ambiguous press (hold pie waiting out a "
+            "possible double) opens the moment the mouse moves — motion "
+            "means gesturing, and it counts toward the aim<br>"
+            "↳ italic flows in from Any workbench<br>"
             "the bold tinted column is the current workbench<br>"
             "double-click binds the press, right-click everything else"))
         sc_lay.addLayout(sc_head)
@@ -1521,13 +1545,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         try:
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
-            missing = []
-            for req in data.get("requires", []):
-                if req.startswith(model.MACRO_PREFIX):
-                    if not runtime.command_available(req):
-                        missing.append(req)
-                elif not runtime.prefix_available(req):
-                    missing.append(req)
+            missing = missing_requirements(data)
             if confirm and missing:
                 answer = QtWidgets.QMessageBox.question(
                     self, "Missing workbenches",
@@ -1552,7 +1570,9 @@ class PieMenuPreferences(QtWidgets.QDialog):
                             for e in slot if e.get("cmd")]
                 pie.items[i] = bindings or None
         except Exception as exc:  # noqa: BLE001 -- bad file, tell the user
-            QtWidgets.QMessageBox.warning(self, "Import failed", str(exc))
+            if confirm:
+                QtWidgets.QMessageBox.warning(self, "Import failed",
+                                              str(exc))
             return
         model.save_pie(pie)
         self.pies[pie.name] = pie

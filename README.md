@@ -18,6 +18,10 @@ internals redone from scratch.
   double-tap-then-hold. Hold gives you the marking-menu flow: the pie
   follows your aim with an arrow and firing happens on release. A quick
   tap on a hold binding does nothing instead of leaving a menu behind.
+  When a key is ambiguous (a hold pie waiting out a possible double-tap),
+  moving the mouse settles it instantly: motion means you're gesturing,
+  so the pie opens right away, anchored where you pressed — your movement
+  already counts toward the aim.
 * Slots can have selection conditions (a face, two objects, an edge...).
   The same pie with nothing selected and with a face selected:
 

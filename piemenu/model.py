@@ -59,9 +59,12 @@ def encode_rule(rule):
 
 
 def decode_rule(text):
-    """Inverse of encode_rule.  Raises ValueError on garbage."""
+    """Inverse of encode_rule.  Raises ValueError on garbage.
+
+    Tolerates spaces ("Face >= 1"), since shared presets get hand-edited.
+    """
     rule = {}
-    for part in filter(None, (text or "").split(";")):
+    for part in filter(None, (text or "").replace(" ", "").split(";")):
         m = _RULE_RX.match(part.strip())
         if not m:
             raise ValueError(f"bad rule segment {part!r}")

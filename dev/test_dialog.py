@@ -233,6 +233,56 @@ assert dlg.pies["NetPie"].items[0][0].cmd == "Std_New"
 bd.deleteLater()
 print("PASS preset browser")
 
+# ---- requires: classification and junk tolerance -----------------------------
+assert dialog.missing_requirements({}) == []
+assert dialog.missing_requirements({"requires": "PartDesign"}) == []  # junk
+assert dialog.missing_requirements({"requires": [3, None, "", "  "]}) == []
+assert dialog.missing_requirements(
+    {"requires": ["Macro:definitely-absent.FCMacro"]}) == \
+    ["Macro:definitely-absent.FCMacro"]
+# headless prefix checks are permissive, so bench prefixes never block here
+assert dialog.missing_requirements({"requires": ["NoSuchBenchXYZ"]}) == []
+
+# stress: a huge preset with junk fields imports whole and fast
+big_data = {"name": "Huge", "family": "circle", "slots": 48, "per_ring": 8,
+            "requires": [f"Bench{i}" for i in range(30)],
+            "unknown_future_field": {"nested": [1, 2, 3]},
+            "items": [[{"cmd": f"Bench{i % 7}_T{i}", "rule": "Face >= 1",
+                        "label": f"L{i}", "extra": "junk"}]
+                      for i in range(48)]}
+big_path = os.path.join(tempfile.mkdtemp(prefix="pm-big-"), "h.piemenu.json")
+with open(big_path, "w") as fh:
+    json.dump(big_data, fh)
+dlg.pie_import_file(big_path, confirm=False)
+assert "Huge" in dlg.pies
+assert sum(1 for s in dlg.pies["Huge"].items if s) == 48
+assert dlg.pies["Huge"].items[3][0].label == "L3"
+assert dlg.pies["Huge"].items[3][0].rule == {"Face": (">=", 1)}
+dlg.pies_delete(["Huge"], confirm=False)
+
+# malformed rule text must fail the import without crashing the dialog
+bad_path = big_path + ".bad"
+with open(bad_path, "w") as fh:
+    json.dump({"name": "Bad", "items": [[{"cmd": "X_Y",
+                                          "rule": "utter garbage"}]]}, fh)
+dlg.pie_import_file(bad_path, confirm=False)
+assert "Bad" not in dlg.pies
+with open(bad_path, "w") as fh:
+    fh.write("{not json at all")
+dlg.pie_import_file(bad_path, confirm=False)          # parse error: no crash
+assert "Bad" not in dlg.pies
+
+# a browser pointed at garbage lists the failure instead of raising
+garbage_dir = tempfile.mkdtemp(prefix="pm-garbage-")
+with open(os.path.join(garbage_dir, "index.json"), "w") as fh:
+    fh.write("]]]] nope")
+dialog.PRESET_INDEX = "file://" + garbage_dir + "/"
+gb = dialog.browse_presets_dialog(dlg, lambda p: None)
+glw = gb.findChild(QtWidgets.QListWidget)
+assert glw.count() >= 1 and "couldn't reach" in glw.item(0).text()
+gb.deleteLater()
+print("PASS requires stress")
+
 # ---- multi-select delete -----------------------------------------------------
 for zname in ("Zed1", "Zed2"):
     model.save_pie(Pie(zname, slots=2, per_ring=2))

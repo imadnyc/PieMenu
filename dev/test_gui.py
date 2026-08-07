@@ -79,6 +79,19 @@ def check():
             "workbench icon failed"
         print("E2E registry icons ok")
 
+        # availability: real benches yes, ghosts no, and a ghost's button
+        # renders dead with an explanation
+        assert rt.prefix_available("PartDesign")
+        assert not rt.prefix_available("NoSuchBenchXYZ")
+        ghost = model.Pie("Ghost", slots=2, per_ring=2)
+        model.normalise(ghost)
+        ghost.items[0] = [model.Binding("NoSuchBenchXYZ_Tool")]
+        gw = rt.PieWidget({"Ghost": ghost}, "Ghost", {}, lambda c: None)
+        assert not gw.buttons[0].isEnabled(), "ghost tool stayed enabled"
+        assert "not available" in gw.buttons[0].toolTip()
+        gw.deleteLater()
+        print("E2E availability ok")
+
         print("E2E-PASS")
     except Exception:  # noqa: BLE001 -- any failure must print E2E-FAIL
         traceback.print_exc()
