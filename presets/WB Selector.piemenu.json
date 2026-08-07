@@ -1,0 +1,86 @@
+{
+ "name": "WB Selector",
+ "family": "circle",
+ "icon": "",
+ "slots": 8,
+ "per_ring": 8,
+ "ring_mode": "uniform",
+ "ring_counts": [],
+ "radius": 72,
+ "arc": 360,
+ "arc_face": -90,
+ "stagger": false,
+ "stagger_by": 18,
+ "cols": 3,
+ "rows": 2,
+ "anchors": [
+  "Center"
+ ],
+ "anchor_offsets": {},
+ "button": 48,
+ "spacing": 6,
+ "accent": "",
+ "run_on": "hover",
+ "delay": 100,
+ "show_names": false,
+ "alt_size": 24,
+ "door_hover": true,
+ "items": [
+  [
+   {
+    "cmd": "AssemblyWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesignWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "SketcherWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "FastenersWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "HistoryWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "CablesWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "MeshWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ]
+ ]
+}

@@ -239,19 +239,19 @@ assert lw.buttons[0].width() >= hint.width()      # style says it fits
 assert lw.buttons[0].height() >= hint.height()
 lw.deleteLater()
 
-# colour overrides: params win, empty follows the theme
+# color overrides: params win, empty follows the theme
 P = App.ParamGet(runtime.MAIN)
 P.SetString("OutlineColor", "#ff0000")
 P.SetString("ArrowColor", "#00ff00")
-assert runtime.custom_colour("OutlineColor").name() == "#ff0000"
-assert runtime.arrow_colour().name() == "#00ff00"
+assert runtime.custom_color("OutlineColor").name() == "#ff0000"
+assert runtime.arrow_color().name() == "#00ff00"
 cw = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 assert "#ff0000" in cw.styleSheet()
 cw.deleteLater()
 P.RemString("OutlineColor")
 P.RemString("ArrowColor")
-assert runtime.custom_colour("OutlineColor") is None
-assert runtime.arrow_colour().name() == runtime.accent().name()
+assert runtime.custom_color("OutlineColor") is None
+assert runtime.arrow_color().name() == runtime.accent().name()
 shown = [b.geometry() for b in w.buttons if not b.isHidden()]
 for i, r1 in enumerate(shown):           # ...and the layout spreads so no
     for r2 in shown[i + 1:]:             # name is covered by a neighbour

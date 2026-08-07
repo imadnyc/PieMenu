@@ -1,0 +1,37 @@
+{
+ "name": "AssemblyMain",
+ "family": "circle",
+ "icon": "",
+ "slots": 1,
+ "per_ring": 1,
+ "ring_mode": "uniform",
+ "ring_counts": [],
+ "radius": 80,
+ "arc": 360,
+ "arc_face": -90,
+ "stagger": false,
+ "stagger_by": 18,
+ "cols": 3,
+ "rows": 2,
+ "anchors": [
+  "Center"
+ ],
+ "anchor_offsets": {},
+ "button": 32,
+ "spacing": 6,
+ "accent": "",
+ "run_on": "click",
+ "delay": 250,
+ "show_names": false,
+ "alt_size": 24,
+ "door_hover": true,
+ "items": [
+  [
+   {
+    "cmd": "RobotWorkbench",
+    "rule": "",
+    "label": ""
+   }
+  ]
+ ]
+}

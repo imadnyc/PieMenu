@@ -165,9 +165,9 @@ def _tip_image(key):
     return path
 
 
-def _dots(painter, centre, radius, angles, colour):
+def _dots(painter, centre, radius, angles, color):
     painter.setPen(QtCore.Qt.NoPen)
-    painter.setBrush(colour)
+    painter.setBrush(color)
     import math
     for a in angles:
         painter.drawEllipse(
@@ -227,31 +227,31 @@ COLOURS = [
 ]
 
 
-def colours_dialog(parent, on_change):
-    """Per-part colour overrides; empty = follow the FreeCAD theme."""
+def colors_dialog(parent, on_change):
+    """Per-part color overrides; empty = follow the FreeCAD theme."""
     p = App.ParamGet(runtime.MAIN)
     dlg = QtWidgets.QDialog(parent)
-    dlg.setWindowTitle("Pie colours")
+    dlg.setWindowTitle("Pie colors")
     form = QtWidgets.QFormLayout(dlg)
 
     def swatch_css(param):
-        colour = runtime.custom_colour(param)
-        return (f"background:{colour.name()};" if colour
+        color = runtime.custom_color(param)
+        return (f"background:{color.name()};" if color
                 else "") + "min-width:70px;"
 
     for label, param, what in COLOURS:
         rowbox = QtWidgets.QHBoxLayout()
         pick = QtWidgets.QPushButton("theme" if not
-                                     runtime.custom_colour(param) else "")
+                                     runtime.custom_color(param) else "")
         pick.setStyleSheet(swatch_css(param))
         pick.setToolTip(what)
 
         def choose(_=False, param=param, pick=pick):
-            current = runtime.custom_colour(param) or runtime.accent()
-            colour = QtWidgets.QColorDialog.getColor(
-                current, dlg, "Pie colour")
-            if colour.isValid():
-                p.SetString(param, colour.name())
+            current = runtime.custom_color(param) or runtime.accent()
+            color = QtWidgets.QColorDialog.getColor(
+                current, dlg, "Pie color")
+            if color.isValid():
+                p.SetString(param, color.name())
                 pick.setText("")
                 pick.setStyleSheet(swatch_css(param))
                 on_change()
@@ -265,7 +265,7 @@ def colours_dialog(parent, on_change):
         pick.clicked.connect(choose)
         clear = QtWidgets.QToolButton()
         clear.setText("✕")
-        clear.setToolTip("Back to the theme colour")
+        clear.setToolTip("Back to the theme color")
         clear.clicked.connect(reset)
         rowbox.addWidget(pick)
         rowbox.addWidget(clear)
@@ -1138,6 +1138,18 @@ class PieMenuPreferences(QtWidgets.QDialog):
         for tname in TEMPLATES:
             tsub.addAction(tname,
                            lambda t=tname: self.pie_from_template(t))
+        preset_dir = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "presets")
+        presets = sorted(f for f in os.listdir(preset_dir)
+                         if f.endswith(".piemenu.json")) \
+            if os.path.isdir(preset_dir) else []
+        if presets:
+            psub = add_menu.addMenu("From a preset")
+            for fname in presets:
+                full = os.path.join(preset_dir, fname)
+                psub.addAction(
+                    fname[:-len(".piemenu.json")],
+                    lambda _=False, p=full: self.pie_import_file(p))
         add_menu.addAction("Import…", self.pie_import)
         add_btn.setMenu(add_menu)
         add_btn.setPopupMode(QtWidgets.QToolButton.InstantPopup)
@@ -1241,13 +1253,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
         add_key.clicked.connect(self.shortcuts.add_key)
         foot.addWidget(add_key)
         foot.addSpacing(16)
-        colours_btn = QtWidgets.QPushButton("Colours…")
-        colours_btn.setToolTip("Accent, outline, fill and arrow colours — "
+        colors_btn = QtWidgets.QPushButton("Colors…")
+        colors_btn.setToolTip("Accent, outline, fill and arrow colors — "
                                "each follows the FreeCAD theme unless "
                                "overridden.")
-        colours_btn.clicked.connect(
-            lambda: colours_dialog(self, self.on_change).exec_())
-        foot.addWidget(colours_btn)
+        colors_btn.clicked.connect(
+            lambda: colors_dialog(self, self.on_change).exec_())
+        foot.addWidget(colors_btn)
         stats_btn = QtWidgets.QPushButton("Stats…")
         stats_btn.setToolTip("Your most used tools, and the reset.")
         stats_btn.clicked.connect(lambda: stats_dialog(self).exec_())
@@ -1416,8 +1428,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
     def pie_import(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
             self, "Import a pie", "", "PieMenu pies (*.piemenu.json)")
-        if not path:
-            return
+        if path:
+            self.pie_import_file(path)
+
+    def pie_import_file(self, path):
         try:
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -1431,7 +1445,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
             model.normalise(pie)
             for i, slot in enumerate(items[:len(pie.items)]):
                 bindings = [Binding(e["cmd"],
-                                    model.decode_rule(e.get("rule", "")))
+                                    model.decode_rule(e.get("rule", "")),
+                                    e.get("label", ""))
                             for e in slot if e.get("cmd")]
                 pie.items[i] = bindings or None
         except Exception as exc:  # noqa: BLE001 -- bad file, tell the user
@@ -1861,13 +1876,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
                                       "min-width:60px;")
 
         def pick_pie_accent(_=False):
-            colour = QtWidgets.QColorDialog.getColor(
+            color = QtWidgets.QColorDialog.getColor(
                 QtGui.QColor(pie.accent) if pie.accent else runtime.accent(),
                 self, "Pie accent")
-            if colour.isValid():
-                self._set("accent", colour.name())
+            if color.isValid():
+                self._set("accent", color.name())
                 accent_pick.setText("")
-                accent_pick.setStyleSheet(f"background:{colour.name()};"
+                accent_pick.setStyleSheet(f"background:{color.name()};"
                                           "min-width:60px;")
 
         accent_pick.clicked.connect(pick_pie_accent)

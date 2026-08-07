@@ -203,6 +203,18 @@ assert dlg.preview._mock_chooser[1] == 36
 dlg.preview._unflash()
 assert dlg.preview._mock_chooser is None
 
+# ---- shipped presets import cleanly ------------------------------------------
+preset_dir = os.path.join(os.environ.get("PIEMENU_REPO",
+                                         "/home/dre/Projects/PieMenu"),
+                          "presets")
+if os.path.isdir(preset_dir):
+    for fname in sorted(os.listdir(preset_dir)):
+        if fname.endswith(".piemenu.json"):
+            dlg.pie_import_file(os.path.join(preset_dir, fname))
+    assert "PartDesignMisc" in dlg.pies
+    assert any(s for s in dlg.pies["PartDesignMisc"].items if s)
+    print("PASS presets")
+
 # ---- the global surface is just accent + backup ------------------------------
 assert not hasattr(dlg, "g_toggle")      # the behaviour toggles are gone
 assert not hasattr(dlg, "g_rclick")

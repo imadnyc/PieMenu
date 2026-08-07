@@ -44,8 +44,8 @@ def behaviour():
     }
 
 
-def custom_colour(name):
-    """The user's colour override for a param, or None."""
+def custom_color(name):
+    """The user's color override for a param, or None."""
     if App is None:
         return None
     try:
@@ -53,21 +53,21 @@ def custom_colour(name):
     except Exception:  # noqa: BLE001 -- no params outside FreeCAD
         return None
     if value:
-        colour = QtGui.QColor(value)
-        if colour.isValid():
-            return colour
+        color = QtGui.QColor(value)
+        if color.isValid():
+            return color
     return None
 
 
 def accent():
-    """The accent colour: the user's override, else the palette highlight."""
-    return (custom_colour("AccentColor")
+    """The accent color: the user's override, else the palette highlight."""
+    return (custom_color("AccentColor")
             or QtWidgets.QApplication.palette().highlight().color())
 
 
-def arrow_colour():
-    """The gesture arrow's colour: its own override, else the accent."""
-    return custom_colour("ArrowColor") or accent()
+def arrow_color():
+    """The gesture arrow's color: its own override, else the accent."""
+    return custom_color("ArrowColor") or accent()
 
 
 def workbench_scope(gui):
@@ -236,8 +236,8 @@ class PieWidget(QtWidgets.QWidget):
         model.normalise(pie)
         own = QtGui.QColor(pie.accent) if pie.accent else QtGui.QColor()
         self._accent = own if own.isValid() else accent()
-        fill = custom_colour("FillColor")
-        out = custom_colour("OutlineColor")
+        fill = custom_color("FillColor")
+        out = custom_color("OutlineColor")
         fill_css = fill.name() if fill else "palette(button)"
         alt_css = fill.lighter(114).name() if fill \
             else "palette(alternate-base)"
@@ -399,9 +399,9 @@ class PieWidget(QtWidgets.QWidget):
             btn.setIcon(pie_icon(self.pies.get(target)))
             tip = f"Open {target}"
             dead = not model.pie_live(target, self.pies, self.counts)
-            colour = "#808080" if (dead or not live) else self._accent.name()
+            color = "#808080" if (dead or not live) else self._accent.name()
             btn.setStyleSheet(
-                f"QToolButton{{border:2px solid {colour};"
+                f"QToolButton{{border:2px solid {color};"
                 f"border-radius:{self.pie.button // 2}px;}}")
             live = live and not dead
         else:
@@ -591,17 +591,17 @@ class PieWidget(QtWidgets.QWidget):
             return
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        colour = custom_colour("ArrowColor") or self._accent
+        color = custom_color("ArrowColor") or self._accent
         # minimal: one thin solid line, one small solid head
         ux, uy = (p2.x() - p1.x()) / length, (p2.y() - p1.y()) / length
         nx, ny = -uy, ux
         head = min(11.0, length * 0.3)
         neck = QtCore.QPointF(p2.x() - ux * head, p2.y() - uy * head)
-        painter.setPen(QtGui.QPen(colour, 2, QtCore.Qt.SolidLine,
+        painter.setPen(QtGui.QPen(color, 2, QtCore.Qt.SolidLine,
                                   QtCore.Qt.RoundCap))
         painter.drawLine(QtCore.QLineF(p1, neck))
         painter.setPen(QtCore.Qt.NoPen)
-        painter.setBrush(colour)
+        painter.setBrush(color)
         painter.drawPolygon(QtGui.QPolygonF([
             p2,
             QtCore.QPointF(neck.x() + nx * 4.5, neck.y() + ny * 4.5),
@@ -626,8 +626,8 @@ class _DwellRing(QtWidgets.QWidget):
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
         pie_widget = self.parentWidget().parentWidget() \
             if self.parentWidget() else None
-        colour = getattr(pie_widget, "_accent", None) or accent()
-        painter.setPen(QtGui.QPen(colour, 3,
+        color = getattr(pie_widget, "_accent", None) or accent()
+        painter.setPen(QtGui.QPen(color, 3,
                                   QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
         painter.drawArc(self.rect().adjusted(2, 2, -2, -2),
                         90 * 16, int(-360 * 16 * self.progress))

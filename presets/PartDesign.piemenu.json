@@ -1,0 +1,65 @@
+{
+ "name": "PartDesign",
+ "family": "circle",
+ "icon": "",
+ "slots": 5,
+ "per_ring": 5,
+ "ring_mode": "uniform",
+ "ring_counts": [],
+ "radius": 80,
+ "arc": 360,
+ "arc_face": -90,
+ "stagger": false,
+ "stagger_by": 18,
+ "cols": 3,
+ "rows": 2,
+ "anchors": [
+  "Center"
+ ],
+ "anchor_offsets": {},
+ "button": 32,
+ "spacing": 2,
+ "accent": "",
+ "run_on": "click",
+ "delay": 250,
+ "show_names": false,
+ "alt_size": 24,
+ "door_hover": true,
+ "items": [
+  [
+   {
+    "cmd": "PartDesign_NewSketch",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Pad",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Pocket",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Chamfer",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Fillet",
+    "rule": "",
+    "label": ""
+   }
+  ]
+ ]
+}

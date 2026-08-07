@@ -1,0 +1,100 @@
+{
+ "name": "PartDesignMisc",
+ "family": "circle",
+ "icon": "",
+ "slots": 10,
+ "per_ring": 10,
+ "ring_mode": "uniform",
+ "ring_counts": [],
+ "radius": 80,
+ "arc": 360,
+ "arc_face": -90,
+ "stagger": false,
+ "stagger_by": 18,
+ "cols": 3,
+ "rows": 2,
+ "anchors": [
+  "Center"
+ ],
+ "anchor_offsets": {},
+ "button": 32,
+ "spacing": 6,
+ "accent": "",
+ "run_on": "click",
+ "delay": 250,
+ "show_names": false,
+ "alt_size": 24,
+ "door_hover": true,
+ "items": [
+  [
+   {
+    "cmd": "PartDesign_MultiTransform",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_ShapeBinder",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Point",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_CoordinateSystem",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Line",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Plane",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_PolarPattern",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_LinearPattern",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Mirrored",
+    "rule": "",
+    "label": ""
+   }
+  ],
+  [
+   {
+    "cmd": "PartDesign_Boolean",
+    "rule": "",
+    "label": ""
+   }
+  ]
+ ]
+}
