@@ -1151,6 +1151,11 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.pie_list.setHorizontalScrollBarPolicy(
             QtCore.Qt.ScrollBarAlwaysOff)
         self.pie_list.setTextElideMode(QtCore.Qt.ElideRight)
+        self.pie_list.setSelectionMode(
+            QtWidgets.QAbstractItemView.ExtendedSelection)
+        delete_sc = QtGui.QShortcut(QtGui.QKeySequence.Delete, self.pie_list)
+        delete_sc.setContext(QtCore.Qt.WidgetShortcut)
+        delete_sc.activated.connect(self.pie_delete)
         self.pie_list.currentTextChanged.connect(self._pie_picked)
         self.pie_list.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         self.pie_list.customContextMenuRequested.connect(self._pie_menu)
@@ -1382,9 +1387,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
         menu = QtWidgets.QMenu(self)
         menu.addAction("Rename…", self.pie_rename)
         menu.addAction("Duplicate", self.pie_duplicate)
-        act = menu.addAction("Delete", self.pie_delete)
-        act.setEnabled(len(self.pies) > 1
-                       and self.current != model.SMART_NAME)
+        selected = [n for n in self._selected_pie_names()
+                    if n != model.SMART_NAME]
+        label = f"Delete {len(selected)} pies" if len(selected) > 1 \
+            else "Delete"
+        act = menu.addAction(label, self.pie_delete)
+        act.setEnabled(len(self.pies) > 1 and bool(selected))
         menu.addSeparator()
         menu.addAction("Use when no workbench matches", self.pie_default)
         menu.addSeparator()
@@ -1546,12 +1554,31 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.select_pie(pie.name)
         self.on_change()
 
+    def _selected_pie_names(self):
+        names = [item.data(QtCore.Qt.UserRole)
+                 for item in self.pie_list.selectedItems()]
+        return [n for n in names if n] or [self.current]
+
     def pie_delete(self):
-        if len(self.pies) < 2:
+        self.pies_delete(self._selected_pie_names())
+
+    def pies_delete(self, names, confirm=True):
+        names = [n for n in names
+                 if n in self.pies and n != model.SMART_NAME]
+        names = names[:max(0, len(self.pies) - 1)]   # always keep one pie
+        if not names:
             return
-        model.delete_pie(self.current)
+        if confirm and len(names) > 1:
+            answer = QtWidgets.QMessageBox.question(
+                self, "Delete pies",
+                f"Delete {len(names)} pies?\n" + ", ".join(sorted(names)))
+            if answer != QtWidgets.QMessageBox.Yes:
+                return
+        for name in names:
+            model.delete_pie(name)
         self.pies = model.load_pies()
-        self.current = min(self.pies)
+        self.current = self.current if self.current in self.pies \
+            else min(self.pies)
         self.binds = model.load_binds()
         self.on_change()
         self.refresh()

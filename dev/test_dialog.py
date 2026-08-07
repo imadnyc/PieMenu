@@ -203,6 +203,18 @@ assert dlg.preview._mock_chooser[1] == 36
 dlg.preview._unflash()
 assert dlg.preview._mock_chooser is None
 
+# ---- multi-select delete -----------------------------------------------------
+for zname in ("Zed1", "Zed2"):
+    model.save_pie(Pie(zname, slots=2, per_ring=2))
+dlg.pies = model.load_pies()
+dlg._binds_changed()
+app.processEvents()
+assert "Zed1" in dlg.pies and "Zed2" in dlg.pies
+dlg.pies_delete(["Zed1", "Zed2", model.SMART_NAME], confirm=False)
+assert "Zed1" not in dlg.pies and "Zed2" not in dlg.pies
+assert model.SMART_NAME in dlg.pies          # Smart is not deletable
+print("PASS multi delete")
+
 # ---- shipped presets import cleanly ------------------------------------------
 preset_dir = os.path.join(os.environ.get("PIEMENU_REPO",
                                          "/home/dre/Projects/PieMenu"),
