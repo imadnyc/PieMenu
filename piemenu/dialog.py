@@ -50,6 +50,10 @@ HELP = {
                "Bottom in that order.",
     "Offset": "Gap between the cursor and each block.",
     "Button": "Size of each slot, in pixels.",
+    "Shape": "The slot buttons' shape: rounded corners, hard squares, "
+             "squircles or full circles.",
+    "Style": "How buttons are painted: flat fill, a subtle vertical "
+             "gradient, or outline-only.",
     "Spacing": "Gap between neighbouring slots.",
     "Run on": "How a tool fires once the pie is open. Release is the marking-"
               "menu gesture: flick and let go.",
@@ -681,6 +685,9 @@ class PreviewWidget(QtWidgets.QWidget):
         pal = self.palette()
         accent = pal.color(QtGui.QPalette.Highlight)
         size = pie.button
+        tile_radius = {"square": 0, "rounded": 4,
+                       "squircle": max(4, int(size * 0.32)),
+                       "circle": size // 2}.get(pie.shape, 4)
         for i, (x, y) in enumerate(self._geometry()):
             rect = QtCore.QRect(x, y, size, size)
             slot = pie.items[i] if i < len(pie.items) else None
@@ -689,7 +696,7 @@ class PreviewWidget(QtWidgets.QWidget):
                 pen.setStyle(QtCore.Qt.DashLine)
                 painter.setPen(pen)
                 painter.setBrush(QtCore.Qt.NoBrush)
-                painter.drawRoundedRect(rect, 4, 4)
+                painter.drawRoundedRect(rect, tile_radius, tile_radius)
                 painter.drawText(rect, QtCore.Qt.AlignCenter, "+")
             else:
                 first = slot[0]
@@ -701,7 +708,7 @@ class PreviewWidget(QtWidgets.QWidget):
                 if door:
                     painter.drawEllipse(rect)
                 else:
-                    painter.drawRoundedRect(rect, 4, 4)
+                    painter.drawRoundedRect(rect, tile_radius, tile_radius)
                 icon = command_icon(first.cmd, self.actions)
                 never_used = (self._stats and not is_pie_command(first.cmd)
                               and first.cmd not in self._stats)
@@ -1877,6 +1884,14 @@ class PieMenuPreferences(QtWidgets.QDialog):
                     lambda v, a=a: self._set_anchor_offset(a, v))
                 row(f"Offset {a}", w)
         row("Button", self._slider(pie.button, 16, 96, "button"))
+        shape = row("Shape", QtWidgets.QComboBox())
+        shape.addItems(["rounded", "square", "squircle", "circle"])
+        shape.setCurrentText(pie.shape)
+        shape.currentTextChanged.connect(lambda v: self._set("shape", v))
+        style = row("Style", QtWidgets.QComboBox())
+        style.addItems(["flat", "gradient", "outline"])
+        style.setCurrentText(pie.style)
+        style.currentTextChanged.connect(lambda v: self._set("style", v))
         if pie.family == "grid":
             row("Spacing", self._slider(pie.spacing, 0, 60, "spacing"))
         row("Chooser size", self._slider(pie.alt_size, 16, 64, "alt_size"))

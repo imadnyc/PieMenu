@@ -226,6 +226,21 @@ assert w.buttons[1].property("alt") is True      # odd slots alternate fill
 assert not w.buttons[0].property("alt")
 w.deleteLater()
 
+pies["Main"].shape = "square"            # shape and style hit the stylesheet
+pies["Main"].style = "gradient"
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+assert "border-radius:0px" in w.styleSheet()
+assert "qlineargradient" in w.styleSheet()
+w.deleteLater()
+pies["Main"].shape = "circle"
+pies["Main"].style = "outline"
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+assert f"border-radius:{pies['Main'].button // 2}px" in w.styleSheet()
+assert "background:transparent" in w.styleSheet()
+w.deleteLater()
+pies["Main"].shape = "rounded"
+pies["Main"].style = "flat"
+
 pies["Main"].show_names = True           # names need room, buttons grow
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 assert w.buttons[1].text() == "Undo"

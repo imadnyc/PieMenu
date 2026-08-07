@@ -275,10 +275,25 @@ class PieWidget(QtWidgets.QWidget):
         alt_css = fill.lighter(114).name() if fill \
             else "palette(alternate-base)"
         out_css = out.name() if out else "palette(mid)"
+        radius = {"square": 0, "rounded": 6,
+                  "squircle": max(6, int(pie.button * 0.32)),
+                  "circle": pie.button // 2}.get(pie.shape, 6)
+        border = f"border:1px solid {out_css};"
+        alt_rule = f'QToolButton[alt="true"]{{background:{alt_css};}}'
+        if pie.style == "gradient":
+            base = fill or QtWidgets.QApplication.palette().button().color()
+            fill_css = ("qlineargradient(x1:0,y1:0,x2:0,y2:1,"
+                        f"stop:0 {base.lighter(112).name()},"
+                        f"stop:1 {base.darker(108).name()})")
+            alt_rule = ""
+        elif pie.style == "outline":
+            fill_css = "transparent"
+            border = f"border:2px solid {out_css};"
+            alt_rule = ""
         self.setStyleSheet(
             f"QToolButton{{background:{fill_css};"
-            f"border:1px solid {out_css};border-radius:6px;}}"
-            f'QToolButton[alt="true"]{{background:{alt_css};}}'
+            f"{border}border-radius:{radius}px;}}"
+            f"{alt_rule}"
             f"QToolButton:hover{{border:2px solid {self._accent.name()};}}"
             "QToolButton:disabled{background:palette(window);"
             f"border:1px dashed {out_css};}}")
