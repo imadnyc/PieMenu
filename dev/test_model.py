@@ -156,6 +156,18 @@ assert M.top_commands("PartDesign", 8) == ["A", "B", "C"]  # own first
 smart = M.smart_pie("PartDesign")
 assert smart.name == M.SMART_NAME
 assert smart.items[0][0].cmd == "A" and smart.items[2][0].cmd == "C"
+base = Pie(M.SMART_NAME, slots=4, per_ring=4, run_on="release", radius=120)
+tuned = M.smart_pie("PartDesign", base=base)
+assert tuned.run_on == "release" and tuned.radius == 120   # settings kept
+assert len(tuned.items) == 4 and tuned.items[0][0].cmd == "A"
+assert base.items != tuned.items or base is not tuned      # base untouched
+
+lbl = Pie("Lbl", slots=2, per_ring=2)
+M.normalise(lbl)
+lbl.items[0] = [Binding("PartDesign_AdditiveLoft", label="Loft")]
+M.save_pie(lbl)
+assert M.load_pie("Lbl").items[0][0].label == "Loft"       # labels persist
+M.delete_pie("Lbl")
 M.bump_stat("Any", M.PIE_PREFIX + "Main")
 assert M.PIE_PREFIX + "Main" not in M.top_commands("Any", 8)  # no doors
 M.App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")

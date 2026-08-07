@@ -77,6 +77,15 @@ assert fired == ["Std_Undo"], fired
 assert not w.isVisible()                             # ran -> closed
 w.deleteLater()
 
+fired.clear()                        # sticky: fire and stay open (Shift)
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+w.activate("Std_Undo", sticky=True)
+assert fired == ["Std_Undo"] and w.isVisible()
+w.activate("Std_Undo", sticky=False)
+assert fired == ["Std_Undo", "Std_Undo"] and not w.isVisible()
+w.deleteLater()
+
 fired.clear()
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 w.popup_at(QtCore.QPoint(400, 400))
@@ -287,9 +296,10 @@ gmaps = {"F6": {"press": "Main"}}
 run_of = {"Main": "click", "Sub": "click"}
 
 
-def opener(name, at=None):
+def opener(name, at=None, hint=""):
     fw = FakeWidget(FakePie(name, run_of[name]))
     fw.at = at
+    fw.hint = hint
     opened.append(fw)
     return fw
 

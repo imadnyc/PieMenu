@@ -209,12 +209,14 @@ class PieWidget(QtWidgets.QWidget):
     place) so fire only ever sees runnable commands.
     """
 
-    def __init__(self, pies, name, counts, fire, parent=None):
+    def __init__(self, pies, name, counts, fire, runtime=None, parent=None):
         super().__init__(parent, QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.pies = pies
         self.counts = counts
         self.fire = fire
+        self._rt = runtime
+        self._zoom = 1.0
         self._hover_timer = None
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
@@ -274,6 +276,8 @@ class PieWidget(QtWidgets.QWidget):
                 base = pie.button + pie.spacing
                 scale = max(1.0, maxw / base, maxh / base)
             pos = [(x * scale, y * scale) for x, y in pos]
+        if self._zoom != 1.0:         # mouse-wheel zoom, per open pie
+            pos = [(x * self._zoom, y * self._zoom) for x, y in pos]
         min_x = min(x - b.width() / 2 for (x, _), b in zip(pos, self.buttons)) - pad
         max_x = max(x + b.width() / 2 for (x, _), b in zip(pos, self.buttons)) + pad
         min_y = min(y - b.height() / 2 for (_, y), b in zip(pos, self.buttons)) - pad
@@ -325,11 +329,67 @@ class PieWidget(QtWidgets.QWidget):
                                                   pie.delay))
         if index % 2 and not is_pie_command(binding.cmd):
             btn.setProperty("alt", True)     # alternate fill, odd slots
+        btn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        btn.customContextMenuRequested.connect(
+            lambda _pos, i=index, b=btn: self._slot_menu(i, b))
         # explicit: children born on an ALREADY-VISIBLE parent stay hidden
         # otherwise -- a door descend rebuilds while shown, and every button
         # of the sub-pie would be invisible (the pie "not spawning")
         btn.setVisible(True)
         return btn
+
+    def _slot_menu(self, index, _btn):
+        """Right-click a live slot: edit it without the big dialog."""
+        if self._rt is None or self.pie.name == model.SMART_NAME:
+            return
+        slot = self.pie.items[index]
+        face = model.slot_face(slot, self.counts,
+                               self.pie.last_used.get(index))
+        if face is None:
+            return
+        j = slot.index(face)
+        menu = QtWidgets.QMenu(self)
+        menu.addAction("Replace tool…",
+                       lambda: self._live_edit(index, j, "replace"))
+        menu.addAction("Edit rule…",
+                       lambda: self._live_edit(index, j, "rule"))
+        menu.addAction("Rename label…",
+                       lambda: self._live_edit(index, j, "label"))
+        menu.addAction("Remove",
+                       lambda: self._live_edit(index, j, "remove"))
+        menu.exec_(QtGui.QCursor.pos())
+
+    def _live_edit(self, i, j, what):
+        from . import dialog as dialog_mod  # lazy: dialog imports runtime
+        rt = self._rt
+        name = self.pie.name
+        self.close()
+        pie = rt.pies.get(name)
+        if pie is None or not pie.items[i]:
+            return
+        slot = pie.items[i]
+        j = min(j, len(slot) - 1)
+        if what == "replace":
+            picker = dialog_mod.PickerDialog(rt.pies, pie, slot,
+                                             replace_binding=slot[j])
+            if picker.exec_() == QtWidgets.QDialog.Accepted:
+                got = picker.result_binding()
+                if got:
+                    slot[j] = got
+        elif what == "rule":
+            dialog_mod.edit_rule(None, slot[j], lambda: None)
+        elif what == "label":
+            text, ok = QtWidgets.QInputDialog.getText(
+                None, "Slot label", "Shown instead of the command name:",
+                text=slot[j].label)
+            if ok:
+                slot[j].label = text.strip()
+        elif what == "remove":
+            slot.pop(j)
+            if not slot:
+                pie.items[i] = None
+        model.save_pie(pie)
+        rt.reload()
 
     def _decorate(self, btn, binding, live, n_live):
         cmd = binding.cmd
@@ -353,8 +413,9 @@ class PieWidget(QtWidgets.QWidget):
                 tip = action.toolTip() or cmd
         if self.pie.show_names:
             btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
-            text = pie_target(cmd) if is_pie_command(cmd) \
-                else cmd.split("_", 1)[-1]
+            text = binding.label or (
+                pie_target(cmd) if is_pie_command(cmd)
+                else cmd.split("_", 1)[-1])
             btn.setText(text)
             # a 34px square clips text-under-icon into nothing: size from the
             # style's own hint (font metrics undercount once a theme
@@ -377,8 +438,10 @@ class PieWidget(QtWidgets.QWidget):
         model.set_last_used(self.pie.name, index, cmd)
         self.activate(cmd)
 
-    def activate(self, cmd):
-        """Run a command, or descend into a pie at the same spot."""
+    def activate(self, cmd, sticky=None):
+        """Run a command, or descend into a pie at the same spot.
+
+        Shift held = sticky: fire without closing, chain several tools."""
         if is_pie_command(cmd):
             target = pie_target(cmd)
             if target in self.pies:
@@ -388,6 +451,12 @@ class PieWidget(QtWidgets.QWidget):
                 self._back_button()
                 self.popup_at(QtGui.QCursor.pos())
                 return
+        if sticky is None:
+            sticky = bool(QtWidgets.QApplication.keyboardModifiers()
+                          & QtCore.Qt.ShiftModifier)
+        if sticky:
+            self.fire(cmd)
+            return
         self.close()
         self.fire(cmd)
 
@@ -414,6 +483,28 @@ class PieWidget(QtWidgets.QWidget):
                  int(self._origin[1] - size / 2))
         btn.clicked.connect(self.back)
         btn.setVisible(True)
+
+    def show_hint(self, text):
+        """The binding that opened this pie, shown while it is still new."""
+        label = QtWidgets.QLabel(text, self)
+        label.setStyleSheet("color:#999;background:none;font-size:10px;")
+        label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        label.adjustSize()
+        label.move(int(self._origin[0] - label.width() / 2),
+                   self.height() - label.height() - 2)
+        label.setVisible(True)
+
+    def wheelEvent(self, event):
+        delta = event.angleDelta().y()
+        if not delta:
+            return
+        factor = 1.1 if delta > 0 else 1 / 1.1
+        self._zoom = max(0.5, min(2.2, self._zoom * factor))
+        anchor = self.mapToGlobal(
+            QtCore.QPoint(int(self._origin[0]), int(self._origin[1])))
+        self.build(self.pie.name)
+        self._back_button()
+        self.popup_at(anchor)
 
     def keyPressEvent(self, event):
         key = event.key()
@@ -654,12 +745,13 @@ class Dispatcher(QtCore.QObject):
     DEFER_MS = 170
 
     def __init__(self, opener, gestures, fallback=None, mode_of=None,
-                 parent=None):
+                 assigner=None, parent=None):
         super().__init__(parent)
-        self.opener = opener          # opener(pie_name) -> PieWidget|None
+        self.opener = opener          # opener(name, at, hint) -> PieWidget
         self.gestures = gestures      # gestures(key) -> {gesture: pie_name}
         self.fallback = fallback or (lambda: None)   # the right-click pie
         self.mode_of = mode_of or (lambda name: "click")   # pie's run_on
+        self.assigner = assigner      # assigner(cmd): quick-add to a pie
         self.current = None           # the open PieWidget
         self.last_tap = {}            # key -> ms timestamp
         self.held = None              # the key currently down
@@ -689,17 +781,17 @@ class Dispatcher(QtCore.QObject):
     def _open_deferred(self):
         if self._deferred is None:
             return
-        key, _quick, held = self._deferred
+        key, _quick, held, _qh, held_hint = self._deferred
         self._deferred = None
         if self.held == key and held is not None:
             # the hand is still down: the held outcome, anchored at the
             # press point so movement so far counts as aim
-            self.open_pie(held, at=self._press_pos)
+            self.open_pie(held, at=self._press_pos, hint=held_hint)
             self.held = key           # open_pie's close() cleared it
 
-    def open_pie(self, name, at=None):
+    def open_pie(self, name, at=None, hint=""):
         self.close()
-        self.current = self.opener(name, at)
+        self.current = self.opener(name, at, hint)
         return self.current
 
     def _reuse(self, name):
@@ -730,6 +822,17 @@ class Dispatcher(QtCore.QObject):
             if dx * dx + dy * dy > 100:
                 self._defer.stop()
                 self._open_deferred()
+        if (etype == QtCore.QEvent.MouseButtonPress
+                and event.button() == QtCore.Qt.RightButton
+                and event.modifiers() & QtCore.Qt.ControlModifier
+                and self.assigner is not None
+                and isinstance(obj, QtWidgets.QToolButton)
+                and isinstance(obj.parentWidget(), QtWidgets.QToolBar)):
+            action = obj.defaultAction()
+            cmd = action.objectName() if action is not None else ""
+            if cmd and "_" in cmd:
+                self.assigner(cmd)
+                return True
         if App is not None and behaviour()["rclick"]:
             if etype == QtCore.QEvent.MouseButtonPress \
                     and event.button() == QtCore.Qt.RightButton:
@@ -777,6 +880,8 @@ class Dispatcher(QtCore.QObject):
             quick, held = gmap.get("press"), gmap.get("hold")
         if quick is None and held is None:
             return True      # nothing this round; the window is armed
+        quick_hint = f"{key} ··" if double_ready else f"{key} ·"
+        held_hint = f"{key} ··—" if double_ready else f"{key} —"
         ambiguous = held is not None and held != quick
         if not ambiguous and not double_ready and quick is not None \
                 and self.mode_of(quick) == "release" \
@@ -784,6 +889,7 @@ class Dispatcher(QtCore.QObject):
             # a gesture pie ahead of a possible double: wait it out so a
             # quick tap is a no-op and a double-tap never flickers
             held = quick
+            held_hint = quick_hint
             ambiguous = True
         if not ambiguous:
             name = quick if quick is not None else held
@@ -795,12 +901,12 @@ class Dispatcher(QtCore.QObject):
                     self.close()
                     return True
             else:
-                self.open_pie(name)
+                self.open_pie(name, hint=quick_hint)
             self.held = key
             return True
         # ambiguous: hold (or movement) opens the held pie; an early
         # release resolves to the quick one
-        self._deferred = (key, quick, held)
+        self._deferred = (key, quick, held, quick_hint, held_hint)
         self._press_pos = QtGui.QCursor.pos()
         self._defer.start()
         self.held = key
@@ -814,14 +920,14 @@ class Dispatcher(QtCore.QObject):
         self.held = None
         if self._deferred is not None:
             # released before the held outcome: this was a tap
-            _key, quick, _held = self._deferred
+            _key, quick, _held, quick_hint, _hh = self._deferred
             self._defer.stop()
             self._deferred = None
             if quick is not None and self.mode_of(quick) != "release" \
                     and not self._reuse(quick):
                 # a persistent quick pie opens where the press happened;
                 # a release pie on a completed tap means nothing at all
-                self.open_pie(quick, at=self._press_pos)
+                self.open_pie(quick, at=self._press_pos, hint=quick_hint)
             return True
         widget = self.current
         if widget is None:
@@ -918,7 +1024,8 @@ class Runtime:
             self._open_for_dispatch, self._gestures,
             fallback=lambda: self._resolve(None),
             mode_of=lambda n: self.pies[n].run_on if n in self.pies
-            else "click")
+            else "click",
+            assigner=self.quick_assign)
         self._sel_observer = _SelectionWatch(self)
         self._sel_timer = QtCore.QTimer()
         self._sel_timer.setSingleShot(True)
@@ -934,8 +1041,7 @@ class Runtime:
     # -- model access
 
     def reload(self):
-        self.pies = model.load_pies()
-        self.pies.pop(model.SMART_NAME, None)   # Smart is never persisted
+        self.pies = model.load_pies()   # a saved Smart carries its settings
         self.binds = model.load_binds()
         self._keys = {}
         for scope in self.binds.values():
@@ -945,7 +1051,7 @@ class Runtime:
         self._save_timer.start()     # edits survive a killed session too
 
     def _register_commands(self):
-        for name in list(self.pies) + [model.SMART_NAME]:
+        for name in dict.fromkeys(list(self.pies) + [model.SMART_NAME]):
             if name in self._registered:
                 continue
             try:
@@ -985,19 +1091,53 @@ class Runtime:
 
     # -- opening
 
-    def _open_for_dispatch(self, name, at=None):
-        return self.open_pie(name, at)
+    def _open_for_dispatch(self, name, at=None, hint=""):
+        return self.open_pie(name, at, hint)
 
-    def open_pie(self, name, at=None):
+    def quick_assign(self, cmd):
+        """Ctrl+right-click on a toolbar button: add it to a pie."""
+        menu = QtWidgets.QMenu()
+        menu.addSection(f"Add {cmd.split('_', 1)[-1]} to…")
+        for name in sorted(self.pies):
+            menu.addAction(name,
+                           lambda n=name: self._assign_to(n, cmd))
+        menu.exec_(QtGui.QCursor.pos())
+
+    def _assign_to(self, name, cmd):
+        pie = self.pies[name]
+        model.normalise(pie)
+        for i, slot in enumerate(pie.items):
+            if not slot:
+                pie.items[i] = [model.Binding(cmd)]
+                break
+        else:
+            if pie.family == "circle":
+                pie.slots += 1        # grow a slot rather than refuse
+                model.normalise(pie)
+                pie.items[-1] = [model.Binding(cmd)]
+            else:
+                pie.items[-1] = (pie.items[-1] or []) + [model.Binding(cmd)]
+        model.save_pie(pie)
+        self.reload()
+
+    def open_pie(self, name, at=None, hint=""):
         pies = self.pies
         if name == model.SMART_NAME:
-            # built fresh every open: your most used tools, here, right now
+            # contents rebuilt every open: your most used tools, here, now;
+            # layout and behaviour come from the saved Smart pie, if any
             pies = dict(self.pies)
             pies[model.SMART_NAME] = model.smart_pie(
-                workbench_scope(self.gui))
+                workbench_scope(self.gui),
+                base=self.pies.get(model.SMART_NAME))
         if name not in pies:
             return None
-        widget = PieWidget(pies, name, self.counts(), self.fire)
+        widget = PieWidget(pies, name, self.counts(), self.fire,
+                           runtime=self)
+        if hint:
+            opens = model._grp(f"Pies/{name}").GetInt("Opens", 0) + 1
+            model._grp(f"Pies/{name}").SetInt("Opens", opens)
+            if opens <= 12:          # training wheels come off by themselves
+                widget.show_hint(hint)
         widget.popup_at(at if at is not None and not at.isNull()
                         else QtGui.QCursor.pos())
         self.dispatcher.current = widget

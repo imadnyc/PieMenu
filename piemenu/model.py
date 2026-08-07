@@ -16,6 +16,7 @@ python can exercise it; the parameter IO needs FreeCAD and is covered by the
 headless tests (``dev/test_model.py`` under freecadcmd).
 """
 
+import copy
 import math
 import re
 from dataclasses import dataclass, field
@@ -87,6 +88,7 @@ class Binding:
     """One (rule -> command) entry of a slot."""
     cmd: str
     rule: dict = field(default_factory=dict)
+    label: str = ""                 # display override ("Loft", not AdditiveLoft)
 
 
 def is_pie_command(cmd):
@@ -380,6 +382,10 @@ def save_pie(pie):
             bg = sg.GetGroup(f"B{j}")
             bg.SetString("Command", b.cmd)
             bg.SetString("Rule", encode_rule(b.rule))
+            if b.label:
+                bg.SetString("Label", b.label)
+            else:
+                bg.RemString("Label")
 
 
 def set_last_used(name, index, cmd):
@@ -426,7 +432,9 @@ def load_pie(name):
             bg = sg.GetGroup(bname)
             cmd = bg.GetString("Command", "")
             if cmd:
-                bindings.append(Binding(cmd, decode_rule(bg.GetString("Rule", ""))))
+                bindings.append(Binding(cmd,
+                                        decode_rule(bg.GetString("Rule", "")),
+                                        bg.GetString("Label", "")))
         pie.items[i] = bindings or None
     return pie
 
@@ -497,8 +505,31 @@ MACRO_PREFIX = "Macro:"
 
 
 def bump_stat(workbench, cmd):
-    g = _grp("Stats").GetGroup(workbench or ANY_SCOPE)
+    root = _grp("Stats")
+    g = root.GetGroup(workbench or ANY_SCOPE)
     g.SetInt(cmd, g.GetInt(cmd, 0) + 1)
+    total = root.GetInt("_total", 0) + 1
+    root.SetInt("_total", total)
+    if total % 200 == 0:
+        _decay_stats()
+
+
+def _decay_stats():
+    """Every 200 fires, scale everything down: the Smart pie follows what
+    you use NOW, not the all-time totals."""
+    root = _grp("Stats")
+    for scope in root.GetGroups():
+        g = root.GetGroup(scope)
+        for cmd in g.GetInts():
+            kept = int(g.GetInt(cmd, 0) * 0.9)
+            if kept:
+                g.SetInt(cmd, kept)
+            else:
+                g.RemInt(cmd)
+
+
+def reset_stats():
+    _grp().RemGroup("Stats")
 
 
 def stats(workbench=None):
@@ -509,7 +540,8 @@ def stats(workbench=None):
     for scope in scopes:
         g = root.GetGroup(scope)
         for cmd in g.GetInts():
-            out[cmd] = out.get(cmd, 0) + g.GetInt(cmd, 0)
+            if cmd != "_total":
+                out[cmd] = out.get(cmd, 0) + g.GetInt(cmd, 0)
     return out
 
 
@@ -524,13 +556,22 @@ def top_commands(workbench, n=8):
     return [c for c in ranked if not is_pie_command(c)][:n]
 
 
-def smart_pie(workbench):
-    """A transient pie of the most used commands for this workbench."""
-    pie = Pie(SMART_NAME, slots=8, per_ring=8)
+def fill_smart(pie, workbench):
+    """Overwrite a pie's slots with the most used commands here."""
     normalise(pie)
-    for i, cmd in enumerate(top_commands(workbench, 8)):
+    pie.items = [None] * len(pie.items)
+    for i, cmd in enumerate(top_commands(workbench, len(pie.items))):
         pie.items[i] = [Binding(cmd)]
     return pie
+
+
+def smart_pie(workbench, base=None):
+    """The Smart pie: the user's saved layout/behaviour settings (if any)
+    with its contents rebuilt from usage, fresh at every open."""
+    pie = copy.deepcopy(base) if base is not None \
+        else Pie(SMART_NAME, slots=8, per_ring=8)
+    pie.name = SMART_NAME
+    return fill_smart(pie, workbench)
 
 
 def get_schema_version():

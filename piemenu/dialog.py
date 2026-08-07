@@ -280,6 +280,51 @@ def colours_dialog(parent, on_change):
     return dlg
 
 
+TEMPLATES = {
+    "PartDesign essentials": [
+        "PartDesign_Pad", "PartDesign_Pocket", "PartDesign_Fillet",
+        "PartDesign_Chamfer", "PartDesign_Revolution", "PartDesign_Hole",
+        "PartDesign_Mirrored", "PartDesign_LinearPattern"],
+    "Sketcher constraints": [
+        "Sketcher_ConstrainCoincident", "Sketcher_ConstrainHorizontal",
+        "Sketcher_ConstrainVertical", "Sketcher_ConstrainDistance",
+        "Sketcher_ConstrainParallel", "Sketcher_ConstrainPerpendicular",
+        "Sketcher_ConstrainTangent", "Sketcher_ConstrainEqual"],
+    "View pack": [
+        "Std_ViewFitAll", "Std_ViewFront", "Std_ViewTop", "Std_ViewRight",
+        "Std_ViewIsometric", "Std_ViewScreenShot"],
+}
+
+
+def stats_dialog(parent):
+    """Your top tools, here and everywhere, with a reset."""
+    dlg = QtWidgets.QDialog(parent)
+    dlg.setWindowTitle("Usage")
+    lay = QtWidgets.QVBoxLayout(dlg)
+    wb = current_scope() or ANY_SCOPE
+    for title, table in ((f"Top tools in {wb}", model.stats(wb)),
+                         ("Top tools everywhere", model.stats())):
+        box = QtWidgets.QGroupBox(title)
+        form = QtWidgets.QVBoxLayout(box)
+        ranked = sorted(table.items(), key=lambda kv: -kv[1])[:12]
+        if not ranked:
+            form.addWidget(QtWidgets.QLabel("nothing fired yet"))
+        for cmd, count in ranked:
+            form.addWidget(QtWidgets.QLabel(
+                f"{count:>4} ×  {command_label(cmd)}"))
+        lay.addWidget(box)
+    buttons = QtWidgets.QHBoxLayout()
+    reset = QtWidgets.QPushButton("Reset stats")
+    reset.clicked.connect(lambda: (model.reset_stats(), dlg.accept()))
+    buttons.addWidget(reset)
+    buttons.addStretch(1)
+    close = QtWidgets.QPushButton("Close")
+    close.clicked.connect(dlg.accept)
+    buttons.addWidget(close)
+    lay.addLayout(buttons)
+    return dlg
+
+
 def _help_button(text):
     """A small ? whose tooltip carries what used to be an inline caption."""
     btn = QtWidgets.QToolButton()
@@ -1063,6 +1108,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
             model.normalise(pie)
             model.save_pie(pie)
             self.pies = model.load_pies()
+        if model.SMART_NAME not in self.pies:
+            # the Smart pie's layout and behaviour are editable like any
+            # other; only its contents are computed
+            smart = Pie(model.SMART_NAME, slots=8, per_ring=8)
+            model.save_pie(smart)
+            self.pies[model.SMART_NAME] = smart
         self.binds = model.load_binds()
         self.current = min(self.pies)
         self.slot = 0
@@ -1078,11 +1129,19 @@ class PieMenuPreferences(QtWidgets.QDialog):
         bar = QtWidgets.QHBoxLayout()
         bar.addWidget(QtWidgets.QLabel("Pies"))
         bar.addStretch(1)
-        for text, fn in (("+", self.pie_add),):
-            b = QtWidgets.QToolButton()
-            b.setText(text)
-            b.clicked.connect(fn)
-            bar.addWidget(b)
+        add_btn = QtWidgets.QToolButton()
+        add_btn.setText("+")
+        add_menu = QtWidgets.QMenu(add_btn)
+        add_menu.addAction("Empty pie…", self.pie_add)
+        add_menu.addAction("From a toolbar…", self.pie_from_toolbar)
+        tsub = add_menu.addMenu("From a template")
+        for tname in TEMPLATES:
+            tsub.addAction(tname,
+                           lambda t=tname: self.pie_from_template(t))
+        add_menu.addAction("Import…", self.pie_import)
+        add_btn.setMenu(add_menu)
+        add_btn.setPopupMode(QtWidgets.QToolButton.InstantPopup)
+        bar.addWidget(add_btn)
         left.addLayout(bar)
         self.pie_filter = QtWidgets.QLineEdit()
         self.pie_filter.setPlaceholderText("Filter…")
@@ -1189,6 +1248,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
         colours_btn.clicked.connect(
             lambda: colours_dialog(self, self.on_change).exec_())
         foot.addWidget(colours_btn)
+        stats_btn = QtWidgets.QPushButton("Stats…")
+        stats_btn.setToolTip("Your most used tools, and the reset.")
+        stats_btn.clicked.connect(lambda: stats_dialog(self).exec_())
+        foot.addWidget(stats_btn)
         p = App.ParamGet(runtime.MAIN)
         auto = QtWidgets.QCheckBox("Auto-open on selection")
         auto.setChecked(p.GetBool("AutoOpenSelection", False))
@@ -1285,6 +1348,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
 
         pie = self.pie()
         model.normalise(pie)
+        if pie.name == model.SMART_NAME:
+            # show what Smart would serve right now; edits to slots are
+            # pointless (they are recomputed at every open)
+            model.fill_smart(pie, current_scope() or model.ANY_SCOPE)
         self.slot = min(self.slot, model.slot_count(pie) - 1)
         self.preview.set_pie(pie, self.actions)
         self.preview.set_selected(self.slot)
@@ -1318,7 +1385,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         menu.addAction("Rename…", self.pie_rename)
         menu.addAction("Duplicate", self.pie_duplicate)
         act = menu.addAction("Delete", self.pie_delete)
-        act.setEnabled(len(self.pies) > 1)
+        act.setEnabled(len(self.pies) > 1
+                       and self.current != model.SMART_NAME)
         menu.addSeparator()
         menu.addAction("Use when no workbench matches", self.pie_default)
         menu.addSeparator()
@@ -1369,6 +1437,17 @@ class PieMenuPreferences(QtWidgets.QDialog):
         except Exception as exc:  # noqa: BLE001 -- bad file, tell the user
             QtWidgets.QMessageBox.warning(self, "Import failed", str(exc))
             return
+        model.save_pie(pie)
+        self.pies[pie.name] = pie
+        self.select_pie(pie.name)
+        self.on_change()
+
+    def pie_from_template(self, tname):
+        cmds = TEMPLATES[tname]
+        pie = Pie(self._unique(tname), slots=max(4, len(cmds)), per_ring=8)
+        model.normalise(pie)
+        for i, cmd in enumerate(cmds):
+            pie.items[i] = [Binding(cmd)]
         model.save_pie(pie)
         self.pies[pie.name] = pie
         self.select_pie(pie.name)
@@ -1489,9 +1568,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
 
     def _fill_slots(self):
         pie = self.pie()
+        auto = "  — auto: your most used" \
+            if pie.name == model.SMART_NAME else ""
         self.slots_label.setText(
             f"Slots — {pie.name}  "
-            f"{sum(1 for s in pie.items if s)}/{model.slot_count(pie)}")
+            f"{sum(1 for s in pie.items if s)}/{model.slot_count(pie)}"
+            f"{auto}")
         self.slots.clear()
         # a subtle self-derived tint: alternateBase varies wildly per theme
         tint_c = self.palette().color(QtGui.QPalette.Text)
@@ -1516,7 +1598,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
             rows = [top]
             for j, b in enumerate(slot or []):
                 child = QtWidgets.QTreeWidgetItem(
-                    [command_label(b.cmd), rule_text(b.rule)])
+                    [b.label or command_label(b.cmd), rule_text(b.rule)])
                 child.setIcon(0, runtime.pie_icon(
                     self.pies.get(pie_target(b.cmd)))
                     if is_pie_command(b.cmd)
@@ -1581,6 +1663,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
             menu.addAction("Edit rule…",
                            lambda: edit_rule(self, slot[j],
                                              lambda: self._changed(True)))
+            menu.addAction("Rename label…",
+                           lambda: self._rename_label(i, j))
             menu.addSeparator()
             up = menu.addAction("Move up", lambda: self._move_binding(i, j, -1))
             up.setEnabled(j > 0)
@@ -1635,6 +1719,15 @@ class PieMenuPreferences(QtWidgets.QDialog):
         slot = self.pie().items[i]
         slot[j], slot[j + delta] = slot[j + delta], slot[j]
         self._changed(True)
+
+    def _rename_label(self, i, j):
+        binding = self.pie().items[i][j]
+        text, ok = QtWidgets.QInputDialog.getText(
+            self, "Slot label", "Shown instead of the command name:",
+            text=binding.label)
+        if ok:
+            binding.label = text.strip()
+            self._changed(True)
 
     def _swap(self, i, j):
         items = self.pie().items
