@@ -1,50 +1,46 @@
 # PieMenu v2
 
-Marking-menu style pie menus for FreeCAD — press a key, flick at a tool,
-release. A ground-up rewrite of the PieMenu addon (forked from
-[Grubuntu/PieMenu](https://github.com/Grubuntu/PieMenu)) around three ideas:
+> **Heads up:** this rewrite was first and foremost generated with AI. I use
+> it daily and it works for me, but I haven't vetted the code too carefully.
+> Back up your config before trying it.
 
-- **The gesture belongs to the binding.** One key can carry four pies per
-  workbench: `·` press, `··` double-press, `—` press-and-hold and `··—`
-  double-press-and-hold, each resolving independently through an
-  *Any-workbench* fallback (a workbench binding always beats the base).
-- **Conditions belong to slots.** A slot holds an ordered list of
-  *(rule → command)* bindings over six selection axes (Vertex, Edge, Face,
-  Object, Axis, Plane). First match wins; several matches offer a small
-  chooser, and the chooser remembers your pick as the slot's new face.
-- **A pie is just a command.** Every pie registers as `PieMenu_<name>`, so
-  slots can open other pies ("doors") — conditionally, too. Dwelling on a
-  door glides straight into it at the cursor; the centre grows a back
-  button.
+Pie menus for FreeCAD. Press a key, flick toward a tool, let go. This is a
+fork of [Grubuntu/PieMenu](https://github.com/Grubuntu/PieMenu) with the
+internals redone from scratch.
 
-## What it does
+![the preferences dialog](docs/preferences.png)
 
-- **Gesture pies** (*Run on: release*): press opens, an arrow follows your
-  aim, release fires — releasing from the centre dead-zone just closes.
-  Click pies stay open for the mouse and toggle on re-press.
-- **Workbench-scoped shortcuts** in one table: keys × workbenches, gesture
-  lines stacked per cell, inherited bindings shown dim-italic with `↳`,
-  the current workbench bold and tinted.
-- **The Smart pie** — bind it anywhere (F9 in the starter set) and it
-  rebuilds itself at every open from your most-used tools in the current
-  workbench. Usage counts decay over time, so it follows what you use
-  *now*. Its layout and behaviour are editable like any pie; only its
-  contents are computed. A Stats panel shows the numbers.
-- **Layouts**: circles with multiple rings (uniform, auto-fit by
-  circumference, or custom counts per ring), or grids anchored to any
-  sides of the cursor with independent per-block offsets.
-- **Editing**: live preview with a marker legend, context-clash linting
-  (an always-on tool mixed into a conditional slot is flagged), drag to
-  swap slots, right-click a slot in a *live* pie to replace/re-rule/
-  relabel it, per-binding display labels, digit keys 1–9 fire slots,
-  Shift = sticky fire (chain tools without reopening), wheel zooms an
-  open pie.
-- **Colours**: accent, outline, fill and arrow are each themeable per
-  config (and accent per pie); everything else follows the FreeCAD theme.
-- **More**: macros as slot targets, single-pie export/import as JSON,
-  new-pie-from-a-toolbar, starter templates, optional auto-open when the
-  selection matches a conditional slot, and structural edits stash
-  trimmed slots so a mistyped count loses nothing.
+## What's different from v1
+
+* Shortcuts are per workbench. The same key can mean different pies in
+  PartDesign and Sketcher, with an "Any workbench" binding as the fallback.
+* One key can carry up to four pies: tap, double-tap, hold, and
+  double-tap-then-hold. Hold gives you the marking-menu flow: the pie
+  follows your aim with an arrow and firing happens on release. A quick
+  tap on a hold binding does nothing instead of leaving a menu behind.
+* Slots can have selection conditions (a face, two objects, an edge...).
+  When several tools match, a small chooser pops up under the slot, and it
+  remembers which one you picked last.
+
+  ![the chooser on an overloaded slot](docs/chooser.png)
+
+* Slots can open other pies. Hovering one glides straight into it at the
+  cursor, and a back button appears in the middle.
+* There's a **Smart** pie that fills itself with your most-used tools for
+  whatever workbench you're in. Counts decay over time so it tracks what
+  you're doing now, not last month. Bind it to a key and forget about it.
+* Layouts: circles with multiple rings (uniform, auto-fit by
+  circumference, or custom counts like 8,16), or grids hanging off any
+  side of the cursor with per-block offsets.
+* Plus: number keys 1-9 fire slots, Shift keeps the pie open so you can
+  chain tools, right-click a slot in a live pie to edit it, macros as
+  slot targets, per-part colors, single-pie export/import as JSON, new
+  pie from any toolbar, a stats panel, optional auto-open when your
+  selection matches a conditional slot.
+
+![command names on](docs/pie-names.png)
+
+![the gesture arrow](docs/gesture-arrow.png)
 
 ## Install
 
@@ -53,50 +49,50 @@ git clone https://github.com/imadnyc/PieMenu ~/PieMenu
 ln -s ~/PieMenu ~/.local/share/FreeCAD/v1-1/Mod/PieMenu
 ```
 
-Restart FreeCAD. Existing v1 PieMenu configurations migrate automatically
-and non-destructively (the v1 data is left in place).
+Restart FreeCAD. An existing v1 PieMenu config gets migrated automatically;
+the v1 data itself is left alone.
 
-For a ready-made starter set — eight pies on F3–F9, including the Smart
-pie — merge it into your profile (nothing you already have is touched):
+If you want a ready-made set of pies on F3-F9 (including the Smart pie),
+this merges them into your profile without touching anything you already
+have:
 
 ```sh
 freecadcmd ~/PieMenu/dev/install_seed.py
 ```
 
-Preferences live under **Tools ▸ Accessories ▸ PieMenu preferences…**
+Preferences are under Tools > Accessories > PieMenu preferences.
 
 ## The starter keys
 
 | Key | Anywhere | PartDesign | Sketcher |
 |-----|----------|------------|----------|
-| F3 `·` | Main | *(inherited)* | *(inherited)* |
-| F3 `—` | | Modelling (gesture) | Sketching (gesture) |
-| F3 `··—` | | Patterns (gesture) | |
-| F4 `·` / `··` | Modelling / Patterns | | |
-| F6 `·` | View | | |
-| F7 `·` / `—` | Booleans | | Constraints (gesture) |
-| F8 `·` | Datums | | |
-| F9 `·` | Smart — your most used | | |
+| F3 tap | Main | | |
+| F3 hold | | Modelling | Sketching |
+| F3 double-hold | | Patterns | |
+| F4 tap / double | Modelling / Patterns | | |
+| F6 | View | | |
+| F7 tap / hold | Booleans | | Constraints |
+| F8 | Datums | | |
+| F9 | Smart (your most used) | | |
 
-## Development
+## Hacking on it
 
-Hermetic dev environment via Nix (FreeCAD 1.1.1 pinned); everything runs
-against a throwaway profile in `/tmp/piemenu-dev` — your real
-configuration is never touched.
+There's a Nix dev environment with FreeCAD 1.1.1 pinned. Everything runs
+against a throwaway profile in /tmp, so your real config is never touched.
 
 ```sh
 nix run .#launch   # isolated FreeCAD with this repo as the addon
-nix run .#watch    # relaunch on every save
-nix run .#smoke    # headless test suite (freecadcmd, offscreen)
-nix run .#e2e      # end-to-end inside a real offscreen GUI
-nix run .#snap     # photograph widgets/dialogs to /tmp/piemenu-snaps
+nix run .#watch    # relaunch on save
+nix run .#smoke    # headless test suite
+nix run .#e2e      # end-to-end in a real offscreen GUI
+nix run .#snap     # screenshot the widgets to /tmp/piemenu-snaps
 ```
 
-`IMPLEMENTATION.md` is the build log and schema reference;
-`UI-FEEDBACK.md` records the design decisions; `mockups/` holds the
-interactive HTML mockups the design was iterated in.
+IMPLEMENTATION.md has the schema notes, UI-FEEDBACK.md the design
+decisions, and mockups/ the HTML mockups the UI was designed in.
 
-## Credits and licence
+## Credits and license
 
 Based on PieMenu by microelly (2015), looo, triplus, mdkus, Grubuntu,
-Pgilfernandez, hasecilu and Ben-PH. LGPL-2.1-or-later, like the original.
+Pgilfernandez, hasecilu and Ben-PH. LGPL-2.1-or-later, same as the
+original.
