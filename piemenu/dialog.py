@@ -284,6 +284,86 @@ TEMPLATES = {
 }
 
 
+PRESET_INDEX = ("https://raw.githubusercontent.com/imadnyc/"
+                "PieMenu-presets/main/")
+
+
+def _fetch(url, timeout=8):
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=timeout) as response:
+        return response.read().decode("utf-8")
+
+
+def browse_presets_dialog(parent, import_file):
+    """Community presets: fetch the shared repository's index, list it,
+    install any entry. Sharing back is a PR to that repository."""
+    import tempfile
+    dlg = QtWidgets.QDialog(parent)
+    dlg.setWindowTitle("Community presets")
+    lay = QtWidgets.QVBoxLayout(dlg)
+    listing = QtWidgets.QListWidget()
+    listing.setMinimumSize(460, 240)
+    lay.addWidget(listing)
+    note = QtWidgets.QLabel(
+        'Share yours: PR a .piemenu.json to '
+        '<a href="https://github.com/imadnyc/PieMenu-presets">'
+        'PieMenu-presets</a>.')
+    note.setOpenExternalLinks(True)
+    note.setStyleSheet("color: gray;")
+    lay.addWidget(note)
+    buttons = QtWidgets.QHBoxLayout()
+    install = QtWidgets.QPushButton("Install")
+    install.setEnabled(False)
+    buttons.addWidget(install)
+    buttons.addStretch(1)
+    close = QtWidgets.QPushButton("Close")
+    close.clicked.connect(dlg.accept)
+    buttons.addWidget(close)
+    lay.addLayout(buttons)
+
+    try:
+        index = json.loads(_fetch(PRESET_INDEX + "index.json"))
+        for entry in index.get("presets", []):
+            requires = [r for r in entry.get("requires", [])
+                        if not runtime.prefix_available(r)]
+            text = f"{entry.get('name', '?')} — {entry.get('author', '?')}"
+            if entry.get("description"):
+                text += f"\n    {entry['description']}"
+            if requires:
+                text += f"\n    needs: {', '.join(requires)} (not installed)"
+            item = QtWidgets.QListWidgetItem(text)
+            item.setData(QtCore.Qt.UserRole, entry.get("file", ""))
+            listing.addItem(item)
+        if not listing.count():
+            listing.addItem("the repository has no presets yet")
+    except Exception as exc:  # noqa: BLE001 -- offline is a normal state
+        listing.addItem("couldn't reach the preset repository")
+        listing.addItem(str(exc))
+
+    listing.itemSelectionChanged.connect(lambda: install.setEnabled(
+        bool(listing.selectedItems())
+        and bool(listing.selectedItems()[0].data(QtCore.Qt.UserRole))))
+
+    def do_install():
+        item = listing.selectedItems()[0]
+        rel = item.data(QtCore.Qt.UserRole)
+        try:
+            text = _fetch(PRESET_INDEX + rel)
+        except Exception as exc:  # noqa: BLE001 -- network died mid-way
+            QtWidgets.QMessageBox.warning(dlg, "Download failed", str(exc))
+            return
+        with tempfile.NamedTemporaryFile(
+                "w", suffix=".piemenu.json", delete=False,
+                encoding="utf-8") as fh:
+            fh.write(text)
+            temp_path = fh.name
+        import_file(temp_path)
+        os.unlink(temp_path)
+
+    install.clicked.connect(do_install)
+    return dlg
+
+
 def stats_dialog(parent):
     """Your top tools, here and everywhere, with a reset."""
     dlg = QtWidgets.QDialog(parent)
@@ -1143,6 +1223,9 @@ class PieMenuPreferences(QtWidgets.QDialog):
                 psub.addAction(
                     fname[:-len(".piemenu.json")],
                     lambda _=False, p=full: self.pie_import_file(p))
+        add_menu.addAction("Browse community presets…",
+                           lambda: browse_presets_dialog(
+                               self, self.pie_import_file).exec_())
         add_menu.addAction("Import…", self.pie_import)
         add_btn.setMenu(add_menu)
         add_btn.setPopupMode(QtWidgets.QToolButton.InstantPopup)
@@ -1421,8 +1504,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
                  "stagger_by", "cols", "rows", "anchors", "anchor_offsets",
                  "button", "spacing", "accent", "run_on", "delay",
                  "show_names", "alt_size", "door_hover")}
-        data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule)}
+        data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule),
+                           "label": b.label}
                           for b in (slot or [])] for slot in pie.items]
+        data["requires"] = model.pie_requires(pie)
         with open(path, "w", encoding="utf-8") as fh:
             json.dump(data, fh, indent=1)
 
@@ -1432,10 +1517,26 @@ class PieMenuPreferences(QtWidgets.QDialog):
         if path:
             self.pie_import_file(path)
 
-    def pie_import_file(self, path):
+    def pie_import_file(self, path, confirm=True):
         try:
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
+            missing = []
+            for req in data.get("requires", []):
+                if req.startswith(model.MACRO_PREFIX):
+                    if not runtime.command_available(req):
+                        missing.append(req)
+                elif not runtime.prefix_available(req):
+                    missing.append(req)
+            if confirm and missing:
+                answer = QtWidgets.QMessageBox.question(
+                    self, "Missing workbenches",
+                    "This pie uses tools that are not installed here:\n"
+                    + ", ".join(missing) + "\n\nThose slots will show as "
+                    "unavailable until you install them (Addon Manager). "
+                    "Import anyway?")
+                if answer != QtWidgets.QMessageBox.Yes:
+                    return
             items = data.pop("items", [])
             pie = Pie(name="Imported")
             for key, value in data.items():

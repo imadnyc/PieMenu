@@ -107,6 +107,27 @@ def live_bindings(slot, counts):
     return [b for b in (slot or []) if match_rule(b.rule, counts)]
 
 
+def pie_requires(pie):
+    """The command prefixes a pie leans on ("PartDesign", "Fasteners"...),
+    for warning a preset's importer about missing workbenches. Std is
+    core and doors are internal, so neither is listed; macros are named
+    outright since they cannot travel with a preset."""
+    out = set()
+    for slot in pie.items or []:
+        for b in slot or []:
+            if is_pie_command(b.cmd):
+                continue
+            if b.cmd.startswith(MACRO_PREFIX):
+                out.add(b.cmd)
+            elif "_" in b.cmd:
+                prefix = b.cmd.split("_", 1)[0]
+                if prefix != "Std":
+                    out.add(prefix)
+            elif b.cmd.endswith("Workbench"):
+                out.add(b.cmd[:-len("Workbench")])
+    return sorted(out)
+
+
 def slot_check(slot):
     """Per-slot context lint: [(binding index, message)] for suspect mixes.
 

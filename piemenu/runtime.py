@@ -155,6 +155,44 @@ def workbench_icon(name):
     return None
 
 
+def prefix_available(prefix):
+    """Can commands with this prefix exist here? Cheap: no module import."""
+    if prefix == "Std" or not prefix:
+        return True
+    if App is None or not App.GuiUp:
+        return True                   # headless: assume yes, never disable
+    try:
+        import FreeCADGui as Gui
+        if any(k.startswith(prefix) for k in Gui.listWorkbenches()):
+            return True
+    except Exception:  # noqa: BLE001 -- half-built Gui
+        return True
+    import importlib.util
+    try:
+        return importlib.util.find_spec(prefix + "Gui") is not None
+    except (ImportError, ValueError):
+        return False
+
+
+def command_available(cmd):
+    """False when a command's workbench/addon is not installed here."""
+    if is_pie_command(cmd):
+        return True                   # doors are validated against pies
+    if cmd.startswith(model.MACRO_PREFIX):
+        if App is None:
+            return True
+        try:
+            return os.path.exists(os.path.join(
+                App.getUserMacroDir(True), cmd[len(model.MACRO_PREFIX):]))
+        except Exception:  # noqa: BLE001 -- no macro dir
+            return True
+    if command_action(cmd) is not None:
+        return True
+    if cmd.endswith("Workbench") and "_" not in cmd:
+        return prefix_available(cmd[:-len("Workbench")])
+    return prefix_available(cmd.split("_", 1)[0] if "_" in cmd else "")
+
+
 def command_action(name):
     """The main window QAction registered for a command, or None.
 
@@ -475,6 +513,10 @@ class PieWidget(QtWidgets.QWidget):
             action = command_action(cmd)
             if action is not None:
                 tip = action.toolTip() or cmd
+        if not is_pie_command(cmd) and not command_available(cmd):
+            # the tool's workbench is not installed: visibly dead, and says why
+            live = False
+            tip += "  — not available; is its workbench installed?"
         if self.pie.show_names:
             btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
             if binding.label:

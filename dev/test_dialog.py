@@ -203,6 +203,36 @@ assert dlg.preview._mock_chooser[1] == 36
 dlg.preview._unflash()
 assert dlg.preview._mock_chooser is None
 
+# ---- community preset browser (against a local file:// index) ---------------
+import json
+import tempfile
+
+tmp = tempfile.mkdtemp(prefix="pm-presets-")
+os.makedirs(os.path.join(tmp, "presets"))
+net_pie = {"name": "NetPie", "family": "circle", "slots": 2, "per_ring": 2,
+           "requires": ["NoSuchBench"],
+           "items": [[{"cmd": "Std_New", "rule": "", "label": ""}], []]}
+with open(os.path.join(tmp, "presets", "NetPie.piemenu.json"), "w") as fh:
+    json.dump(net_pie, fh)
+with open(os.path.join(tmp, "index.json"), "w") as fh:
+    json.dump({"format": 1, "presets": [
+        {"name": "NetPie", "author": "t", "description": "d",
+         "file": "presets/NetPie.piemenu.json",
+         "requires": ["NoSuchBench"]}]}, fh)
+dialog.PRESET_INDEX = "file://" + tmp + "/"
+bd = dialog.browse_presets_dialog(
+    dlg, lambda p: dlg.pie_import_file(p, confirm=False))
+lw = bd.findChild(QtWidgets.QListWidget)
+assert lw.count() == 1 and "NetPie" in lw.item(0).text()
+lw.setCurrentRow(0)
+install_btn = next(b for b in bd.findChildren(QtWidgets.QPushButton)
+                   if b.text() == "Install")
+install_btn.click()
+assert "NetPie" in dlg.pies
+assert dlg.pies["NetPie"].items[0][0].cmd == "Std_New"
+bd.deleteLater()
+print("PASS preset browser")
+
 # ---- multi-select delete -----------------------------------------------------
 for zname in ("Zed1", "Zed2"):
     model.save_pie(Pie(zname, slots=2, per_ring=2))
