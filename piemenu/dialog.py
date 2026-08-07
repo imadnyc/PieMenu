@@ -705,7 +705,7 @@ class PreviewWidget(QtWidgets.QWidget):
                                           else pal.color(QtGui.QPalette.Mid),
                                           2 if door else 1))
                 painter.setBrush(pal.color(QtGui.QPalette.Button))
-                if door:
+                if door and pie.shape in ("rounded", "circle"):
                     painter.drawEllipse(rect)
                 else:
                     painter.drawRoundedRect(rect, tile_radius, tile_radius)

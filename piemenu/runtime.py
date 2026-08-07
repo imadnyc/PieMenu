@@ -120,6 +120,13 @@ def selection_counts(gui):
     return {k: v for k, v in counts.items() if v}
 
 
+def shape_radius(pie):
+    """The corner radius the pie's shape asks for, in pixels."""
+    return {"square": 0, "rounded": 6,
+            "squircle": max(6, int(pie.button * 0.32)),
+            "circle": pie.button // 2}.get(pie.shape, 6)
+
+
 def workbench_icon(name):
     """A workbench's own icon, by full name or scope prefix, or None.
 
@@ -275,9 +282,7 @@ class PieWidget(QtWidgets.QWidget):
         alt_css = fill.lighter(114).name() if fill \
             else "palette(alternate-base)"
         out_css = out.name() if out else "palette(mid)"
-        radius = {"square": 0, "rounded": 6,
-                  "squircle": max(6, int(pie.button * 0.32)),
-                  "circle": pie.button // 2}.get(pie.shape, 6)
+        radius = shape_radius(pie)
         border = f"border:1px solid {out_css};"
         alt_rule = f'QToolButton[alt="true"]{{background:{alt_css};}}'
         if pie.style == "gradient":
@@ -450,7 +455,7 @@ class PieWidget(QtWidgets.QWidget):
             color = "#808080" if (dead or not live) else self._accent.name()
             btn.setStyleSheet(
                 f"QToolButton{{border:2px solid {color};"
-                f"border-radius:{self.pie.button // 2}px;}}")
+                f"border-radius:{shape_radius(self.pie)}px;}}")
             live = live and not dead
         else:
             icon = command_icon(cmd)
