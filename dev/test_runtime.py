@@ -92,6 +92,7 @@ w.popup_at(QtCore.QPoint(400, 400))
 w.buttons[2].click()                                 # the door
 assert w.pie.name == "Sub" and fired == []           # descended, nothing ran
 assert w.isVisible()
+assert w._name_label.text() == "Sub"                 # the centre says so
 # the sub-pie's buttons were born on an already-visible parent: they must
 # have been shown explicitly, or the "spawned" pie is an empty ghost
 assert any(not b.isHidden() for b in w.buttons), "sub-pie buttons invisible"

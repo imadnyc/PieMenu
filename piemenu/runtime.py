@@ -341,6 +341,17 @@ class PieWidget(QtWidgets.QWidget):
         for (x, y), btn in zip(pos, self.buttons):
             btn.move(int(x - min_x - btn.width() / 2),
                      int(y - min_y - btn.height() / 2))
+        # the pie says its name at the centre, so you always know which
+        # one answered the key
+        name_label = QtWidgets.QLabel(pie.name, self)
+        name_label.setStyleSheet(
+            "color:#999;background:none;font-size:10px;")
+        name_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        name_label.adjustSize()
+        name_label.move(int(self._origin[0] - name_label.width() / 2),
+                        int(self._origin[1] - name_label.height() / 2))
+        name_label.setVisible(True)
+        self._name_label = name_label
         digit = 0
         for btn in self.buttons:      # 1..9 fire slots from the keyboard
             if digit >= 9:
@@ -541,6 +552,10 @@ class PieWidget(QtWidgets.QWidget):
                  int(self._origin[1] - size / 2))
         btn.clicked.connect(self.back)
         btn.setVisible(True)
+        label = getattr(self, "_name_label", None)
+        if label is not None:         # make room: name sits under the back
+            label.move(int(self._origin[0] - label.width() / 2),
+                       int(self._origin[1] + size / 2 + 2))
 
     def show_hint(self, text):
         """The binding that opened this pie, shown while it is still new."""
