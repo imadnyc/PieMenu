@@ -256,7 +256,6 @@ class PieWidget(QtWidgets.QWidget):
         self.counts = counts
         self.fire = fire
         self._rt = runtime
-        self._zoom = 1.0
         self._hover_timer = None
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
@@ -332,8 +331,6 @@ class PieWidget(QtWidgets.QWidget):
                 base = pie.button + pie.spacing
                 scale = max(1.0, maxw / base, maxh / base)
             pos = [(x * scale, y * scale) for x, y in pos]
-        if self._zoom != 1.0:         # mouse-wheel zoom, per open pie
-            pos = [(x * self._zoom, y * self._zoom) for x, y in pos]
         min_x = min(x - b.width() / 2 for (x, _), b in zip(pos, self.buttons)) - pad
         max_x = max(x + b.width() / 2 for (x, _), b in zip(pos, self.buttons)) + pad
         min_y = min(y - b.height() / 2 for (_, y), b in zip(pos, self.buttons)) - pad
@@ -554,18 +551,6 @@ class PieWidget(QtWidgets.QWidget):
         label.move(int(self._origin[0] - label.width() / 2),
                    self.height() - label.height() - 2)
         label.setVisible(True)
-
-    def wheelEvent(self, event):
-        delta = event.angleDelta().y()
-        if not delta:
-            return
-        factor = 1.1 if delta > 0 else 1 / 1.1
-        self._zoom = max(0.5, min(2.2, self._zoom * factor))
-        anchor = self.mapToGlobal(
-            QtCore.QPoint(int(self._origin[0]), int(self._origin[1])))
-        self.build(self.pie.name)
-        self._back_button()
-        self.popup_at(anchor)
 
     def keyPressEvent(self, event):
         key = event.key()
