@@ -685,10 +685,13 @@ class PreviewWidget(QtWidgets.QWidget):
         pal = self.palette()
         accent = pal.color(QtGui.QPalette.Highlight)
         size = pie.button
-        tile_radius = {"square": 0, "rounded": 4,
-                       "squircle": max(4, int(size * 0.32)),
-                       "circle": size // 2}.get(pie.shape, 4)
+        def radius_for(shape):
+            return {"square": 0, "rounded": 4,
+                    "squircle": max(4, int(size * 0.32)),
+                    "circle": size // 2}.get(shape, 4)
+
         for i, (x, y) in enumerate(self._geometry()):
+            tile_radius = radius_for(pie.slot_shapes.get(i, pie.shape))
             rect = QtCore.QRect(x, y, size, size)
             slot = pie.items[i] if i < len(pie.items) else None
             if not slot:
@@ -1687,6 +1690,17 @@ class PieMenuPreferences(QtWidgets.QDialog):
         menu = QtWidgets.QMenu(self)
         if j is None:
             menu.addAction("Add a tool…", lambda: self.add_tool(i))
+            shape_menu = menu.addMenu("Button shape")
+            current_shape = pie.slot_shapes.get(i, "")
+            for value, label in (("", "pie default"), ("rounded", "rounded"),
+                                 ("square", "square"),
+                                 ("squircle", "squircle"),
+                                 ("circle", "circle")):
+                act = shape_menu.addAction(
+                    label, lambda _=False, v=value, i=i:
+                    self._set_slot_shape(i, v))
+                act.setCheckable(True)
+                act.setChecked(current_shape == value)
             if pie.items[i]:
                 menu.addAction("Clear this slot",
                                lambda: self._clear_slot(i))
@@ -1754,6 +1768,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
         slot = self.pie().items[i]
         slot[j], slot[j + delta] = slot[j + delta], slot[j]
         self._changed(True)
+
+    def _set_slot_shape(self, i, shape):
+        if shape:
+            self.pie().slot_shapes[i] = shape
+        else:
+            self.pie().slot_shapes.pop(i, None)
+        self._changed(False)
 
     def _rename_label(self, i, j):
         binding = self.pie().items[i][j]

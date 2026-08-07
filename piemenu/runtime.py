@@ -120,11 +120,11 @@ def selection_counts(gui):
     return {k: v for k, v in counts.items() if v}
 
 
-def shape_radius(pie):
-    """The corner radius the pie's shape asks for, in pixels."""
+def shape_radius(pie, shape=None):
+    """The corner radius a shape asks for, in pixels."""
     return {"square": 0, "rounded": 6,
             "squircle": max(6, int(pie.button * 0.32)),
-            "circle": pie.button // 2}.get(pie.shape, 6)
+            "circle": pie.button // 2}.get(shape or pie.shape, 6)
 
 
 def workbench_icon(name):
@@ -295,9 +295,12 @@ class PieWidget(QtWidgets.QWidget):
             fill_css = "transparent"
             border = f"border:2px solid {out_css};"
             alt_rule = ""
+        # background-image:none beats theme stylesheets that paint
+        # QToolButton with images, which otherwise mask our fill entirely
+        self._base_css = (f"background:{fill_css};background-image:none;"
+                          f"{border}")
         self.setStyleSheet(
-            f"QToolButton{{background:{fill_css};"
-            f"{border}border-radius:{radius}px;}}"
+            f"QToolButton{{{self._base_css}border-radius:{radius}px;}}"
             f"{alt_rule}"
             f"QToolButton:hover{{border:2px solid {self._accent.name()};}}"
             "QToolButton:disabled{background:palette(window);"
@@ -382,6 +385,13 @@ class PieWidget(QtWidgets.QWidget):
                                                   pie.delay))
         if index % 2 and not is_pie_command(binding.cmd):
             btn.setProperty("alt", True)     # alternate fill, odd slots
+        own_shape = pie.slot_shapes.get(index)
+        if own_shape and not is_pie_command(binding.cmd):
+            r = shape_radius(pie, own_shape)
+            btn.setStyleSheet(
+                f"QToolButton{{{self._base_css}border-radius:{r}px;}}"
+                f"QToolButton:hover{{border:2px solid "
+                f"{self._accent.name()};}}")
         btn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         btn.customContextMenuRequested.connect(
             lambda _pos, i=index, b=btn: self._slot_menu(i, b))
@@ -668,7 +678,7 @@ class PieWidget(QtWidgets.QWidget):
 
 
 class _DwellRing(QtWidgets.QWidget):
-    """A circular fill on a dwell-armed button: time until it activates."""
+    """A fill tracing the button's outline: time until it activates."""
 
     def __init__(self, btn):
         super().__init__(btn)
@@ -687,8 +697,19 @@ class _DwellRing(QtWidgets.QWidget):
         color = getattr(pie_widget, "_accent", None) or accent()
         painter.setPen(QtGui.QPen(color, 3,
                                   QtCore.Qt.SolidLine, QtCore.Qt.RoundCap))
-        painter.drawArc(self.rect().adjusted(2, 2, -2, -2),
-                        90 * 16, int(-360 * 16 * self.progress))
+        # trace the button's actual shape, not a forced circle
+        rect = QtCore.QRectF(self.rect().adjusted(2, 2, -2, -2))
+        pie = getattr(pie_widget, "pie", None)
+        radius = min(rect.height() / 2,
+                     shape_radius(pie) if pie is not None
+                     else rect.height() / 2)
+        path = QtGui.QPainterPath()
+        path.addRoundedRect(rect, radius, radius)
+        steps = 48
+        points = [path.pointAtPercent(min(0.999,
+                                          self.progress * k / steps))
+                  for k in range(steps + 1)]
+        painter.drawPolyline(QtGui.QPolygonF(points))
         painter.end()
 
 
