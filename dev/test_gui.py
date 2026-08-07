@@ -74,6 +74,9 @@ def check():
         icon = rt.command_icon("Sketcher_ConstrainCoincident")
         assert icon is not None and not icon.isNull(), \
             "registry icon fallback failed"
+        wb_icon = rt.command_icon("PartDesignWorkbench")
+        assert wb_icon is not None and not wb_icon.isNull(), \
+            "workbench icon failed"
         print("E2E registry icons ok")
 
         print("E2E-PASS")

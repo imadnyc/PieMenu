@@ -464,6 +464,12 @@ class FakeGui:
     def doCommand(self, code):
         self.ran.append(("py", code))
 
+    def listWorkbenches(self):
+        return {"PartDesignWorkbench": object()}
+
+    def activateWorkbench(self, name):
+        self.ran.append(("wb", name))
+
 
 App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 for pie in make_pies().values():
@@ -488,6 +494,8 @@ assert gui.ran == ["Std_Undo"]
 assert model.stats("PartDesign").get("Std_Undo") == 1   # fires are counted
 rt.fire("Macro:probe.FCMacro")
 assert gui.ran[-1][0] == "py" and "probe.FCMacro" in gui.ran[-1][1]
+rt.fire("PartDesignWorkbench")           # workbench entries activate
+assert gui.ran[-1] == ("wb", "PartDesignWorkbench")
 smart_widget = rt.open_pie(model.SMART_NAME)            # built from stats
 assert smart_widget is not None and smart_widget.isVisible()
 assert any("Undo" in b.toolTip() for b in smart_widget.buttons

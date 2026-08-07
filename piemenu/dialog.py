@@ -110,23 +110,7 @@ def workbench_scopes():
 
 def workbench_icon(scope):
     """The workbench's own icon for a scope name, or None."""
-    try:
-        import FreeCADGui as Gui
-        benches = Gui.listWorkbenches()
-        wb = benches.get(scope + "Workbench") or next(
-            (w for k, w in benches.items() if k.startswith(scope)), None)
-        xpm = getattr(wb, "Icon", "") if wb is not None else ""
-        if xpm.startswith((":", "/")) or xpm.endswith((".svg", ".png")):
-            icon = QtGui.QIcon(xpm)      # C++ benches give a resource path
-            if not icon.isNull():
-                return icon
-        elif xpm:
-            pixmap = QtGui.QPixmap()
-            if pixmap.loadFromData(bytes(xpm, "utf-8"), "XPM"):
-                return QtGui.QIcon(pixmap)
-    except Exception:  # noqa: BLE001 -- console mode / exotic benches
-        return None
-    return None
+    return runtime.workbench_icon(scope)
 
 
 def current_scope():
@@ -361,6 +345,8 @@ def command_label(cmd):
         return "▸ " + pie_target(cmd)
     if cmd.startswith(model.MACRO_PREFIX):
         return "◈ " + cmd[len(model.MACRO_PREFIX):].rsplit(".", 1)[0]
+    if cmd.endswith("Workbench") and "_" not in cmd:
+        return cmd[:-len("Workbench")]
     return cmd.split("_", 1)[-1]
 
 

@@ -120,6 +120,34 @@ def selection_counts(gui):
     return {k: v for k, v in counts.items() if v}
 
 
+def workbench_icon(name):
+    """A workbench's own icon, by full name or scope prefix, or None.
+
+    Workbench entries are not commands: no QAction, nothing in the
+    registry. Their icon lives on the workbench object (XPM text for
+    python benches, a resource path for C++ ones).
+    """
+    if App is None or not App.GuiUp:
+        return None
+    try:
+        import FreeCADGui as Gui
+        benches = Gui.listWorkbenches()
+        wb = benches.get(name) or benches.get(name + "Workbench") or next(
+            (w for k, w in benches.items() if k.startswith(name)), None)
+        xpm = getattr(wb, "Icon", "") if wb is not None else ""
+        if xpm.startswith((":", "/")) or xpm.endswith((".svg", ".png")):
+            icon = QtGui.QIcon(xpm)
+            if not icon.isNull():
+                return icon
+        elif xpm:
+            pixmap = QtGui.QPixmap()
+            if pixmap.loadFromData(bytes(xpm, "utf-8"), "XPM"):
+                return QtGui.QIcon(pixmap)
+    except Exception:  # noqa: BLE001 -- console mode / exotic benches
+        return None
+    return None
+
+
 def command_action(name):
     """The main window QAction registered for a command, or None.
 
@@ -167,6 +195,11 @@ def command_icon(cmd):
         icon = command_icon("Std_DlgMacroExecute")
         _ICON_CACHE[cmd] = icon
         return icon
+    if cmd.endswith("Workbench"):
+        icon = workbench_icon(cmd)
+        if icon is not None:
+            _ICON_CACHE[cmd] = icon
+            return icon
     icon = None
     action = command_action(cmd)
     if action is not None and not action.icon().isNull():
@@ -413,9 +446,14 @@ class PieWidget(QtWidgets.QWidget):
                 tip = action.toolTip() or cmd
         if self.pie.show_names:
             btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
-            text = binding.label or (
-                pie_target(cmd) if is_pie_command(cmd)
-                else cmd.split("_", 1)[-1])
+            if binding.label:
+                text = binding.label
+            elif is_pie_command(cmd):
+                text = pie_target(cmd)
+            elif cmd.endswith("Workbench") and "_" not in cmd:
+                text = cmd[:-len("Workbench")]
+            else:
+                text = cmd.split("_", 1)[-1]
             btn.setText(text)
             # a 34px square clips text-under-icon into nothing: size from the
             # style's own hint (font metrics undercount once a theme
@@ -1054,6 +1092,13 @@ class Runtime:
     def counts(self):
         return selection_counts(self.gui)
 
+    def _is_workbench(self, cmd):
+        lister = getattr(self.gui, "listWorkbenches", None)
+        try:
+            return lister is not None and cmd in lister()
+        except Exception:  # noqa: BLE001 -- half-built Gui
+            return False
+
     def _gestures(self, key):
         """key -> {gesture: pie name} under the active workbench."""
         wb = workbench_scope(self.gui)
@@ -1111,6 +1156,9 @@ class Runtime:
                                     cmd[len(model.MACRO_PREFIX):])
                 self.gui.doCommand(
                     f"exec(open({path!r}).read())")
+            elif self._is_workbench(cmd):
+                # workbench entries are not commands: activate directly
+                self.gui.activateWorkbench(cmd)
             else:
                 self.gui.runCommand(cmd, 0)
             model.bump_stat(workbench_scope(self.gui), cmd)
