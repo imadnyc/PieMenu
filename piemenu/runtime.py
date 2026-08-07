@@ -385,13 +385,6 @@ class PieWidget(QtWidgets.QWidget):
                                                   pie.delay))
         if index % 2 and not is_pie_command(binding.cmd):
             btn.setProperty("alt", True)     # alternate fill, odd slots
-        own_shape = pie.slot_shapes.get(index)
-        if own_shape and not is_pie_command(binding.cmd):
-            r = shape_radius(pie, own_shape)
-            btn.setStyleSheet(
-                f"QToolButton{{{self._base_css}border-radius:{r}px;}}"
-                f"QToolButton:hover{{border:2px solid "
-                f"{self._accent.name()};}}")
         btn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         btn.customContextMenuRequested.connect(
             lambda _pos, i=index, b=btn: self._slot_menu(i, b))

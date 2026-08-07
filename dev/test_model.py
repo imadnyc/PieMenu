@@ -165,14 +165,8 @@ assert base.items != tuned.items or base is not tuned      # base untouched
 lbl = Pie("Lbl", slots=2, per_ring=2)
 M.normalise(lbl)
 lbl.items[0] = [Binding("PartDesign_AdditiveLoft", label="Loft")]
-lbl.slot_shapes[0] = "circle"
 M.save_pie(lbl)
-back_lbl = M.load_pie("Lbl")
-assert back_lbl.items[0][0].label == "Loft"                # labels persist
-assert back_lbl.slot_shapes == {0: "circle"}               # so do shapes
-back_lbl.slot_shapes.clear()
-M.save_pie(back_lbl)
-assert M.load_pie("Lbl").slot_shapes == {}
+assert M.load_pie("Lbl").items[0][0].label == "Loft"       # labels persist
 M.delete_pie("Lbl")
 M.bump_stat("Any", M.PIE_PREFIX + "Main")
 assert M.PIE_PREFIX + "Main" not in M.top_commands("Any", 8)  # no doors

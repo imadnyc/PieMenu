@@ -240,12 +240,6 @@ assert "background:transparent" in w.styleSheet()
 w.deleteLater()
 pies["Main"].shape = "rounded"
 pies["Main"].style = "flat"
-pies["Main"].slot_shapes[1] = "square"   # one button, its own shape
-w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
-assert "border-radius:0px" in w.buttons[1].styleSheet()
-assert not w.buttons[0].styleSheet()     # others follow the pie
-w.deleteLater()
-pies["Main"].slot_shapes.clear()
 
 pies["Main"].show_names = True           # names need room, buttons grow
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)

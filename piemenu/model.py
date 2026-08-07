@@ -182,8 +182,6 @@ class Pie:
     items: list = field(default_factory=list)
     # slot index -> cmd the user last picked from that slot's chooser
     last_used: dict = field(default_factory=dict)
-    # slot index -> shape override for that one button ("" = pie default)
-    slot_shapes: dict = field(default_factory=dict)
     # grid: anchor -> its own offset from the cursor (falls back to radius),
     # so blocks can be spaced independently and never collide
     anchor_offsets: dict = field(default_factory=dict)
@@ -383,10 +381,6 @@ def save_pie(pie):
         sg = slots.GetGroup(f"S{i}")
         if pie.last_used.get(i):
             sg.SetString("Last", pie.last_used[i])
-        if pie.slot_shapes.get(i):
-            sg.SetString("BtnShape", pie.slot_shapes[i])
-        else:
-            sg.RemString("BtnShape")
         for j, b in enumerate(slot):
             bg = sg.GetGroup(f"B{j}")
             bg.SetString("Command", b.cmd)
@@ -436,9 +430,6 @@ def load_pie(name):
         last = sg.GetString("Last", "")
         if last:
             pie.last_used[i] = last
-        btn_shape = sg.GetString("BtnShape", "")
-        if btn_shape:
-            pie.slot_shapes[i] = btn_shape
         bindings = []
         for bname in sorted(sg.GetGroups(), key=lambda s: int(s[1:])):
             bg = sg.GetGroup(bname)
