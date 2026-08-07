@@ -745,13 +745,12 @@ class Dispatcher(QtCore.QObject):
     DEFER_MS = 170
 
     def __init__(self, opener, gestures, fallback=None, mode_of=None,
-                 assigner=None, parent=None):
+                 parent=None):
         super().__init__(parent)
         self.opener = opener          # opener(name, at, hint) -> PieWidget
         self.gestures = gestures      # gestures(key) -> {gesture: pie_name}
         self.fallback = fallback or (lambda: None)   # the right-click pie
         self.mode_of = mode_of or (lambda name: "click")   # pie's run_on
-        self.assigner = assigner      # assigner(cmd): quick-add to a pie
         self.current = None           # the open PieWidget
         self.last_tap = {}            # key -> ms timestamp
         self.held = None              # the key currently down
@@ -822,17 +821,6 @@ class Dispatcher(QtCore.QObject):
             if dx * dx + dy * dy > 100:
                 self._defer.stop()
                 self._open_deferred()
-        if (etype == QtCore.QEvent.MouseButtonPress
-                and event.button() == QtCore.Qt.RightButton
-                and event.modifiers() & QtCore.Qt.ControlModifier
-                and self.assigner is not None
-                and isinstance(obj, QtWidgets.QToolButton)
-                and isinstance(obj.parentWidget(), QtWidgets.QToolBar)):
-            action = obj.defaultAction()
-            cmd = action.objectName() if action is not None else ""
-            if cmd and "_" in cmd:
-                self.assigner(cmd)
-                return True
         if App is not None and behaviour()["rclick"]:
             if etype == QtCore.QEvent.MouseButtonPress \
                     and event.button() == QtCore.Qt.RightButton:
@@ -1024,8 +1012,7 @@ class Runtime:
             self._open_for_dispatch, self._gestures,
             fallback=lambda: self._resolve(None),
             mode_of=lambda n: self.pies[n].run_on if n in self.pies
-            else "click",
-            assigner=self.quick_assign)
+            else "click")
         self._sel_observer = _SelectionWatch(self)
         self._sel_timer = QtCore.QTimer()
         self._sel_timer.setSingleShot(True)
@@ -1093,32 +1080,6 @@ class Runtime:
 
     def _open_for_dispatch(self, name, at=None, hint=""):
         return self.open_pie(name, at, hint)
-
-    def quick_assign(self, cmd):
-        """Ctrl+right-click on a toolbar button: add it to a pie."""
-        menu = QtWidgets.QMenu()
-        menu.addSection(f"Add {cmd.split('_', 1)[-1]} to…")
-        for name in sorted(self.pies):
-            menu.addAction(name,
-                           lambda n=name: self._assign_to(n, cmd))
-        menu.exec_(QtGui.QCursor.pos())
-
-    def _assign_to(self, name, cmd):
-        pie = self.pies[name]
-        model.normalise(pie)
-        for i, slot in enumerate(pie.items):
-            if not slot:
-                pie.items[i] = [model.Binding(cmd)]
-                break
-        else:
-            if pie.family == "circle":
-                pie.slots += 1        # grow a slot rather than refuse
-                model.normalise(pie)
-                pie.items[-1] = [model.Binding(cmd)]
-            else:
-                pie.items[-1] = (pie.items[-1] or []) + [model.Binding(cmd)]
-        model.save_pie(pie)
-        self.reload()
 
     def open_pie(self, name, at=None, hint=""):
         pies = self.pies
