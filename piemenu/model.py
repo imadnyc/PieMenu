@@ -648,17 +648,43 @@ def dominant_axis(counts):
     return max(live, key=live.get) if live else None
 
 
+def _axis_order(pie):
+    """Slot indices best-first: cardinals before diagonals, ring by
+    ring — on-axis marks are faster and less error-prone with a mouse
+    (Kurtenbach), so the top-ranked tools deserve them."""
+    pos = positions(pie)
+    if pie.family != "circle":
+        return list(range(len(pos)))
+    plan = ring_plan(pie, len(pos))
+    ring_of, ring, k = [], 0, 0
+    for _ in range(len(pos)):
+        ring_of.append(ring)
+        k += 1
+        if k >= plan[ring]:
+            ring, k = ring + 1, 0
+
+    def off_axis(i):
+        x, y = pos[i]
+        away = math.degrees(math.atan2(y, x)) % 90
+        return round(min(away, 90 - away), 3)
+
+    return sorted(range(len(pos)), key=lambda i: (ring_of[i],
+                                                  off_axis(i), i))
+
+
 def fill_smart(pie, workbench, counts=None):
     """Overwrite a pie's slots: pinned favorites first, then what you
-    use most with this kind of selection, then most used overall."""
+    use most with this kind of selection, then most used overall — the
+    best-ranked landing on the cardinal directions first."""
     normalise(pie)
     pie.items = [None] * len(pie.items)
     favs = [c for c in smart_favorites() if not is_pie_command(c)]
     rest = [c for c in top_commands(workbench, len(pie.items),
                                     axis=dominant_axis(counts))
             if c not in favs]
-    for i, cmd in enumerate((favs + rest)[:len(pie.items)]):
-        pie.items[i] = [Binding(cmd)]
+    order = _axis_order(pie)
+    for rank, cmd in enumerate((favs + rest)[:len(pie.items)]):
+        pie.items[order[rank]] = [Binding(cmd)]
     return pie
 
 

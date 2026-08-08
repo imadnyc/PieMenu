@@ -155,7 +155,9 @@ assert M.stats() == {"A": 2, "B": 1, "C": 3}
 assert M.top_commands("PartDesign", 8) == ["A", "B", "C"]  # own first
 smart = M.smart_pie("PartDesign")
 assert smart.name == M.SMART_NAME
-assert smart.items[0][0].cmd == "A" and smart.items[2][0].cmd == "C"
+# ranked tools land on the cardinals first: slots 0,2,4,6 then diagonals
+assert smart.items[0][0].cmd == "A" and smart.items[2][0].cmd == "B"
+assert smart.items[4][0].cmd == "C" and smart.items[1] is None
 base = Pie(M.SMART_NAME, slots=4, per_ring=4, run_on="release", radius=120)
 tuned = M.smart_pie("PartDesign", base=base)
 assert tuned.run_on == "release" and tuned.radius == 120   # settings kept
@@ -175,10 +177,14 @@ assert M.PIE_PREFIX + "Main" not in M.top_commands("Any", 8)  # no doors
 M.set_smart_favorite("Z_Rare", True)
 assert M.smart_favorites() == ["Z_Rare"]
 sp = M.smart_pie("PartDesign")
-assert sp.items[0][0].cmd == "Z_Rare"        # favorite first
-assert sp.items[1][0].cmd == "A"             # then the usual ranking
+assert sp.items[0][0].cmd == "Z_Rare"        # favorite first (east)
+assert sp.items[2][0].cmd == "A"             # then rank, next cardinal
 M.set_smart_favorite("Z_Rare", False)
 assert M.smart_favorites() == []
+
+# the axis order itself: cardinals of the ring, then its diagonals
+order = M._axis_order(Pie("O", slots=8, per_ring=8))
+assert order[:4] == [0, 2, 4, 6] and sorted(order[4:]) == [1, 3, 5, 7]
 
 # the ignore list filters the offer but keeps the history
 M.set_smart_ignored("A", True)

@@ -45,6 +45,7 @@ fail and point at the rest. Params live under
 | Favorites | right-click → Keep in Smart; leads the pie, never decays out | `model.smart_favorites`, Smart branch of `_slot_menu`, `Smart/Favorites` param | delete those |
 | Ignore list | right-click → Ignore in Smart; counted but never offered | `model.smart_ignored`, same menu, `Smart/Ignored` param, row in `stats_dialog` | delete those |
 | Selection-aware ranking | tools you use with a face selected rank first when a face is selected | `axis=` in `bump_stat`, `@axis` stats groups, `dominant_axis`, `counts=` through `smart_pie` | drop the `axis` params; `@` groups age out via decay |
+| On-axis fill | the best-ranked tools land on the cardinal directions before the diagonals | `model._axis_order` in `fill_smart` | delete `_axis_order`, fill 0..n again |
 
 ## Pinned palettes
 
