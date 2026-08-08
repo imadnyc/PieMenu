@@ -87,40 +87,15 @@ def workbench_scope(gui):
         return ""
 
 
-class HaloLabel(QtWidgets.QLabel):
-    """Text drawn with a thin rim of the opposite luminance, so it reads
-    over any scene without sampling what's behind it (Wayland forbids
-    that anyway). A crisp stroked outline, not a blur: blurs wash out
-    against busy geometry."""
-
-    PAD = 3
-
-    def __init__(self, text, parent, color="#999", px=10):
-        super().__init__(text, parent)
-        self._color = QtGui.QColor(color)
-        font = self.font()
-        font.setPixelSize(px)
-        self.setFont(font)
-        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
-
-    def sizeHint(self):
-        base = super().sizeHint()
-        return QtCore.QSize(base.width() + 2 * self.PAD,
-                            base.height() + 2 * self.PAD)
-
-    def paintEvent(self, _event):
-        painter = QtGui.QPainter(self)
-        painter.setRenderHint(QtGui.QPainter.Antialiasing)
-        path = QtGui.QPainterPath()
-        path.addText(self.PAD, self.PAD + self.fontMetrics().ascent(),
-                     self.font(), self.text())
-        rim = QtGui.QColor(0, 0, 0, 200) \
-            if self._color.lightness() >= 128 \
-            else QtGui.QColor(255, 255, 255, 200)
-        painter.strokePath(path, QtGui.QPen(
-            rim, 3.0, QtCore.Qt.SolidLine,
-            QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-        painter.fillPath(path, self._color)
+def flat_label(text, parent, color="#999", px=10, weight=600, tracking=0.0):
+    """The overlay type: flat, no effects, carried by weight and a touch
+    of letter-spacing rather than outlines or shadows."""
+    label = QtWidgets.QLabel(text, parent)
+    label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+    spacing = f"letter-spacing:{tracking}px;" if tracking else ""
+    label.setStyleSheet(f"color:{color};background:none;font-size:{px}px;"
+                        f"font-weight:{weight};{spacing}")
+    return label
 
 
 def selection_counts(gui):
@@ -444,7 +419,7 @@ class PieWidget(QtWidgets.QWidget):
                      int(y - min_y - btn.height() / 2))
         # the pie says its name at the centre, so you always know which
         # one answered the key
-        name_label = HaloLabel(pie.name, self, "#999", 10)
+        name_label = flat_label(pie.name, self, "#999", 11, 600, 0.5)
         name_label.adjustSize()
         name_label.move(int(self._origin[0] - name_label.width() / 2),
                         int(self._origin[1] - name_label.height() / 2))
@@ -457,9 +432,9 @@ class PieWidget(QtWidgets.QWidget):
             if btn.isHidden() or not btn.isEnabled():
                 continue
             digit += 1
-            tag = HaloLabel(str(digit), btn, "#888", 9)
+            tag = flat_label(str(digit), btn, "#888", 9)
             tag.adjustSize()
-            tag.move(btn.width() - tag.width() - 1, -1)
+            tag.move(btn.width() - tag.width() - 3, 1)
             tag.setVisible(True)
 
     def _slot_button(self, slot, index):
@@ -653,9 +628,7 @@ class PieWidget(QtWidgets.QWidget):
         size = 24
         btn.setFixedSize(size, size)
         btn.setText("◂")
-        # the pie's own chip look: readable on the canvas, consistent
-        btn.setStyleSheet(f"QToolButton{{{self._base_css}"
-                          f"border-radius:{size // 2}px;}}")
+        btn.setStyleSheet(f"QToolButton{{border-radius:{size // 2}px;}}")
         btn.setToolTip(f"Back to {self._stack[-1]} (Backspace)")
         btn.move(int(self._origin[0] - size / 2),
                  int(self._origin[1] - size / 2))
@@ -669,8 +642,7 @@ class PieWidget(QtWidgets.QWidget):
     def _pin_close_button(self):
         btn = QtWidgets.QToolButton(self)
         btn.setText("✕")
-        btn.setStyleSheet(f"QToolButton{{{self._base_css}"
-                          "border-radius:4px;}")
+        btn.setAutoRaise(True)
         btn.setToolTip("Unpin")
         btn.adjustSize()
         btn.move(self.width() - btn.width() - 2, 2)
@@ -698,7 +670,7 @@ class PieWidget(QtWidgets.QWidget):
 
     def show_hint(self, text):
         """The binding that opened this pie, shown while it is still new."""
-        label = HaloLabel(text, self, "#999", 10)
+        label = flat_label(text, self, "#999", 10, weight=400)
         label.adjustSize()
         label.move(int(self._origin[0] - label.width() / 2),
                    self.height() - label.height() - 2)
