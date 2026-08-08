@@ -120,6 +120,8 @@ def pie_requires(pie):
         for b in slot or []:
             if is_pie_command(b.cmd):
                 continue
+            if b.cmd.startswith(PANEL_PREFIX):
+                continue                     # built in, needs nothing
             if b.cmd.startswith(MACRO_PREFIX):
                 out.add(b.cmd)
             elif "_" in b.cmd:
@@ -541,6 +543,11 @@ def remove_key(key):
 
 SMART_NAME = "Smart"
 MACRO_PREFIX = "Macro:"
+
+# pseudo-commands that drive the open task panel's buttons
+PANEL_PREFIX = "Panel:"
+PANEL_ACTIONS = ("OK", "Apply", "Cancel")
+
 
 
 def bump_stat(workbench, cmd):

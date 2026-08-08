@@ -510,6 +510,8 @@ def command_icon(cmd, actions):
 def command_label(cmd):
     if is_pie_command(cmd):
         return "▸ " + pie_target(cmd)
+    if cmd.startswith(model.PANEL_PREFIX):
+        return cmd[len(model.PANEL_PREFIX):] + " (task panel)"
     if cmd.startswith(model.MACRO_PREFIX):
         return "◈ " + cmd[len(model.MACRO_PREFIX):].rsplit(".", 1)[0]
     if cmd.endswith("Workbench") and "_" not in cmd:
@@ -689,6 +691,8 @@ class PickerDialog(QtWidgets.QDialog):
                  if p != current_pie.name]
         doors.append(model.PIE_PREFIX + model.SMART_NAME)
         groups["Pie menus"] = doors
+        groups["Task panel"] = [model.PANEL_PREFIX + a
+                                for a in model.PANEL_ACTIONS]
         macros = _list_macros()
         if macros:
             groups["Macros"] = [model.MACRO_PREFIX + m for m in macros]

@@ -180,6 +180,12 @@ assert sp.items[1][0].cmd == "A"             # then the usual ranking
 M.set_smart_favorite("Z_Rare", False)
 assert M.smart_favorites() == []
 
+# task-panel pseudo-commands need nothing installed
+pp = Pie("PP", slots=2, per_ring=2)
+M.normalise(pp)
+pp.items[0] = [Binding("Panel:OK")]
+assert M.pie_requires(pp) == []
+
 # last-fired round trip
 M.set_last_fired("Main", "Std_Undo")
 assert M.last_fired("Main") == "Std_Undo"

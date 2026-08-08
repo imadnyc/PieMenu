@@ -225,10 +225,23 @@ def prefix_available(prefix):
         return False
 
 
+def panel_open():
+    """Is a task panel (Pad, Fillet, sketch tools...) currently up?"""
+    if App is None or not App.GuiUp:
+        return False
+    try:
+        import FreeCADGui as Gui
+        return Gui.Control.activeDialog() is not None
+    except Exception:  # noqa: BLE001 -- half-built Gui
+        return False
+
+
 def command_available(cmd):
     """False when a command's workbench/addon is not installed here."""
     if is_pie_command(cmd):
         return True                   # doors are validated against pies
+    if cmd.startswith(model.PANEL_PREFIX):
+        return True                   # built in, liveness is contextual
     if cmd.startswith(model.MACRO_PREFIX):
         if App is None:
             return True
@@ -287,6 +300,16 @@ def command_icon(cmd):
     """
     if cmd in _ICON_CACHE:
         return _ICON_CACHE[cmd]
+    if cmd.startswith(model.PANEL_PREFIX):
+        style = QtWidgets.QApplication.style()
+        icon = style.standardIcon(
+            {"OK": QtWidgets.QStyle.SP_DialogOkButton,
+             "Apply": QtWidgets.QStyle.SP_DialogApplyButton,
+             "Cancel": QtWidgets.QStyle.SP_DialogCancelButton}.get(
+                cmd[len(model.PANEL_PREFIX):],
+                QtWidgets.QStyle.SP_DialogOkButton))
+        _ICON_CACHE[cmd] = icon
+        return icon
     if cmd.startswith(model.MACRO_PREFIX):
         icon = command_icon("Std_DlgMacroExecute")
         _ICON_CACHE[cmd] = icon
@@ -600,10 +623,15 @@ class PieWidget(QtWidgets.QWidget):
             # the tool's workbench is not installed: visibly dead, and says why
             live = False
             tip += "  — not available; is its workbench installed?"
+        if cmd.startswith(model.PANEL_PREFIX) and not panel_open():
+            live = False
+            tip = f"{cmd[len(model.PANEL_PREFIX):]} — no task panel open"
         if self.pie.show_names:
             btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
             if binding.label:
                 text = binding.label
+            elif cmd.startswith(model.PANEL_PREFIX):
+                text = cmd[len(model.PANEL_PREFIX):]
             elif is_pie_command(cmd):
                 text = pie_target(cmd)
             elif cmd.endswith("Workbench") and "_" not in cmd:
@@ -1402,6 +1430,10 @@ class Runtime:
 
     def fire(self, cmd):
         try:
+            if cmd.startswith(model.PANEL_PREFIX):
+                # drives the task panel; not a tool, so not a statistic
+                self._panel_action(cmd[len(model.PANEL_PREFIX):])
+                return
             if cmd.startswith(model.MACRO_PREFIX):
                 path = os.path.join(App.getUserMacroDir(True),
                                     cmd[len(model.MACRO_PREFIX):])
@@ -1417,6 +1449,27 @@ class Runtime:
         except Exception as exc:  # noqa: BLE001 -- a broken command must not kill the pie
             if App is not None:
                 App.Console.PrintWarning(f"PieMenu: {cmd} failed: {exc}\n")
+
+    def _panel_action(self, action):
+        """Click OK/Apply/Cancel on the visible task panel, wherever it
+        is docked; Cancel falls back to closing the task dialog."""
+        getmw = getattr(self.gui, "getMainWindow", None)
+        mw = getmw() if getmw is not None else None
+        role = {"OK": QtWidgets.QDialogButtonBox.Ok,
+                "Apply": QtWidgets.QDialogButtonBox.Apply,
+                "Cancel": QtWidgets.QDialogButtonBox.Cancel}.get(action)
+        if mw is not None and role is not None:
+            for box in mw.findChildren(QtWidgets.QDialogButtonBox):
+                if not box.isVisible():
+                    continue
+                btn = box.button(role)
+                if btn is not None and btn.isVisible() and btn.isEnabled():
+                    btn.click()
+                    return
+        if action == "Cancel":
+            control = getattr(self.gui, "Control", None)
+            if control is not None:
+                control.closeDialog()
 
     # -- auto-open on selection (off unless the behaviour switch is on)
 

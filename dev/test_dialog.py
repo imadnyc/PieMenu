@@ -368,6 +368,10 @@ win.deleteLater()
 app.processEvents()
 print("PASS non-modal prefs")
 
+# ---- task panel pseudo-commands surface in labels and the picker -------------
+assert dialog.command_label("Panel:OK") == "OK (task panel)"
+print("PASS panel labels")
+
 # ---- the keys cheat sheet builds and names the essentials --------------------
 kd = dialog.keys_dialog(dlg)
 kd_text = " ".join(lb.text() for lb in kd.findChildren(QtWidgets.QLabel))

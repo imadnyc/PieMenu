@@ -584,6 +584,39 @@ model.remove_key("Mouse4")
 rt.reload()
 print("PASS mouse buttons")
 
+# ---- task panel slots ------------------------------------------------------
+holder = QtWidgets.QWidget()
+panel_box = QtWidgets.QDialogButtonBox(
+    QtWidgets.QDialogButtonBox.Ok | QtWidgets.QDialogButtonBox.Cancel,
+    holder)
+holder.show()
+panel_clicks = []
+panel_box.button(QtWidgets.QDialogButtonBox.Ok).clicked.connect(
+    lambda: panel_clicks.append("ok"))
+
+
+class PanelGui(FakeGui):
+    def getMainWindow(self):
+        return holder
+
+
+prt = runtime.Runtime(PanelGui())
+prt.fire("Panel:OK")
+assert panel_clicks == ["ok"]
+prt.fire("Panel:Apply")                      # no Apply button: quiet no-op
+assert panel_clicks == ["ok"]
+holder.close()
+assert runtime.command_available("Panel:OK")
+# headless there is no task panel, so the slot renders dead with a reason
+ppie = Pie("PanelPie", slots=2, per_ring=2)
+model.normalise(ppie)
+ppie.items[0] = [Binding("Panel:OK")]
+pw2 = runtime.PieWidget({"PanelPie": ppie}, "PanelPie", {}, fire)
+assert not pw2.buttons[0].isEnabled()
+assert "no task panel open" in pw2.buttons[0].toolTip()
+pw2.deleteLater()
+print("PASS task panel slots")
+
 # ---- last fired wears the ring at the next open ----------------------------
 lf = rt.open_pie("Main")
 lf.activate("Std_Undo", sticky=True)     # fires without closing
