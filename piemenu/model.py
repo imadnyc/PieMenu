@@ -195,6 +195,7 @@ class Pie:
     accent: str = ""                # per-pie accent override (hex), "" = global
     shape: str = "rounded"          # rounded | square | squircle | circle
     style: str = "flat"             # flat | gradient | outline
+    source: str = ""                # where an installed preset came from
     # trigger
     open_on: str = "single"         # single | double | hold | double-hold
     run_on: str = "click"           # click | hover | release
@@ -387,7 +388,7 @@ _BOOLS = ("default", "stagger", "show_names", "door_hover")
 _INTS = ("slots", "per_ring", "radius", "arc", "arc_face", "stagger_by",
          "cols", "rows", "button", "spacing", "delay", "alt_size")
 _STRINGS = ("family", "icon", "open_on", "run_on", "ring_mode", "accent",
-            "shape", "style")
+            "shape", "style", "source")
 _PARAM = {f: "".join(w.capitalize() for w in f.split("_")) for f in
           _BOOLS + _INTS + _STRINGS}
 

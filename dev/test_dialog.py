@@ -221,7 +221,7 @@ with open(os.path.join(tmp, "index.json"), "w") as fh:
          "requires": ["NoSuchBench"]}]}, fh)
 dialog.PRESET_INDEX = "file://" + tmp + "/"
 bd = dialog.browse_presets_dialog(
-    dlg, lambda p: dlg.pie_import_file(p, confirm=False))
+    dlg, lambda p, **kw: dlg.pie_import_file(p, confirm=False, **kw))
 lw = bd.findChild(QtWidgets.QListWidget)
 assert lw.count() == 1 and "NetPie" in lw.item(0).text()
 lw.setCurrentRow(0)
@@ -230,6 +230,11 @@ install_btn = next(b for b in bd.findChildren(QtWidgets.QPushButton)
 install_btn.click()
 assert "NetPie" in dlg.pies
 assert dlg.pies["NetPie"].items[0][0].cmd == "Std_New"
+assert dlg.pies["NetPie"].source.startswith("file://")
+# installing the same preset again updates in place, no NetPie-2
+install_btn.click()
+assert "NetPie" in dlg.pies and "NetPie-2" not in dlg.pies
+assert model.load_pies()["NetPie"].source == dlg.pies["NetPie"].source
 bd.deleteLater()
 print("PASS preset browser")
 
@@ -277,7 +282,7 @@ garbage_dir = tempfile.mkdtemp(prefix="pm-garbage-")
 with open(os.path.join(garbage_dir, "index.json"), "w") as fh:
     fh.write("]]]] nope")
 dialog.PRESET_INDEX = "file://" + garbage_dir + "/"
-gb = dialog.browse_presets_dialog(dlg, lambda p: None)
+gb = dialog.browse_presets_dialog(dlg, lambda p, **kw: None)
 glw = gb.findChild(QtWidgets.QListWidget)
 assert glw.count() >= 1 and "couldn't reach" in glw.item(0).text()
 gb.deleteLater()
@@ -306,6 +311,25 @@ if os.path.isdir(preset_dir):
     assert "PartDesignMisc" in dlg.pies
     assert any(s for s in dlg.pies["PartDesignMisc"].items if s)
     print("PASS presets")
+
+# ---- session snapshot backs the Revert button --------------------------------
+if dlg._session_snapshot:
+    assert os.path.exists(dlg._session_snapshot)
+    model.save_pie(Pie("EphemeralJunk", slots=2, per_ring=2))
+    assert "EphemeralJunk" in model.load_pies()
+    App.ParamGet("User parameter:BaseApp/PieMenu").Import(
+        dlg._session_snapshot)
+    assert "EphemeralJunk" not in model.load_pies()
+    print("PASS session revert")
+
+# ---- preferences window is non-modal and a singleton --------------------------
+win = dialog.open_preferences()
+assert win.isVisible()                       # show(), not exec_()
+assert dialog.open_preferences() is win      # second call refocuses
+win.close()
+win.deleteLater()
+app.processEvents()
+print("PASS non-modal prefs")
 
 # ---- SketchEdit is offered as a scope and chains through Sketcher ------------
 scopes = dialog.workbench_scopes()

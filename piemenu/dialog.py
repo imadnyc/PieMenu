@@ -11,6 +11,7 @@ runtime reads; every change calls ``on_change`` so the caller can reload it.
 import json
 import math
 import os
+import tempfile
 
 from PySide import QtCore, QtGui, QtWidgets
 
@@ -382,7 +383,7 @@ def browse_presets_dialog(parent, import_file):
                 encoding="utf-8") as fh:
             fh.write(text)
             temp_path = fh.name
-        import_file(temp_path)
+        import_file(temp_path, source=PRESET_INDEX + rel)
         os.unlink(temp_path)
 
     install.clicked.connect(do_install)
@@ -637,8 +638,9 @@ class PickerDialog(QtWidgets.QDialog):
         return groups
 
     def _load_bench(self, index):
-        """Activate a workbench so its commands (and icons) exist, then
-        rescan; the picker can offer every bench without visiting it."""
+        """Load a workbench so its commands (and icons) exist, then
+        rescan; getWorkbench initialises it without the activation flash
+        of switching there and back."""
         if index <= 0 or App is None or not App.GuiUp:
             return
         scope = self.bench_pick.itemText(index)
@@ -648,9 +650,7 @@ class PickerDialog(QtWidgets.QDialog):
             full = next((k for k in benches
                          if k.startswith(scope)), None)
             if full:
-                current = Gui.activeWorkbench().name()
-                Gui.activateWorkbench(full)
-                Gui.activateWorkbench(current)
+                Gui.getWorkbench(full)
         except Exception:  # noqa: BLE001 -- a bench that fails to load
             return
         self.actions = list_commands()
@@ -1225,6 +1225,14 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.slot = 0
         self.binding = 0
         self._trimmed = {}    # pie -> {slot index: bindings cut by a shrink}
+        # the whole tree as it was when this window opened, for Revert
+        self._session_snapshot = os.path.join(
+            tempfile.gettempdir(), f"piemenu-session-{os.getpid()}.FCParam")
+        try:
+            App.ParamGet("User parameter:BaseApp/PieMenu").Export(
+                self._session_snapshot)
+        except Exception:  # noqa: BLE001 -- no Export on odd builds
+            self._session_snapshot = None
 
         outer = QtWidgets.QVBoxLayout(self)
         top = QtWidgets.QHBoxLayout()
@@ -1406,11 +1414,31 @@ class PieMenuPreferences(QtWidgets.QDialog):
                 root.Import(path)
                 self._binds_changed()
 
-        for label, fn in (("Export…", export_all), ("Import…", import_all)):
+        def revert_session():
+            if self._session_snapshot is None \
+                    or not os.path.exists(self._session_snapshot):
+                return
+            answer = QtWidgets.QMessageBox.question(
+                self, "Revert",
+                "Put everything back the way it was when this window "
+                "opened?")
+            if answer != QtWidgets.QMessageBox.Yes:
+                return
+            root.Import(self._session_snapshot)
+            self.pies = model.load_pies()
+            self.current = self.current if self.current in self.pies \
+                else min(self.pies)
+            self._binds_changed()
+
+        for label, fn in (("Export…", export_all), ("Import…", import_all),
+                          ("Revert…", revert_session)):
             btn = QtWidgets.QPushButton(label)
             btn.clicked.connect(fn)
             if not hasattr(root, "Export"):
                 btn.setEnabled(False)
+            if label.startswith("Revert"):
+                btn.setToolTip("Back to how everything was when this "
+                               "window opened.")
             foot.addWidget(btn)
         close = QtWidgets.QPushButton("Close")
         close.clicked.connect(self.accept)
@@ -1559,7 +1587,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         if path:
             self.pie_import_file(path)
 
-    def pie_import_file(self, path, confirm=True):
+    def pie_import_file(self, path, confirm=True, source=""):
         try:
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -1578,7 +1606,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
             for key, value in data.items():
                 if hasattr(pie, key):
                     setattr(pie, key, value)
-            pie.name = self._unique(str(data.get("name", "Imported")))
+            # a preset installed from the same place again updates in
+            # place instead of piling up Name-2, Name-3 copies
+            replacing = next((p.name for p in self.pies.values()
+                              if source and p.source == source), None)
+            pie.name = replacing or self._unique(
+                str(data.get("name", "Imported")))
+            pie.source = source
             pie.default = False
             model.normalise(pie)
             for i, slot in enumerate(items[:len(pie.items)]):
@@ -2190,7 +2224,16 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self._changed(True)
 
 
+_open_dialog = None
+
+
 def open_preferences(parent=None, on_change=None):
+    """Non-modal: tune with one hand, try the pies with the other."""
+    global _open_dialog
+    if _open_dialog is not None and _open_dialog.isVisible():
+        _open_dialog.raise_()
+        _open_dialog.activateWindow()
+        return _open_dialog
     dlg = PieMenuPreferences(parent, on_change=on_change)
     screen = QtWidgets.QApplication.primaryScreen()
     if screen is not None:
@@ -2199,5 +2242,6 @@ def open_preferences(parent=None, on_change=None):
                    min(1000, int(avail.height() * 0.85)))
     else:
         dlg.resize(1560, 1000)
-    dlg.exec_()
+    dlg.show()
+    _open_dialog = dlg
     return dlg

@@ -1,5 +1,38 @@
 # CHANGELOG
 
+## 2.0.0-beta.1
+
+A ground-up rewrite (AI-generated, see the README disclaimer). The v1
+config is migrated automatically and left untouched.
+
+- Shortcuts are per workbench, with "Any workbench" as the fallback and a
+  separate SketchEdit scope while a sketch is open (falls back through
+  Sketcher).
+- One key carries up to four pies: tap, double-tap, hold, double-tap-hold.
+  Hold gives the marking-menu flow: aim, release, fired. Moving the mouse
+  on an ambiguous key opens the pie immediately.
+- Slots take selection conditions over six axes (vertex/edge/face/object/
+  axis/plane); first match wins, overloaded slots get a chooser that
+  remembers your last pick.
+- Slots can open other pies (hover glides in, back button returns).
+- Smart pie: fills itself with your most-used tools per workbench, counts
+  decay so it tracks the present.
+- Pinned palettes: press P in an open pie (or right-click one in the
+  preferences list) to keep it as a floating palette that follows your
+  selection; drag to move, Esc or ✕ to close.
+- Layouts: multi-ring circles (uniform/auto/custom counts) or grids hung
+  off any side of the cursor; shapes (rounded/square/squircle/circle) and
+  styles (flat/gradient/outline); global and per-pie colors.
+- Per-pie export/import as JSON with a `requires` list; missing
+  workbenches warn at import and degrade to disabled buttons, never
+  errors. A community preset browser installs shared pies and updates
+  them in place on reinstall.
+- Preferences: non-modal window, live preview, per-gesture shortcut
+  table, usage stats, one-click session revert, new-pie-from-toolbar,
+  multi-select delete.
+- Numbers 1-9 fire slots, Shift chains without closing, right-click a
+  live slot to edit it, macros and workbenches as slot targets.
+
 ## 1.13
 - Refactor monolithic code https://github.com/Grubuntu/PieMenu/pull/137 (Ben-PH)
 

@@ -1,0 +1,6 @@
+# Slim release tarballs (git archive); the Addon Manager clones, so this
+# only trims what "Download ZIP" and release archives carry.
+mockups/ export-ignore
+PLAN-PROGRESS.md export-ignore
+UI-FEEDBACK.md export-ignore
+IMPLEMENTATION.md export-ignore

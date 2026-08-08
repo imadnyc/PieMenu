@@ -14,6 +14,9 @@ internals redone from scratch.
 
 * Shortcuts are per workbench. The same key can mean different pies in
   PartDesign and Sketcher, with an "Any workbench" binding as the fallback.
+  Editing a sketch is its own scope (SketchEdit), falling back through
+  Sketcher, so a key can do one thing in the sketcher and another while
+  actually drawing.
 * One key can carry up to four pies: tap, double-tap, hold, and
   double-tap-then-hold. Hold gives you the marking-menu flow: the pie
   follows your aim with an arrow and firing happens on release. A quick
@@ -35,6 +38,9 @@ internals redone from scratch.
 
 * Slots can open other pies. Hovering one glides straight into it at the
   cursor, and a back button appears in the middle.
+* Press P in an open pie to pin it as a floating palette: it stays on
+  top, tools fire without closing it, conditional slots keep following
+  your selection, and you drag it anywhere. Esc or the ✕ unpins.
 * There's a **Smart** pie that fills itself with your most-used tools for
   whatever workbench you're in. Counts decay over time so it tracks what
   you're doing now, not last month. Bind it to a key and forget about it.
