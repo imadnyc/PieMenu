@@ -122,6 +122,8 @@ BINDS = [
     ("Sketcher", "F3", "Sketching", "hold"),
     # inside sketch editing, tapping F3 goes straight to constraints
     ("SketchEdit", "F3", "Constraints", "press"),
+    # a gesture can run ONE command: tap F7 in a sketch = radius, no pie
+    ("SketchEdit", "F7", "Run:Sketcher_ConstrainRadius", "press"),
     (ANY_SCOPE, "F4", "Modelling", "press"),
     (ANY_SCOPE, "F4", "Patterns", "double"),
     (ANY_SCOPE, "F6", "View", "press"),

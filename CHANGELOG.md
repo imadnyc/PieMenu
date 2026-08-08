@@ -33,6 +33,9 @@ config is migrated automatically and left untouched.
 - Numbers 1-9 fire slots, Shift chains without closing, right-click a
   live slot to edit it, macros and workbenches as slot targets, and
   Panel:OK/Apply/Cancel slots drive the open task panel.
+- A gesture can run a single command instead of a pie (tap = Constrain
+  Radius, hold = the constraints pie), and the preferences play little
+  demo GIFs when you hover the help buttons.
 - The aim is read as a direction (radius picks the ring on multi-ring
   pies): the aimed slot highlights, the centre names what release will
   do, dead or empty sectors are deliberate no-ops, and pies at the

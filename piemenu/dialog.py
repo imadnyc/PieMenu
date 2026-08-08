@@ -460,6 +460,9 @@ def keys_dialog(parent):
             ("· tap  ·· double  — hold  ··— double-hold",
              "one key carries up to four pies (the table above)",
              "gesture-aim"),
+            ("a gesture can run one command",
+             '"A single command…" in the key menu — tap fires it, no pie',
+             None),
             ("workbench beats Any workbench",
              "the more specific scope answers first", None),
             ("SketchEdit beats Sketcher",
@@ -1051,6 +1054,21 @@ class PreviewWidget(QtWidgets.QWidget):
             self.slot_activated.emit(index)
 
 
+def bind_label(name):
+    """How a bind target reads in the table: a pie by name, a single
+    command with a bolt."""
+    if model.is_run(name):
+        return "⚡ " + command_label(model.run_target(name))
+    return name
+
+
+def bind_tip(name):
+    if model.is_run(name):
+        return (f"runs {command_label(model.run_target(name))} "
+                "directly, no pie")
+    return name
+
+
 def freecad_shortcuts():
     """Key text -> action label for every shortcut FreeCAD itself has, so
     the table can warn where a pie key would shadow one."""
@@ -1244,12 +1262,14 @@ class ShortcutsTable(QtWidgets.QWidget):
                         inherited = (got, parent)
                         break
             if own:
-                lines.append(f"{glyph} {own}")
-                tips.append(f"{GNAME[g]}: {own}")
+                lines.append(f"{glyph} {bind_label(own)}")
+                tips.append(f"{GNAME[g]}: {bind_tip(own)}")
             elif inherited:
                 got, parent = inherited
-                lines.append(f'{glyph} <i style="color:#888">↳ {got}</i>')
-                tips.append(f"{GNAME[g]}: {got} — flows in from {parent}")
+                lines.append(f'{glyph} <i style="color:#888">'
+                             f'↳ {bind_label(got)}</i>')
+                tips.append(f"{GNAME[g]}: {bind_tip(got)} — flows in "
+                            f"from {parent}")
             else:
                 lines.append(f'{glyph} <span style="color:#777">—</span>')
         label = QtWidgets.QLabel("<br>".join(lines))
@@ -1292,6 +1312,10 @@ class ShortcutsTable(QtWidgets.QWidget):
                     else f"{name} (most used)"
                 sub.addAction(label, lambda _=False, n=name, g=g:
                               self._set(scope, key, n, g))
+            sub.addSeparator()
+            sub.addAction("A single command…",
+                          lambda _=False, g=g:
+                          self._bind_command(scope, key, g))
         menu.addSeparator()
         for g in model.GESTURES:
             if g in own:
@@ -1301,6 +1325,18 @@ class ShortcutsTable(QtWidgets.QWidget):
                 menu.addAction(label, lambda _=False, g=g:
                                self._clear(scope, key, g))
         menu.exec_(QtGui.QCursor.pos())
+
+    def _bind_command(self, scope, key, gesture):
+        """One command on a gesture, no pie: the tool you use constantly
+        on tap, the whole pie on hold."""
+        dlg = PickerDialog(self.pies, next(iter(self.pies.values())),
+                           None, parent=self)
+        if dlg.exec_() != QtWidgets.QDialog.Accepted:
+            return
+        result = dlg.result_binding()
+        if result is None or not result.cmd:
+            return
+        self._set(scope, key, model.RUN_PREFIX + result.cmd, gesture)
 
     def _set(self, scope, key, name, gesture="press"):
         model.set_bind(scope, key, name, gesture)

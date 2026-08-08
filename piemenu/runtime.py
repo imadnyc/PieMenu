@@ -1294,12 +1294,13 @@ class Dispatcher(QtCore.QObject):
     DEFER_MS = 170
 
     def __init__(self, opener, gestures, fallback=None, mode_of=None,
-                 parent=None):
+                 fire=None, parent=None):
         super().__init__(parent)
         self.opener = opener          # opener(name, at, hint) -> PieWidget
         self.gestures = gestures      # gestures(key) -> {gesture: pie_name}
         self.fallback = fallback or (lambda: None)   # the right-click pie
         self.mode_of = mode_of or (lambda name: "click")   # pie's run_on
+        self.fire = fire or (lambda cmd: None)   # for Run: bind targets
         self.current = None           # the open PieWidget
         self.last_tap = {}            # key -> ms timestamp
         self.held = None              # the key currently down
@@ -1332,6 +1333,10 @@ class Dispatcher(QtCore.QObject):
         key, _quick, held, _qh, held_hint = self._deferred
         self._deferred = None
         if self.held == key and held is not None:
+            if model.is_run(held):    # a held single command just runs
+                self.close()
+                self.fire(model.run_target(held))
+                return
             # the hand is still down: the held outcome, anchored at the
             # press point so movement so far counts as aim
             self.open_pie(held, at=self._press_pos, hint=held_hint)
@@ -1444,6 +1449,13 @@ class Dispatcher(QtCore.QObject):
             ambiguous = True
         if not ambiguous:
             name = quick if quick is not None else held
+            if model.is_run(name):
+                # a single bound command: fires right away, and a fast
+                # second tap just fires it again
+                self.close()
+                self.fire(model.run_target(name))
+                self.held = key
+                return True
             if self._reuse(name):
                 # the same pie is already up: a persistent pie toggles shut
                 # (only when this key has no other gesture to protect)
@@ -1477,6 +1489,10 @@ class Dispatcher(QtCore.QObject):
             _key, quick, _held, quick_hint, _hh = self._deferred
             self._defer.stop()
             self._deferred = None
+            if quick is not None and model.is_run(quick):
+                self.close()
+                self.fire(model.run_target(quick))
+                return True
             if quick is not None and self.mode_of(quick) != "release" \
                     and not self._reuse(quick):
                 # a persistent quick pie opens where the press happened;
@@ -1513,7 +1529,10 @@ class Dispatcher(QtCore.QObject):
         name = self.fallback()
         if name:
             self._swallow_context = True
-            self.open_pie(name)
+            if model.is_run(name):
+                self.fire(model.run_target(name))
+            else:
+                self.open_pie(name)
 
 
 def _now_ms():
@@ -1579,7 +1598,8 @@ class Runtime:
             self._open_for_dispatch, self._gestures,
             fallback=lambda: self._resolve(None),
             mode_of=lambda n: self.pies[n].run_on if n in self.pies
-            else "click")
+            else "click",
+            fire=self.fire)
         self._sel_observer = _SelectionWatch(self)
         self._sel_timer = QtCore.QTimer()
         self._sel_timer.setSingleShot(True)

@@ -550,6 +550,18 @@ MACRO_PREFIX = "Macro:"
 PANEL_PREFIX = "Panel:"
 PANEL_ACTIONS = ("OK", "Apply", "Cancel")
 
+# a bind target that runs one command directly instead of opening a pie:
+# "Run:Sketcher_ConstrainRadius" on tap next to a pie on hold
+RUN_PREFIX = "Run:"
+
+
+def is_run(name):
+    return isinstance(name, str) and name.startswith(RUN_PREFIX)
+
+
+def run_target(name):
+    return name[len(RUN_PREFIX):]
+
 
 def bump_stat(workbench, cmd, axis=None):
     """Count a fire; with an axis ("Face"...), also count it under

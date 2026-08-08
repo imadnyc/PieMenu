@@ -31,6 +31,10 @@ internals redone from scratch.
   do — "Cancel" while you're in the dead zone.
 
   ![aiming a hold gesture](docs/gifs/gesture-aim.gif)
+
+  A gesture can also run a single command instead of a pie — tap for
+  Constrain Radius, hold for the whole constraints pie ("A single
+  command…" in the key's menu).
 * Slots can have selection conditions (a face, two objects, an edge...).
   The same pie under different selections:
 

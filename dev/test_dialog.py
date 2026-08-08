@@ -380,6 +380,13 @@ tbl.search.setText("")
 assert not any(tbl.left.isRowHidden(r) for r in range(tbl.left.rowCount()))
 print("PASS table search")
 
+# ---- Run: binds read as commands in the table --------------------------------
+assert dialog.bind_label("Run:Sketcher_ConstrainRadius") \
+    == "⚡ ConstrainRadius"
+assert dialog.bind_label("Main") == "Main"
+assert "no pie" in dialog.bind_tip("Run:Std_New")
+print("PASS run bind labels")
+
 # ---- GifTip: hovering plays the movie, leaving stops it ----------------------
 from PIL import Image as PILImage
 

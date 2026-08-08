@@ -620,6 +620,42 @@ model.remove_key("Mouse4")
 rt.reload()
 print("PASS mouse buttons")
 
+# ---- Run: binds fire one command, no pie -----------------------------------
+model.set_bind(model.ANY_SCOPE, "F10", "Run:Std_New")
+rt.reload()
+gui.ran.clear()
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F10))
+assert gui.ran == ["Std_New"]                # fired on the press itself
+assert rt.dispatcher.current is None         # and no widget opened
+rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F10))
+wait(400)                                    # clear the double window
+# tap = the command, hold = a pie, on the same key
+model.set_bind(model.ANY_SCOPE, "F10", "Sub", "hold")
+rt.reload()
+gui.ran.clear()
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F10))
+assert gui.ran == []                         # ambiguous: deferred
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F10))
+assert gui.ran == ["Std_New"]                # early release = the tap
+wait(400)
+gui.ran.clear()
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F10))
+wait(300)                                    # past DEFER_MS: the hold
+held_pie = rt.dispatcher.current
+assert held_pie is not None and held_pie.pie.name == "Sub"
+assert gui.ran == []
+rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F10))
+rt.dispatcher.close()
+model.remove_key("F10")
+rt.reload()
+print("PASS run binds")
+
 # ---- flick overshoot locks the crossed slot (grids/arcs) -------------------
 # circles resolve any reach by angle now, so the lock's remaining home
 # is layouts where a far release resolves to nothing: grids and arcs
