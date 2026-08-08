@@ -1521,11 +1521,17 @@ class PieMenuPreferences(QtWidgets.QDialog):
         act.setEnabled(len(self.pies) > 1 and bool(selected))
         menu.addSeparator()
         menu.addAction("Use when no workbench matches", self.pie_default)
+        pin = menu.addAction("Pin to screen", self._pin_current)
+        pin.setEnabled(runtime.runtime is not None)
         menu.addSeparator()
         menu.addAction("Export this pie…", self.pie_export)
         menu.addAction("Import a pie…", self.pie_import)
         menu.addAction("New from a toolbar…", self.pie_from_toolbar)
         menu.exec_(self.pie_list.mapToGlobal(point))
+
+    def _pin_current(self):
+        if runtime.runtime is not None:
+            runtime.runtime.pin_pie(self.current)
 
     def pie_export(self):
         pie = self.pie()

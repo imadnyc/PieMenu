@@ -320,6 +320,8 @@ class PieWidget(QtWidgets.QWidget):
         self.counts = counts
         self.fire = fire
         self._rt = runtime
+        self.pinned = False
+        self._drag_at = None
         self._hover_timer = None
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
@@ -580,20 +582,27 @@ class PieWidget(QtWidgets.QWidget):
     def activate(self, cmd, sticky=None):
         """Run a command, or descend into a pie at the same spot.
 
-        Shift held = sticky: fire without closing, chain several tools."""
+        Shift held = sticky: fire without closing, chain several tools.
+        Pinned palettes never close on fire."""
         if is_pie_command(cmd):
             target = pie_target(cmd)
             if target in self.pies:
-                # the sub-pie spawns where the hand already is
+                # the sub-pie spawns where the hand already is (a pinned
+                # palette stays where it is)
+                anchor = self.mapToGlobal(QtCore.QPoint(
+                    int(self._origin[0]), int(self._origin[1]))) \
+                    if self.pinned else QtGui.QCursor.pos()
                 self._stack.append(self.pie.name)
                 self.build(target)
                 self._back_button()
-                self.popup_at(QtGui.QCursor.pos())
+                if self.pinned:
+                    self._pin_close_button()
+                self.popup_at(anchor)
                 return
         if sticky is None:
             sticky = bool(QtWidgets.QApplication.keyboardModifiers()
                           & QtCore.Qt.ShiftModifier)
-        if sticky:
+        if sticky or self.pinned:
             self.fire(cmd)
             return
         self.close()
@@ -628,6 +637,55 @@ class PieWidget(QtWidgets.QWidget):
             label.move(int(self._origin[0] - label.width() / 2),
                        int(self._origin[1] + size / 2 + 2))
 
+    def pin(self):
+        """Turn this popup into a floating palette: no grab, stays open,
+        tools fire without closing, drag anywhere to move, Esc or the ✕
+        closes. Conditional slots keep re-resolving as the selection
+        changes (the runtime refreshes pinned pies)."""
+        if self.pinned:
+            return
+        self.pinned = True
+        position = self.pos()
+        self.setWindowFlags(QtCore.Qt.Tool
+                            | QtCore.Qt.FramelessWindowHint
+                            | QtCore.Qt.WindowStaysOnTopHint)
+        self.move(position)
+        self.show()
+        self._pin_close_button()
+        if self._rt is not None:
+            self._rt.register_pin(self)
+            if self._rt.dispatcher.current is self:
+                self._rt.dispatcher.current = None
+
+    def _pin_close_button(self):
+        btn = QtWidgets.QToolButton(self)
+        btn.setText("✕")
+        btn.setAutoRaise(True)
+        text_halo(btn)
+        btn.setToolTip("Unpin")
+        btn.adjustSize()
+        btn.move(self.width() - btn.width() - 2, 2)
+        btn.clicked.connect(self.close)
+        btn.setVisible(True)
+
+    def refresh_counts(self, counts):
+        """Pinned palettes follow the selection: rebuild in place."""
+        self.counts = counts
+        self.build(self.pie.name)
+        self._pin_close_button()
+
+    def closeEvent(self, event):
+        if self.pinned and self._rt is not None:
+            self._rt.unregister_pin(self)
+        super().closeEvent(event)
+
+    def mousePressEvent(self, event):
+        if self.pinned:
+            self._drag_at = event.globalPosition().toPoint() - self.pos() \
+                if hasattr(event, "globalPosition") \
+                else event.globalPos() - self.pos()
+        super().mousePressEvent(event)
+
     def show_hint(self, text):
         """The binding that opened this pie, shown while it is still new."""
         label = QtWidgets.QLabel(text, self)
@@ -650,6 +708,12 @@ class PieWidget(QtWidgets.QWidget):
                     return
         if key == QtCore.Qt.Key_Backspace and self._stack:
             self.back()
+            return
+        if key == QtCore.Qt.Key_P and not self.pinned:
+            self.pin()
+            return
+        if key == QtCore.Qt.Key_Escape and self.pinned:
+            self.close()
             return
         super().keyPressEvent(event)
 
@@ -706,6 +770,12 @@ class PieWidget(QtWidgets.QWidget):
     # -- the gesture arrow (release mode): centre -> cursor
 
     def mouseMoveEvent(self, event):
+        if self.pinned and self._drag_at is not None \
+                and event.buttons() & QtCore.Qt.LeftButton:
+            here = event.globalPosition().toPoint() \
+                if hasattr(event, "globalPosition") else event.globalPos()
+            self.move(here - self._drag_at)
+            return
         if self.run_mode == "release":
             self._aim = event.position().toPoint() \
                 if hasattr(event, "position") else event.pos()
@@ -1151,6 +1221,7 @@ class Runtime:
         self.binds = {}
         self._keys = {}               # normalised key -> stored key
         self._registered = set()
+        self._pinned = []             # floating palettes, refreshed on select
         self.open_preferences = None  # wired by InitGui once the dialog exists
         self.dispatcher = Dispatcher(
             self._open_for_dispatch, self._gestures,
@@ -1161,7 +1232,7 @@ class Runtime:
         self._sel_timer = QtCore.QTimer()
         self._sel_timer.setSingleShot(True)
         self._sel_timer.setInterval(200)
-        self._sel_timer.timeout.connect(self._auto_open)
+        self._sel_timer.timeout.connect(self._selection_settled)
         # FreeCAD only writes user.cfg on a clean exit; flush shortly after
         # activity so stats and edits survive crashes and kills too
         self._save_timer = QtCore.QTimer()
@@ -1275,6 +1346,19 @@ class Runtime:
 
     # -- auto-open on selection (off unless the behaviour switch is on)
 
+    def register_pin(self, widget):
+        self._pinned.append(widget)
+
+    def unregister_pin(self, widget):
+        if widget in self._pinned:
+            self._pinned.remove(widget)
+
+    def pin_pie(self, name, at=None):
+        widget = self.open_pie(name, at)
+        if widget is not None:
+            widget.pin()
+        return widget
+
     def watch_selection(self):
         try:
             import FreeCADGui as Gui
@@ -1283,11 +1367,22 @@ class Runtime:
             return
 
     def _selection_poke(self):
-        if App is None or not behaviour()["autoopen"]:
+        if App is None:
+            return
+        if not self._pinned and not behaviour()["autoopen"]:
             return
         self._sel_timer.start()
 
+    def _selection_settled(self):
+        counts = self.counts()
+        for widget in list(self._pinned):    # palettes follow the selection
+            if widget.isVisible():
+                widget.refresh_counts(counts)
+        self._auto_open()
+
     def _auto_open(self):
+        if not behaviour()["autoopen"]:
+            return
         disp = self.dispatcher
         if disp.current is not None and disp.current.isVisible():
             return

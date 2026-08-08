@@ -554,6 +554,33 @@ assert gui.ran == []                     # a descend runs nothing
 w.close()
 print("PASS door via keys")
 
+# ---- pinned palettes -------------------------------------------------------
+gui.ran.clear()
+pw = rt.pin_pie("Main")
+assert pw is not None and pw.pinned and pw.isVisible()
+assert pw._name_label.graphicsEffect() is not None   # readability halo
+assert pw in rt._pinned
+pw.activate("Std_Undo")                  # fires without closing
+assert gui.ran == ["Std_Undo"] and pw.isVisible()
+pw.activate("PieMenu_Sub")               # doors re-anchor in place
+assert pw.pie.name == "Sub" and pw.isVisible() and pw.pinned
+pw.refresh_counts({"Face": 1})           # selection change rebuilds
+assert pw.isVisible() and pw.pinned
+rt._selection_settled()                  # the runtime refresh path
+assert pw.isVisible()
+pw.close()
+assert pw not in rt._pinned
+print("PASS pinned palettes")
+
+# pinning a dispatcher-opened pie detaches it from the dispatcher
+w2 = rt.open_pie("Main")
+rt.dispatcher.current = w2
+w2.pin()
+assert rt.dispatcher.current is None and w2 in rt._pinned
+w2.close()
+assert w2 not in rt._pinned
+print("PASS pin detaches dispatcher")
+
 # ---- sketch-edit scope -----------------------------------------------------
 class FakeSketch:
     def isDerivedFrom(self, t):
