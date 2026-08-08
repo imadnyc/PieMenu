@@ -385,6 +385,22 @@ assert dialog.command_label("Panel:OK") == "OK (task panel)"
 assert dlg._pie_dict(dlg.pies["Main"]).get("door_instant") is False
 print("PASS panel labels")
 
+# ---- the editor flags rings wider than eight ---------------------------------
+dlg.select_pie("Main")
+dlg.pies["Main"].slots = 12
+dlg.pies["Main"].per_ring = 12
+model.save_pie(dlg.pies["Main"])
+dlg.refresh()
+app.processEvents()
+assert not dlg._wide_hint.isHidden()         # 12-wide ring: hint shows
+dlg.pies["Main"].slots = 6
+dlg.pies["Main"].per_ring = 6
+model.save_pie(dlg.pies["Main"])
+dlg.refresh()
+app.processEvents()
+assert dlg._wide_hint.isHidden()
+print("PASS wide-ring hint")
+
 # ---- the keys cheat sheet builds and names the essentials --------------------
 kd = dialog.keys_dialog(dlg)
 kd_text = " ".join(lb.text() for lb in kd.findChildren(QtWidgets.QLabel))

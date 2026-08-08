@@ -78,6 +78,7 @@ fail and point at the rest. Params live under
 | Keys cheat sheet | Keys… button, every key on one page | `dialog.keys_dialog` | delete + footer button |
 | Usage stats panel | Stats… button, top tools + reset | `dialog.stats_dialog` | delete + footer button |
 | Live preview | union view, chooser flash, names spread | `dialog.PiePreview` | core-ish |
+| Wide-ring hint | a quiet note when a ring exceeds 8 slots, pointing at door slots | `_wide_hint` in the layout panel + `_fill_settings_labels` | delete both |
 | Auto-open on selection | opt-in: selection matching a conditional slot opens the pie | `Runtime._auto_open`, `AutoOpenSelection` param | already opt-in |
 
 ## Sharing

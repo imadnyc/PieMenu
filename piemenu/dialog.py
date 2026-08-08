@@ -2295,6 +2295,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
                 row("Per ring", ring_edit)
             if pie.ring_mode != "auto":
                 self._auto_plan_label = None
+            self._wide_hint = QtWidgets.QLabel(
+                "Rings wider than 8 are hard to aim — consider a door "
+                "slot into a sub-pie.")
+            self._wide_hint.setWordWrap(True)
+            self._wide_hint.setStyleSheet("color: gray;")
+            self._wide_hint.setVisible(any(c > 8 for c in plan))
+            row("Wide rings", self._wide_hint)
             spacing = row("Spacing",
                           self._slider(pie.spacing, 0, 60, "spacing"))
             if len(model.ring_plan(pie)) <= 1:
@@ -2429,6 +2436,14 @@ class PieMenuPreferences(QtWidgets.QDialog):
         if label is not None and self.pie().ring_mode == "auto":
             plan = model.ring_plan(self.pie())
             label.setText(" · ".join(str(c) for c in plan) + "  (by radius)")
+        hint = getattr(self, "_wide_hint", None)
+        if hint is not None:
+            try:
+                hint.setVisible(
+                    self.pie().family == "circle"
+                    and any(c > 8 for c in model.ring_plan(self.pie())))
+            except Exception:  # noqa: BLE001, S110 -- panel mid-rebuild
+                pass
 
     def _slider(self, value, lo, hi, field):
         w = SliderSpin(value, lo, hi)
