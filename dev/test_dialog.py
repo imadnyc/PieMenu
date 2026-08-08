@@ -307,6 +307,12 @@ if os.path.isdir(preset_dir):
     assert any(s for s in dlg.pies["PartDesignMisc"].items if s)
     print("PASS presets")
 
+# ---- SketchEdit is offered as a scope and chains through Sketcher ------------
+scopes = dialog.workbench_scopes()
+assert model.SKETCH_EDIT_SCOPE in scopes
+assert scopes.index(model.SKETCH_EDIT_SCOPE) == \
+    scopes.index("Sketcher") + 1
+
 # ---- the global surface is just accent + backup ------------------------------
 assert not hasattr(dlg, "g_toggle")      # the behaviour toggles are gone
 assert not hasattr(dlg, "g_rclick")

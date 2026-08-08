@@ -71,7 +71,16 @@ def arrow_color():
 
 
 def workbench_scope(gui):
-    """The active workbench as a scope name ("PartDesign")."""
+    """The active scope: "SketchEdit" while a sketch is being edited,
+    else the active workbench's name ("PartDesign")."""
+    try:
+        active_doc = getattr(gui, "ActiveDocument", None)
+        edit = active_doc.getInEdit() if active_doc is not None else None
+        obj = getattr(edit, "Object", None)
+        if obj is not None and obj.isDerivedFrom("Sketcher::SketchObject"):
+            return model.SKETCH_EDIT_SCOPE
+    except Exception:  # noqa: BLE001, S110 -- no edit session
+        pass
     try:
         return gui.activeWorkbench().name().split("Workbench")[0]
     except Exception:  # noqa: BLE001 -- half-built Gui in console mode
@@ -136,6 +145,8 @@ def workbench_icon(name):
     """
     if App is None or not App.GuiUp:
         return None
+    if name == model.SKETCH_EDIT_SCOPE:
+        name = "Sketcher"             # wears the Sketcher icon
     try:
         import FreeCADGui as Gui
         benches = Gui.listWorkbenches()

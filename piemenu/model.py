@@ -335,13 +335,24 @@ def pie_live(name, pies, counts, _seen=None):
 
 GESTURES = ("press", "double", "hold", "double-hold")
 
+# editing a sketch is its own scope, more specific than the Sketcher
+# workbench: keys can mean one thing in the bench and another in the sketch
+SKETCH_EDIT_SCOPE = "SketchEdit"
+
+
+def scope_chain(workbench):
+    """The scopes a resolution walks, most specific first."""
+    if workbench == SKETCH_EDIT_SCOPE:
+        return (SKETCH_EDIT_SCOPE, "Sketcher", ANY_SCOPE)
+    return (workbench, ANY_SCOPE)
+
 def resolve_key(key, workbench, binds, gesture="press"):
     """(pie name, scope) for a key + gesture in a workbench, or None.
 
     The whole rule: the workbench's own binding beats the Any scope; if
     neither names the key for that gesture, the gesture does nothing.
     """
-    for scope in (workbench, ANY_SCOPE):
+    for scope in scope_chain(workbench):
         name = binds.get(scope, {}).get(key, {}).get(gesture)
         if name:
             return name, scope

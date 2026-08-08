@@ -107,9 +107,13 @@ def workbench_scopes():
         import FreeCADGui as Gui
         names = sorted({str(w).split("Workbench")[0]
                         for w in Gui.listWorkbenches()})
-        return [n for n in names if n and n != "None"]
+        names = [n for n in names if n and n != "None"]
     except Exception:  # noqa: BLE001 -- console mode / tests
-        return ["Assembly", "Draft", "Part", "PartDesign", "Sketcher"]
+        names = ["Assembly", "Draft", "Part", "PartDesign", "Sketcher"]
+    if "Sketcher" in names:
+        # editing a sketch is its own, more specific scope
+        names.insert(names.index("Sketcher") + 1, model.SKETCH_EDIT_SCOPE)
+    return names
 
 
 def workbench_icon(scope):
@@ -1028,19 +1032,27 @@ class ShortcutsTable(QtWidgets.QWidget):
 
     def _cell_label(self, key, scope):
         """One line per gesture the key uses anywhere: '· pie' solid when
-        bound here, '↳ pie' dim italic when it flows in from Any, '—' when
-        that gesture does nothing in this workbench."""
+        bound here, '↳ pie' dim italic when it flows in from a parent
+        scope, '—' when that gesture does nothing in this workbench."""
         lines, tips = [], []
+        parents = [s for s in model.scope_chain(scope) if s != scope]
         for g in model.key_gestures(key, self.binds):
             own = self.binds.get(scope, {}).get(key, {}).get(g)
-            base = self.binds.get(ANY_SCOPE, {}).get(key, {}).get(g)
             glyph = f'<span style="color:#888">{GLYPH[g]}</span>'
+            inherited = None
+            if not own and scope != ANY_SCOPE:
+                for parent in parents:
+                    got = self.binds.get(parent, {}).get(key, {}).get(g)
+                    if got:
+                        inherited = (got, parent)
+                        break
             if own:
                 lines.append(f"{glyph} {own}")
                 tips.append(f"{GNAME[g]}: {own}")
-            elif scope != ANY_SCOPE and base:
-                lines.append(f'{glyph} <i style="color:#888">↳ {base}</i>')
-                tips.append(f"{GNAME[g]}: {base} — flows in from {ANY_SCOPE}")
+            elif inherited:
+                got, parent = inherited
+                lines.append(f'{glyph} <i style="color:#888">↳ {got}</i>')
+                tips.append(f"{GNAME[g]}: {got} — flows in from {parent}")
             else:
                 lines.append(f'{glyph} <span style="color:#777">—</span>')
         label = QtWidgets.QLabel("<br>".join(lines))

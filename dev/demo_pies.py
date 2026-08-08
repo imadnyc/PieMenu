@@ -120,6 +120,8 @@ BINDS = [
     ("PartDesign", "F3", "Modelling", "hold"),
     ("PartDesign", "F3", "Patterns", "double-hold"),
     ("Sketcher", "F3", "Sketching", "hold"),
+    # inside sketch editing, tapping F3 goes straight to constraints
+    ("SketchEdit", "F3", "Constraints", "press"),
     (ANY_SCOPE, "F4", "Modelling", "press"),
     (ANY_SCOPE, "F4", "Patterns", "double"),
     (ANY_SCOPE, "F6", "View", "press"),

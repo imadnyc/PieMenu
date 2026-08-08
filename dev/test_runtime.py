@@ -554,5 +554,33 @@ assert gui.ran == []                     # a descend runs nothing
 w.close()
 print("PASS door via keys")
 
+# ---- sketch-edit scope -----------------------------------------------------
+class FakeSketch:
+    def isDerivedFrom(self, t):
+        return t == "Sketcher::SketchObject"
+
+
+class FakeEdit:
+    Object = FakeSketch()
+
+
+class FakeEditDoc:
+    def getInEdit(self):
+        return FakeEdit()
+
+
+assert runtime.workbench_scope(gui) == "PartDesign"
+gui.ActiveDocument = FakeEditDoc()
+assert runtime.workbench_scope(gui) == model.SKETCH_EDIT_SCOPE
+# resolution chains SketchEdit -> Sketcher -> Any
+model.set_bind("Sketcher", "F6", "Sub")
+rt.reload()
+assert rt._resolve("F6") == "Sub"        # Sketcher bind wins over Any's Main
+model.set_bind(model.SKETCH_EDIT_SCOPE, "F6", "Main")
+rt.reload()
+assert rt._resolve("F6") == "Main"       # the edit-scope bind wins over both
+gui.ActiveDocument = None
+print("PASS sketch-edit scope")
+
 App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 print("RUNTIME-TESTS-PASS")

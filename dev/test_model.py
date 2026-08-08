@@ -212,6 +212,18 @@ assert M.resolve_key("1", "PartDesign", binds) == ("Main", "PartDesign")
 assert M.resolve_key("9", "PartDesign", binds) == ("Override", "PartDesign")
 assert M.resolve_key("9", "Sketcher", binds) == ("Sketching", "Any")
 assert M.resolve_key("7", "PartDesign", binds) is None
+
+# sketch editing is its own scope, falling back through Sketcher to Any
+assert M.scope_chain("PartDesign") == ("PartDesign", "Any")
+assert M.scope_chain(M.SKETCH_EDIT_SCOPE) == \
+    (M.SKETCH_EDIT_SCOPE, "Sketcher", "Any")
+binds["Sketcher"] = {"9": {"press": "SkPie"}}
+assert M.resolve_key("9", M.SKETCH_EDIT_SCOPE, binds) == \
+    ("SkPie", "Sketcher")
+binds[M.SKETCH_EDIT_SCOPE] = {"9": {"press": "EditPie"}}
+assert M.resolve_key("9", M.SKETCH_EDIT_SCOPE, binds) == \
+    ("EditPie", M.SKETCH_EDIT_SCOPE)
+assert M.resolve_key("0", M.SKETCH_EDIT_SCOPE, binds) == ("View", "Any")
 print("PASS resolution")
 
 # ---- ParamGet round trip (the part that needs FreeCAD) --------------------
