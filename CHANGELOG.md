@@ -31,7 +31,12 @@ config is migrated automatically and left untouched.
   table, usage stats, one-click session revert, new-pie-from-toolbar,
   multi-select delete.
 - Numbers 1-9 fire slots, Shift chains without closing, right-click a
-  live slot to edit it, macros and workbenches as slot targets.
+  live slot to edit it, macros and workbenches as slot targets, and
+  Panel:OK/Apply/Cancel slots drive the open task panel.
+- The aim is read as a direction (radius picks the ring on multi-ring
+  pies): the aimed slot highlights, the centre names what release will
+  do, dead or empty sectors are deliberate no-ops, and pies at the
+  screen edge shift fully on-screen.
 
 ## 1.13
 - Refactor monolithic code https://github.com/Grubuntu/PieMenu/pull/137 (Ben-PH)

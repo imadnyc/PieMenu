@@ -11,6 +11,7 @@ Structured for testability: the widget and the dispatcher take their inputs
 FreeCAD GUI; ``start()`` wires the real thing.
 """
 
+import itertools
 import math
 import os
 
@@ -385,6 +386,9 @@ class PieWidget(QtWidgets.QWidget):
         self._collapsed = False
         self._expanded_geo = None
         self._crossed = None          # (button, ms): last slot flown over
+        self._sectors = []            # (ring, radius, angle, btn) circles
+        self._aimed = None            # slot currently ringed by the aim
+        self._aim_stick = None        # incumbent slot at sector boundaries
         self._hover_timer = None
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
@@ -404,6 +408,8 @@ class PieWidget(QtWidgets.QWidget):
         self._chooser = None
         self._aim = None
         self._crossed = None
+        self._aimed = None
+        self._aim_stick = None
         pie = self.pies[name]
         model.normalise(pie)
         own = QtGui.QColor(pie.accent) if pie.accent else QtGui.QColor()
@@ -439,6 +445,9 @@ class PieWidget(QtWidgets.QWidget):
             # anchor for muscle memory
             f'QToolButton[last="true"]{{border:1px solid '
             f"rgba({acc.red()},{acc.green()},{acc.blue()},150);}}"
+            # the slot the gesture is aimed at right now
+            f'QToolButton[aimed="true"]{{border:2px solid '
+            f"{self._accent.name()};}}"
             f"QToolButton:hover{{border:2px solid {self._accent.name()};}}"
             "QToolButton:disabled{background:palette(window);"
             f"border:1px dashed {out_css};}}")
@@ -483,6 +492,18 @@ class PieWidget(QtWidgets.QWidget):
         for (x, y), btn in zip(pos, self.buttons):
             btn.move(int(x - min_x - btn.width() / 2),
                      int(y - min_y - btn.height() / 2))
+        # circle pies resolve the aim by direction: remember each slot's
+        # ring and angle (screen coords, y down). Grids stay distance-based.
+        self._sectors = []
+        if pie.family == "circle":
+            plan = model.ring_plan(pie, len(pos))
+            ring, k = 0, 0
+            for (x, y), btn in zip(pos, self.buttons):
+                self._sectors.append(
+                    (ring, math.hypot(x, y), math.atan2(y, x), btn))
+                k += 1
+                if k >= plan[ring]:
+                    ring, k = ring + 1, 0
         # the pie says its name at the centre, so you always know which
         # one answered the key
         name_label = HaloLabel(pie.name, self, "#999", 10)
@@ -637,18 +658,19 @@ class PieWidget(QtWidgets.QWidget):
         if cmd.startswith(model.PANEL_PREFIX) and not panel_open():
             live = False
             tip = f"{cmd[len(model.PANEL_PREFIX):]} — no task panel open"
+        if binding.label:
+            text = binding.label
+        elif cmd.startswith(model.PANEL_PREFIX):
+            text = cmd[len(model.PANEL_PREFIX):]
+        elif is_pie_command(cmd):
+            text = pie_target(cmd)
+        elif cmd.endswith("Workbench") and "_" not in cmd:
+            text = cmd[:-len("Workbench")]
+        else:
+            text = cmd.split("_", 1)[-1]
+        btn.setProperty("aimname", text)     # the centre readout's word
         if self.pie.show_names:
             btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
-            if binding.label:
-                text = binding.label
-            elif cmd.startswith(model.PANEL_PREFIX):
-                text = cmd[len(model.PANEL_PREFIX):]
-            elif is_pie_command(cmd):
-                text = pie_target(cmd)
-            elif cmd.endswith("Workbench") and "_" not in cmd:
-                text = cmd[:-len("Workbench")]
-            else:
-                text = cmd.split("_", 1)[-1]
             btn.setText(text)
             # a 34px square clips text-under-icon into nothing: size from the
             # style's own hint (font metrics undercount once a theme
@@ -876,9 +898,14 @@ class PieWidget(QtWidgets.QWidget):
         self.show()
 
     def nearest_slot(self, global_pos):
-        """The button nearest the cursor, for gesture release. Disabled
-        slots take part: aiming at one is a deliberate no-op the caller
-        must honour, never a pass-through to the enabled neighbour."""
+        """The slot the position aims at. Circle pies read a direction:
+        the radius picks the ring, the angle picks the slot within it,
+        so the same direction resolves the same at any reach. Grids stay
+        nearest-by-distance. Disabled and empty slots take part: aiming
+        at one is a deliberate no-op the caller must honour, never a
+        pass-through to the enabled neighbour."""
+        if self._sectors:
+            return self._angular_slot(global_pos)
         best, dist = None, None
         for btn in self.buttons:
             if not btn.isVisible():          # hidden = empty slot
@@ -894,6 +921,80 @@ class PieWidget(QtWidgets.QWidget):
         limit = (self.pie.button * 1.6) ** 2
         under = self.rect().contains(self.mapFromGlobal(global_pos))
         return best if (under or dist <= limit * 4) else None
+
+    def _angular_slot(self, global_pos):
+        """Direction-first resolution with ~5 degrees of stickiness for
+        the slot already resolved, so sector boundaries don't flutter."""
+        origin = self.mapToGlobal(QtCore.QPoint(int(self._origin[0]),
+                                                int(self._origin[1])))
+        dx = global_pos.x() - origin.x()
+        dy = global_pos.y() - origin.y()
+        reach = math.hypot(dx, dy)
+        theta = math.atan2(dy, dx)
+        rings = {}
+        for ring, radius, angle, btn in self._sectors:
+            rings.setdefault(ring, []).append((angle, radius, btn))
+        radii = {ring: sum(s[1] for s in slots) / len(slots)
+                 for ring, slots in rings.items()}
+        outer = max(radii.values())
+        # the ring the reach points at; past the outer ring IS the outer
+        # ring -- a fling keeps its direction at any length
+        band = min(radii, key=lambda r: abs(radii[r] - min(reach, outer)))
+        slots = rings[band]
+
+        def delta(angle):
+            d = abs(angle - theta) % (2 * math.pi)
+            return min(d, 2 * math.pi - d)
+
+        if len(slots) > 1:
+            ordered = sorted(a for a, _r, _b in slots)
+            gaps = [b - a for a, b in itertools.pairwise(ordered)]
+            gaps.append(2 * math.pi - (ordered[-1] - ordered[0]))
+            half = max(min(gaps) / 2, math.radians(6))
+        else:
+            half = math.pi / 2
+        stick = math.radians(5)
+        best_angle, _r, best = min(slots, key=lambda s: delta(s[0]))
+        if self._aim_stick is not None and self._aim_stick is not best:
+            for angle, _radius, btn in slots:
+                if btn is self._aim_stick and delta(angle) <= half + stick:
+                    best_angle, best = angle, btn   # incumbent keeps it
+                    break
+        margin = stick if best is self._aim_stick else 0.0
+        if delta(best_angle) > half + margin:
+            self._aim_stick = None       # outside every sector (arc pies)
+            return None
+        self._aim_stick = best
+        return best
+
+    def _set_aim(self, btn):
+        """Live feedback for the gesture: ring the slot the aim resolves
+        to, and say at the centre what release will do."""
+        shown = btn if btn is not None and btn.isVisible() else None
+        target = shown if shown is not None and shown.isEnabled() else None
+        if target is not self._aimed:
+            for widget, state in ((self._aimed, False), (target, True)):
+                if widget is not None:
+                    widget.setProperty("aimed", state)
+                    widget.style().unpolish(widget)
+                    widget.style().polish(widget)
+            self._aimed = target
+        label = getattr(self, "_name_label", None)
+        if label is None:
+            return
+        if shown is None:
+            text = "Cancel"
+        else:
+            text = shown.property("aimname") or ""
+            if not shown.isEnabled():
+                text += " — unavailable"
+        if text != label.text():
+            centre = label.geometry().center()
+            label.setText(text)
+            label.adjustSize()
+            geo = label.geometry()
+            geo.moveCenter(centre)
+            label.move(geo.topLeft())
 
     def commit_gesture(self, pos=None):
         """Release in a hold pie: run whatever the cursor is aimed at.
@@ -946,15 +1047,17 @@ class PieWidget(QtWidgets.QWidget):
         if self.run_mode == "release":
             self._aim = event.position().toPoint() \
                 if hasattr(event, "position") else event.pos()
-            # remember the slot the aim is flying over: a fast flick can
-            # overshoot the ring before the release lands
             spot = self.mapToGlobal(self._aim)
             dx = self._aim.x() - self._origin[0]
             dy = self._aim.y() - self._origin[1]
-            if (dx * dx + dy * dy) ** 0.5 >= max(24, self.pie.radius * 0.45):
-                over = self.nearest_slot(spot)
-                if over is not None and over.isEnabled():
-                    self._crossed = (over, _now_ms())
+            beyond = (dx * dx + dy * dy) ** 0.5 \
+                >= max(24, self.pie.radius * 0.45)
+            over = self.nearest_slot(spot) if beyond else None
+            # remember the slot the aim is flying over: a fast flick can
+            # overshoot an arc or grid pie before the release lands
+            if over is not None and over.isEnabled():
+                self._crossed = (over, _now_ms())
+            self._set_aim(over)
             self.update()
         super().mouseMoveEvent(event)
 

@@ -15,7 +15,9 @@ fail and point at the rest. Params live under
 | Move-opens-sooner | mouse movement during an ambiguous press opens the hold pie at once | `Dispatcher.eventFilter` MouseMove branch | delete that branch |
 | Mouse thumb buttons | Mouse4/Mouse5 bind like keys, all gestures | `runtime.MOUSE_KEYS`, mouse branches in `Dispatcher.eventFilter`, `dialog._MouseCatch` | delete those three |
 | Right-click trigger | long right-click opens the resolved pie | `Dispatcher._arm_rclick`, `RightClickTrigger` param | delete methods + param |
-| Flick-overshoot lock | releasing beyond the ring fires the slot crossed <150 ms ago | `PieWidget._crossed` in `mouseMoveEvent` + `commit_gesture` | delete both `_crossed` blocks |
+| Angular aim | circle pies read the gesture as a direction: radius picks the ring, angle the slot; dead/empty sectors are no-ops; ~5° boundary stickiness | `PieWidget._angular_slot`, `_sectors` in `build` | delete both; the Euclidean fallback in `nearest_slot` takes over |
+| Aim feedback | the aimed slot wears an accent ring and the centre names what release will do ("Cancel" in the dead zone) | `PieWidget._set_aim`, `aimed` rule in `build`, `aimname` property in `_decorate` | delete those three |
+| Flick-overshoot lock | on grids and arc pies, releasing where nothing resolves fires the slot crossed <150 ms ago | `PieWidget._crossed` in `mouseMoveEvent` + `commit_gesture` | delete both `_crossed` blocks |
 
 ## Slots and rules
 

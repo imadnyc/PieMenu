@@ -126,13 +126,35 @@ w.deleteLater()
 pies["Main"].run_on = "click"
 print("PASS hover")
 
-# ---- gesture aiming --------------------------------------------------------
+# ---- gesture aiming: angular on circles ------------------------------------
+import math
+
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 w.popup_at(QtCore.QPoint(400, 400))
+og = w.mapToGlobal(QtCore.QPoint(int(w._origin[0]), int(w._origin[1])))
+
+
+def ray(deg, reach=200):
+    a = math.radians(deg)
+    return og + QtCore.QPoint(int(math.cos(a) * reach),
+                              int(math.sin(a) * reach))
+
+
 centre = w.buttons[1].mapToGlobal(QtCore.QPoint(17, 17))
 assert w.nearest_slot(centre) is w.buttons[1]
-far = w.mapToGlobal(QtCore.QPoint(-2000, -2000))
-assert w.nearest_slot(far) is None
+# scale independence: the same direction resolves the same at any reach
+delta = centre - og
+assert w.nearest_slot(og + delta * 30) is w.buttons[1]
+# an empty sector (west: slot 6 is unfilled; slot 0 faces north) is a
+# no-op target, not a snap to the neighbour
+empty = w.nearest_slot(ray(180))
+assert empty is w.buttons[6] and not empty.isEnabled()
+# ~5 degrees of stickiness: the incumbent keeps the boundary (slot 0 at
+# -90°, slot 1 at -45°, boundary -67.5°)
+w._aim_stick = None
+assert w.nearest_slot(ray(-80)) is w.buttons[0]
+assert w.nearest_slot(ray(-66)) is w.buttons[0]  # 1.5° past, held
+assert w.nearest_slot(ray(-55)) is w.buttons[1]  # decisively past
 w.close()
 w.deleteLater()
 print("PASS gesture aim")
@@ -598,8 +620,30 @@ model.remove_key("Mouse4")
 rt.reload()
 print("PASS mouse buttons")
 
-# ---- flick overshoot locks the crossed slot --------------------------------
+# ---- flick overshoot locks the crossed slot (grids/arcs) -------------------
+# circles resolve any reach by angle now, so the lock's remaining home
+# is layouts where a far release resolves to nothing: grids and arcs
 fired.clear()
+# cols=4 puts the outer slots ~60px out, past the 36px dead zone
+gflick = Pie("GFlick", family="grid", cols=4, rows=1, radius=80,
+             run_on="release")
+model.normalise(gflick)
+gflick.items[0] = [Binding("Std_Undo")]
+gflick.items[1] = [Binding("Std_Redo")]
+w = runtime.PieWidget({"GFlick": gflick}, "GFlick", {}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+over = w.buttons[0].mapToGlobal(QtCore.QPoint(17, 17))
+w.mouseMoveEvent(QtGui.QMouseEvent(
+    QtCore.QEvent.MouseMove, QtCore.QPointF(w.mapFromGlobal(over)),
+    QtCore.QPointF(over), QtCore.Qt.NoButton, QtCore.Qt.NoButton,
+    QtCore.Qt.NoModifier))
+assert w._crossed is not None and w._crossed[0] is w.buttons[0]
+w.commit_gesture(pos=w.mapToGlobal(QtCore.QPoint(-3000, -3000)))
+assert fired == ["Std_Undo"], fired          # the flown-over slot fired
+w.deleteLater()
+print("PASS flick lock")
+
+# ---- aim feedback: highlight ring and centre readout -----------------------
 pies["Main"].run_on = "release"
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 w.popup_at(QtCore.QPoint(400, 400))
@@ -608,12 +652,20 @@ w.mouseMoveEvent(QtGui.QMouseEvent(
     QtCore.QEvent.MouseMove, QtCore.QPointF(w.mapFromGlobal(over)),
     QtCore.QPointF(over), QtCore.Qt.NoButton, QtCore.Qt.NoButton,
     QtCore.Qt.NoModifier))
-assert w._crossed is not None and w._crossed[0] is w.buttons[1]
-w.commit_gesture(pos=w.mapToGlobal(QtCore.QPoint(-3000, -3000)))
-assert fired == ["Std_Undo"], fired          # the flown-over slot fired
+assert w._aimed is w.buttons[1]
+assert w.buttons[1].property("aimed") is True
+assert w._name_label.text() == w.buttons[1].property("aimname")
+inside = QtCore.QPoint(int(w._origin[0]) + 2, int(w._origin[1]) + 2)
+w.mouseMoveEvent(QtGui.QMouseEvent(
+    QtCore.QEvent.MouseMove, QtCore.QPointF(inside),
+    QtCore.QPointF(w.mapToGlobal(inside)), QtCore.Qt.NoButton,
+    QtCore.Qt.NoButton, QtCore.Qt.NoModifier))
+assert w._aimed is None and not w.buttons[1].property("aimed")
+assert w._name_label.text() == "Cancel"      # the dead zone is legible
+w.close()
 w.deleteLater()
 pies["Main"].run_on = "click"
-print("PASS flick lock")
+print("PASS aim feedback")
 
 # ---- task panel slots ------------------------------------------------------
 holder = QtWidgets.QWidget()

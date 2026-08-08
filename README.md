@@ -25,7 +25,10 @@ internals redone from scratch.
   When a key is ambiguous (a hold pie waiting out a possible double-tap),
   moving the mouse settles it instantly: motion means you're gesturing,
   so the pie opens right away, anchored where you pressed — your movement
-  already counts toward the aim.
+  already counts toward the aim. The aim itself is read as a direction
+  (distance only picks the ring on multi-ring pies), the slot you're
+  aiming at lights up, and the centre of the pie names what release will
+  do — "Cancel" while you're in the dead zone.
 * Slots can have selection conditions (a face, two objects, an edge...).
   The same pie with nothing selected and with a face selected:
 
@@ -45,7 +48,10 @@ internals redone from scratch.
 * There's a **Smart** pie that fills itself with your most-used tools for
   whatever workbench you're in. Counts decay over time so it tracks what
   you're doing now, not last month. Bind it to a key and forget about it.
-  Right-click a tool in it to pin it so it never rotates out.
+  Right-click a tool in it to pin it so it never rotates out, or to
+  ignore it entirely; your top tools land on the cardinal directions
+  first, and what you use with a face selected leads when a face is
+  selected.
 * Layouts: circles with multiple rings (uniform, auto-fit by
   circumference, or custom counts like 8,16), or grids hanging off any
   side of the cursor with per-block offsets. Here's a two-ring pie and
