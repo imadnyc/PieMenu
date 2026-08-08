@@ -207,7 +207,22 @@ def workbench_icon(name):
     return None
 
 
+# positive-sticky availability caches: a yes is stable until reload, a
+# no is re-checked every time (a workbench can appear mid-session), so
+# building a pie stops paying a registry scan per slot per open
+_AVAILABLE = {"prefix": set(), "cmd": set()}
+
+
 def prefix_available(prefix):
+    if prefix in _AVAILABLE["prefix"]:
+        return True
+    ok = _prefix_available_uncached(prefix)
+    if ok:
+        _AVAILABLE["prefix"].add(prefix)
+    return ok
+
+
+def _prefix_available_uncached(prefix):
     """Can commands with this prefix exist here? Cheap: no module import."""
     if prefix == "Std" or not prefix:
         return True
@@ -238,6 +253,15 @@ def panel_open():
 
 
 def command_available(cmd):
+    if cmd in _AVAILABLE["cmd"]:
+        return True
+    ok = _command_available_uncached(cmd)
+    if ok:
+        _AVAILABLE["cmd"].add(cmd)
+    return ok
+
+
+def _command_available_uncached(cmd):
     """False when a command's workbench/addon is not installed here."""
     if is_pie_command(cmd):
         return True                   # doors are validated against pies
@@ -1569,6 +1593,8 @@ class Runtime:
     # -- model access
 
     def reload(self):
+        _AVAILABLE["prefix"].clear()    # an addon may have just arrived
+        _AVAILABLE["cmd"].clear()
         self.pies = model.load_pies()   # a saved Smart carries its settings
         self.binds = model.load_binds()
         self._keys = {}

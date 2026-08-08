@@ -85,6 +85,7 @@ fail and point at the rest. Params live under
 |---|---|---|---|
 | Single-pie export/import | `.piemenu.json` with a `requires` list | `dialog.pie_export/pie_import_file`, `missing_requirements` | core of sharing |
 | Requires degradation | missing workbenches warn at import, buttons go dead with a reason | `runtime.prefix_available/command_available`, guard in `_decorate` | keep |
+| Availability cache | yes-answers cached until reload so opens stop re-scanning the registry | `runtime._AVAILABLE`, cleared in `Runtime.reload` | delete the wrappers, keep the `_uncached` bodies |
 | Preset provenance | reinstalling from the same source updates in place | `Pie.source`, `replacing` in `pie_import_file` | delete both |
 | Community browser | list + install from the shared GitHub repo | `dialog.browse_presets_dialog`, `PRESET_INDEX` | delete both |
 | Whole-setup bundles | every pie + the keybinds in one file, merge-import | `dialog.setup_export/setup_import` | delete both |

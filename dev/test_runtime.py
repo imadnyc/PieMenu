@@ -676,6 +676,14 @@ w.close()
 w.deleteLater()
 print("PASS screen clamp")
 
+# ---- availability caches: yes sticks until reload --------------------------
+runtime._AVAILABLE["prefix"].clear()
+assert runtime.prefix_available("PartDesign")
+assert "PartDesign" in runtime._AVAILABLE["prefix"]
+rt.reload()
+assert not runtime._AVAILABLE["prefix"]
+print("PASS availability cache")
+
 # ---- task panel slots ------------------------------------------------------
 holder = QtWidgets.QWidget()
 panel_box = QtWidgets.QDialogButtonBox(
