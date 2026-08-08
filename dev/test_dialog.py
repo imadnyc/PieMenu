@@ -312,6 +312,29 @@ if os.path.isdir(preset_dir):
     assert any(s for s in dlg.pies["PartDesignMisc"].items if s)
     print("PASS presets")
 
+# ---- whole-setup bundle: export, then merge without clobbering ---------------
+setup_path = os.path.join(tempfile.mkdtemp(prefix="pm-setup-"),
+                          "s.piemenu-setup.json")
+dlg.setup_export(setup_path)
+with open(setup_path) as fh:
+    sdata = json.load(fh)
+assert sdata["format"] == "piemenu-setup-1"
+assert any(p["name"] == "Main" for p in sdata["pies"])
+assert all(p["name"] != model.SMART_NAME for p in sdata["pies"])
+assert sdata["binds"]                    # the keybinds ride along
+dlg.pies_delete(["Sub"], confirm=False)
+assert "Sub" not in dlg.pies
+summary = dlg.setup_import(setup_path, confirm=False)
+assert "Sub" in summary["added"]         # the deleted pie came back
+assert "Main" in summary["skipped"]      # the existing one was kept
+assert summary["bound"] == 0             # every bind was already taken
+assert "Sub" in dlg.pies and "Sub" in model.load_pies()
+# a garbage file reports failure instead of raising
+with open(setup_path, "w") as fh:
+    fh.write("{nope")
+assert dlg.setup_import(setup_path, confirm=False) is None
+print("PASS setup bundle")
+
 # ---- mouse buttons: the recorder answers to a thumb click --------------------
 mdlg = QtWidgets.QDialog()
 mcaught = {}

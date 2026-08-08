@@ -1383,6 +1383,9 @@ class PieMenuPreferences(QtWidgets.QDialog):
                            lambda: browse_presets_dialog(
                                self, self.pie_import_file).exec_())
         add_menu.addAction("Import…", self.pie_import)
+        add_menu.addSeparator()
+        add_menu.addAction("Export whole setup…", self.setup_export)
+        add_menu.addAction("Import whole setup…", self.setup_import)
         add_btn.setMenu(add_menu)
         add_btn.setPopupMode(QtWidgets.QToolButton.InstantPopup)
         bar.addWidget(add_btn)
@@ -1680,13 +1683,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         if runtime.runtime is not None:
             runtime.runtime.pin_pie(self.current)
 
-    def pie_export(self):
-        pie = self.pie()
-        path, _ = QtWidgets.QFileDialog.getSaveFileName(
-            self, "Export pie", f"{pie.name}.piemenu.json",
-            "PieMenu pies (*.piemenu.json)")
-        if not path:
-            return
+    @staticmethod
+    def _pie_dict(pie):
         data = {f: getattr(pie, f) for f in
                 ("name", "family", "icon", "slots", "per_ring", "ring_mode",
                  "ring_counts", "radius", "arc", "arc_face", "stagger",
@@ -1697,8 +1695,37 @@ class PieMenuPreferences(QtWidgets.QDialog):
                            "label": b.label}
                           for b in (slot or [])] for slot in pie.items]
         data["requires"] = model.pie_requires(pie)
+        return data
+
+    @staticmethod
+    def _pie_from_dict(data):
+        """A Pie from an exported dict; raises on malformed rules."""
+        data = dict(data)
+        items = data.pop("items", [])
+        pie = Pie(name="Imported")
+        for key, value in data.items():
+            if hasattr(pie, key):
+                setattr(pie, key, value)
+        pie.name = str(data.get("name", "Imported"))
+        pie.default = False
+        model.normalise(pie)
+        for i, slot in enumerate(items[:len(pie.items)]):
+            bindings = [Binding(e["cmd"],
+                                model.decode_rule(e.get("rule", "")),
+                                e.get("label", ""))
+                        for e in slot if e.get("cmd")]
+            pie.items[i] = bindings or None
+        return pie
+
+    def pie_export(self):
+        pie = self.pie()
+        path, _ = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Export pie", f"{pie.name}.piemenu.json",
+            "PieMenu pies (*.piemenu.json)")
+        if not path:
+            return
         with open(path, "w", encoding="utf-8") as fh:
-            json.dump(data, fh, indent=1)
+            json.dump(self._pie_dict(pie), fh, indent=1)
 
     def pie_import(self):
         path, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -1720,26 +1747,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
                     "Import anyway?")
                 if answer != QtWidgets.QMessageBox.Yes:
                     return
-            items = data.pop("items", [])
-            pie = Pie(name="Imported")
-            for key, value in data.items():
-                if hasattr(pie, key):
-                    setattr(pie, key, value)
+            pie = self._pie_from_dict(data)
             # a preset installed from the same place again updates in
             # place instead of piling up Name-2, Name-3 copies
             replacing = next((p.name for p in self.pies.values()
                               if source and p.source == source), None)
-            pie.name = replacing or self._unique(
-                str(data.get("name", "Imported")))
+            pie.name = replacing or self._unique(pie.name)
             pie.source = source
-            pie.default = False
-            model.normalise(pie)
-            for i, slot in enumerate(items[:len(pie.items)]):
-                bindings = [Binding(e["cmd"],
-                                    model.decode_rule(e.get("rule", "")),
-                                    e.get("label", ""))
-                            for e in slot if e.get("cmd")]
-                pie.items[i] = bindings or None
         except Exception as exc:  # noqa: BLE001 -- bad file, tell the user
             if confirm:
                 QtWidgets.QMessageBox.warning(self, "Import failed",
@@ -1749,6 +1763,99 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.pies[pie.name] = pie
         self.select_pie(pie.name)
         self.on_change()
+
+    def setup_export(self, path=None):
+        """The whole configuration as one shareable file: every pie plus
+        the key bindings (Smart excluded, it builds itself)."""
+        if path is None:
+            path, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Export whole setup", "my.piemenu-setup.json",
+                "PieMenu setups (*.piemenu-setup.json)")
+        if not path:
+            return
+        data = {"format": "piemenu-setup-1",
+                "pies": [self._pie_dict(p)
+                         for n, p in sorted(self.pies.items())
+                         if n != model.SMART_NAME],
+                "binds": self.binds}
+        with open(path, "w", encoding="utf-8") as fh:
+            json.dump(data, fh, indent=1)
+
+    def setup_import(self, path=None, confirm=True):
+        """Merge a setup file: new pies are added, existing names are kept
+        as they are, and only free key+gesture combinations are bound."""
+        if path is None:
+            path, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self, "Import whole setup", "",
+                "PieMenu setups (*.piemenu-setup.json)")
+        if not path:
+            return None
+        try:
+            with open(path, encoding="utf-8") as fh:
+                data = json.load(fh)
+            if data.get("format") != "piemenu-setup-1":
+                raise ValueError("not a PieMenu setup file")
+            pies = [self._pie_from_dict(d) for d in data.get("pies", [])]
+            binds = data.get("binds", {})
+        except Exception as exc:  # noqa: BLE001 -- bad file, tell the user
+            if confirm:
+                QtWidgets.QMessageBox.warning(self, "Import failed",
+                                              str(exc))
+            return None
+        requires = sorted({r for d in data.get("pies", [])
+                           for r in (d.get("requires") or [])
+                           if isinstance(r, str)})
+        missing = missing_requirements({"requires": requires})
+        if confirm:
+            text = (f"{len(pies)} pies and their key bindings will be "
+                    "merged into what you have. Existing pies and taken "
+                    "keys are left alone.")
+            if missing:
+                text += ("\n\nUses tools not installed here:\n"
+                         + ", ".join(missing))
+            answer = QtWidgets.QMessageBox.question(self, "Import setup",
+                                                    text)
+            if answer != QtWidgets.QMessageBox.Yes:
+                return None
+        added, skipped = [], []
+        for pie in pies:
+            if pie.name in self.pies:
+                skipped.append(pie.name)
+                continue
+            model.save_pie(pie)
+            self.pies[pie.name] = pie
+            added.append(pie.name)
+        bound = passed = 0
+        known = set(self.pies) | {model.SMART_NAME}
+        if isinstance(binds, dict):
+            for scope, keys in binds.items():
+                if not isinstance(keys, dict):
+                    continue
+                for key, gestures in keys.items():
+                    if not isinstance(gestures, dict):
+                        continue
+                    for gesture, name in gestures.items():
+                        taken = self.binds.get(scope, {}) \
+                            .get(key, {}).get(gesture)
+                        if gesture not in model.GESTURES \
+                                or name not in known or taken:
+                            passed += 1
+                            continue
+                        model.set_bind(scope, key, name, gesture)
+                        bound += 1
+        self.pies = model.load_pies()
+        self._binds_changed()
+        if confirm:
+            QtWidgets.QMessageBox.information(
+                self, "Setup imported",
+                f"Added {len(added)} pies"
+                + (f" (kept your {len(skipped)} existing)"
+                   if skipped else "")
+                + f", bound {bound} keys"
+                + (f" ({passed} already taken or unknown)"
+                   if passed else "") + ".")
+        return {"added": added, "skipped": skipped,
+                "bound": bound, "passed": passed}
 
     def pie_from_template(self, tname):
         cmds = TEMPLATES[tname]
