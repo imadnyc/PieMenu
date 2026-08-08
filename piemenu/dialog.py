@@ -1709,7 +1709,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
                  "ring_counts", "radius", "arc", "arc_face", "stagger",
                  "stagger_by", "cols", "rows", "anchors", "anchor_offsets",
                  "button", "spacing", "accent", "run_on", "delay",
-                 "show_names", "alt_size", "door_hover")}
+                 "show_names", "alt_size", "door_hover", "door_instant")}
         data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule),
                            "label": b.label}
                           for b in (slot or [])] for slot in pie.items]
@@ -2356,6 +2356,11 @@ class PieMenuPreferences(QtWidgets.QDialog):
                     QtWidgets.QCheckBox("after the delay"))
         doors.setChecked(pie.door_hover)
         doors.toggled.connect(lambda v: self._set("door_hover", v))
+        instant = row("Instant doors", QtWidgets.QCheckBox("no dwell"))
+        instant.setChecked(pie.door_instant)
+        instant.setToolTip("Descend the moment the cursor enters a door "
+                           "slot — for pies where you trust your aim.")
+        instant.toggled.connect(lambda v: self._set("door_instant", v))
         names = row("Command names", QtWidgets.QCheckBox("show in slots"))
         names.setChecked(pie.show_names)
         names.toggled.connect(lambda v: self._set("show_names", v))

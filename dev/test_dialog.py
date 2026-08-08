@@ -370,6 +370,7 @@ print("PASS non-modal prefs")
 
 # ---- task panel pseudo-commands surface in labels and the picker -------------
 assert dialog.command_label("Panel:OK") == "OK (task panel)"
+assert dlg._pie_dict(dlg.pies["Main"]).get("door_instant") is False
 print("PASS panel labels")
 
 # ---- the keys cheat sheet builds and names the essentials --------------------

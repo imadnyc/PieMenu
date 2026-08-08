@@ -584,6 +584,23 @@ model.remove_key("Mouse4")
 rt.reload()
 print("PASS mouse buttons")
 
+# ---- flick overshoot locks the crossed slot --------------------------------
+fired.clear()
+pies["Main"].run_on = "release"
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+over = w.buttons[1].mapToGlobal(QtCore.QPoint(17, 17))
+w.mouseMoveEvent(QtGui.QMouseEvent(
+    QtCore.QEvent.MouseMove, QtCore.QPointF(w.mapFromGlobal(over)),
+    QtCore.QPointF(over), QtCore.Qt.NoButton, QtCore.Qt.NoButton,
+    QtCore.Qt.NoModifier))
+assert w._crossed is not None and w._crossed[0] is w.buttons[1]
+w.commit_gesture(pos=w.mapToGlobal(QtCore.QPoint(-3000, -3000)))
+assert fired == ["Std_Undo"], fired          # the flown-over slot fired
+w.deleteLater()
+pies["Main"].run_on = "click"
+print("PASS flick lock")
+
 # ---- task panel slots ------------------------------------------------------
 holder = QtWidgets.QWidget()
 panel_box = QtWidgets.QDialogButtonBox(

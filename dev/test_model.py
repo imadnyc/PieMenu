@@ -205,6 +205,13 @@ M.normalise(pp)
 pp.items[0] = [Binding("Panel:OK")]
 assert M.pie_requires(pp) == []
 
+# instant doors persist
+di = Pie("DI", slots=2, per_ring=2, door_instant=True)
+M.normalise(di)
+M.save_pie(di)
+assert M.load_pie("DI").door_instant is True
+M.delete_pie("DI")
+
 # last-fired round trip
 M.set_last_fired("Main", "Std_Undo")
 assert M.last_fired("Main") == "Std_Undo"

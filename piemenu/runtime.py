@@ -381,6 +381,7 @@ class PieWidget(QtWidgets.QWidget):
         self._rt = runtime
         self.pinned = pinned
         self._drag_at = None
+        self._crossed = None          # (button, ms): last slot flown over
         self._hover_timer = None
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
@@ -399,6 +400,7 @@ class PieWidget(QtWidgets.QWidget):
             child.deleteLater()
         self._chooser = None
         self._aim = None
+        self._crossed = None
         pie = self.pies[name]
         model.normalise(pie)
         own = QtGui.QColor(pie.accent) if pie.accent else QtGui.QColor()
@@ -520,9 +522,11 @@ class PieWidget(QtWidgets.QWidget):
                 btn.installEventFilter(_HoverFire(self, btn, face.cmd,
                                                   pie.delay))
             elif pie.door_hover and is_pie_command(face.cmd):
-                # dwelling on a door descends into it mid-gesture
-                btn.installEventFilter(_HoverFire(self, btn, face.cmd,
-                                                  pie.delay))
+                # dwelling on a door descends into it mid-gesture;
+                # instant doors skip the dwell entirely
+                btn.installEventFilter(_HoverFire(
+                    self, btn, face.cmd,
+                    0 if pie.door_instant else pie.delay))
         if index % 2 and not is_pie_command(binding.cmd):
             btn.setProperty("alt", True)     # alternate fill, odd slots
         if self._last_fired and binding.cmd == self._last_fired:
@@ -843,6 +847,13 @@ class PieWidget(QtWidgets.QWidget):
             return
         btn = self.nearest_slot(pos)
         if btn is None:
+            # overshot the ring on a fast flick: the slot just flown over
+            # (moments ago) is what the hand meant
+            if self._crossed is not None \
+                    and _now_ms() - self._crossed[1] < 150 \
+                    and self._crossed[0].isEnabled():
+                self._crossed[0].click()
+                return
             self.close()
             return
         btn.click()
@@ -861,6 +872,15 @@ class PieWidget(QtWidgets.QWidget):
         if self.run_mode == "release":
             self._aim = event.position().toPoint() \
                 if hasattr(event, "position") else event.pos()
+            # remember the slot the aim is flying over: a fast flick can
+            # overshoot the ring before the release lands
+            spot = self.mapToGlobal(self._aim)
+            dx = self._aim.x() - self._origin[0]
+            dy = self._aim.y() - self._origin[1]
+            if (dx * dx + dy * dy) ** 0.5 >= max(24, self.pie.radius * 0.45):
+                over = self.nearest_slot(spot)
+                if over is not None:
+                    self._crossed = (over, _now_ms())
             self.update()
         super().mouseMoveEvent(event)
 

@@ -205,6 +205,7 @@ class Pie:
     show_names: bool = False
     alt_size: int = 24              # chooser (overload menu) button size
     door_hover: bool = True         # dwelling on a door descends into it
+    door_instant: bool = False      # no dwell at all: enter = descend
     # items[i] is a slot: a list of Bindings, or None for an empty slot
     items: list = field(default_factory=list)
     # slot index -> cmd the user last picked from that slot's chooser
@@ -386,7 +387,8 @@ def _grp(path=""):
     return App.ParamGet(V2_ROOT + ("/" + path if path else ""))
 
 
-_BOOLS = ("default", "stagger", "show_names", "door_hover")
+_BOOLS = ("default", "stagger", "show_names", "door_hover",
+          "door_instant")
 _INTS = ("slots", "per_ring", "radius", "arc", "arc_face", "stagger_by",
          "cols", "rows", "button", "spacing", "delay", "alt_size")
 _STRINGS = ("family", "icon", "open_on", "run_on", "ring_mode", "accent",
@@ -547,7 +549,6 @@ MACRO_PREFIX = "Macro:"
 # pseudo-commands that drive the open task panel's buttons
 PANEL_PREFIX = "Panel:"
 PANEL_ACTIONS = ("OK", "Apply", "Cancel")
-
 
 
 def bump_stat(workbench, cmd, axis=None):
