@@ -558,7 +558,7 @@ print("PASS door via keys")
 gui.ran.clear()
 pw = rt.pin_pie("Main")
 assert pw is not None and pw.pinned and pw.isVisible()
-assert pw._name_label.graphicsEffect() is not None   # readability halo
+assert isinstance(pw._name_label, runtime.HaloLabel)  # outlined text
 assert pw in rt._pinned
 pw.activate("Std_Undo")                  # fires without closing
 assert gui.ran == ["Std_Undo"] and pw.isVisible()
