@@ -23,12 +23,15 @@ internals redone from scratch.
   follows your aim with an arrow and firing happens on release. A quick
   tap on a hold binding does nothing instead of leaving a menu behind.
   A hold always behaves as a marking menu, whatever the pie's click
-  behavior. When a key is ambiguous (a hold pie waiting out a possible
-  double-tap), moving the mouse settles it instantly: motion means
-  you're gesturing, so the pie opens right away, anchored where you
-  pressed — your movement already counts toward the aim. The aim is
-  read as a direction (distance only picks the ring on multi-ring
-  pies), the slot you're aiming at lights up, and the centre names what release will do  up, and the centre names what release will do — "Cancel" in the dead
+  behavior — and once the motion is in your hands, the menu itself is
+  optional: a stroke completed before the pie even renders fires
+  **blind** (mark-ahead), confirmed by a brief stroke trace, and a
+  stroke that runs on through a door slot continues into that sub-pie
+  as one compound mark. Pause instead, and the pie appears after a
+  fifth of a second, anchored where you pressed — your movement already
+  counts toward the aim. The aim is read as a direction (distance only
+  picks the ring on multi-ring pies), the slot you're aiming at lights
+  up, and the centre names what release will do — "Cancel" in the dead
   zone. Slots can also carry a one-letter shortcut that fires them
   while the pie is open.
 

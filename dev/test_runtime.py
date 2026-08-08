@@ -433,23 +433,31 @@ assert disp.held is not None
 release(disp)
 assert opened[0].committed           # and release commits as usual
 
-opened.clear()                       # moving the mouse cuts the wait short:
-gmaps["F6"] = {"press": "Main", "double": "Sub"}   # gesturing, not tapping
-run_of["Main"] = "release"
+opened.clear()                       # a stroke finished inside the defer
+gmaps["F6"] = {"press": "Main", "double": "Sub"}   # window fires BLIND:
+run_of["Main"] = "release"           # mark-ahead, nothing ever renders
+blinds = []
+disp.blind = lambda name, at, rel: (blinds.append((name, at)), True)[1]
 disp.close()
 disp.last_tap.clear()
 QtGui.QCursor.setPos(QtCore.QPoint(300, 300))
 press(disp)
 assert opened == []                  # deferred
-QtGui.QCursor.setPos(QtCore.QPoint(340, 300))      # 40px: clearly a gesture
-move = QtGui.QMouseEvent(QtCore.QEvent.MouseMove,
-                         QtCore.QPointF(0, 0), QtCore.QPointF(340, 300),
-                         QtCore.Qt.NoButton, QtCore.Qt.NoButton,
-                         QtCore.Qt.NoModifier)
-disp.eventFilter(None, move)
+QtGui.QCursor.setPos(QtCore.QPoint(340, 300))      # 40px: a stroke
+release(disp)
+assert opened == [] and blinds == [("Main", QtCore.QPoint(300, 300))]
+disp.blind = None
+wait(400)
+
+opened.clear()                       # held past the defer with motion:
+disp.close()                         # the pie appears at the timer,
+disp.last_tap.clear()                # anchored at the press
+QtGui.QCursor.setPos(QtCore.QPoint(300, 300))
+press(disp)
+QtGui.QCursor.setPos(QtCore.QPoint(340, 300))
+wait(320)
 assert [w.pie.name for w in opened] == ["Main"] and opened[0].visible
-assert opened[0].at == QtCore.QPoint(300, 300)     # anchored at the press
-assert disp.held is not None
+assert opened[0].at == QtCore.QPoint(300, 300)
 release(disp)
 assert opened[0].committed
 
@@ -653,6 +661,35 @@ rt.dispatcher.eventFilter(
 assert rt.dispatcher.current is None         # dead-zone release: closed
 wait(400)
 print("PASS hold is marking")
+
+# ---- mark-ahead: a fast flick fires blind ----------------------------------
+gui.ran.clear()
+P0 = QtCore.QPoint(600, 500)
+QtGui.QCursor.setPos(P0)
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F11))
+QtGui.QCursor.setPos(P0 + QtCore.QPoint(150, 0))     # flick east: Redo
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F11))
+assert gui.ran == ["Std_Redo"], gui.ran
+assert rt.dispatcher.current is None                 # never rendered
+assert any("mark-ahead" in line for line in rt.dispatcher.trace)
+wait(400)
+# a flick at a dead sector cannot fire: the pie appears as the fallback
+gui.ran.clear()
+QtGui.QCursor.setPos(P0)
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F11))
+QtGui.QCursor.setPos(P0 + QtCore.QPoint(0, -150))    # north: dead slot
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F11))
+assert gui.ran == []
+fallback_w = rt.dispatcher.current
+assert fallback_w is not None and fallback_w.isVisible()
+fallback_w.close()
+rt.dispatcher.current = None
+wait(400)
+print("PASS mark-ahead")
 
 # ---- devices that never send key-up ----------------------------------------
 rt.dispatcher._stuck.setInterval(400)

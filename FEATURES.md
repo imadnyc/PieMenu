@@ -13,7 +13,7 @@ fail and point at the rest. Params live under
 | SketchEdit scope | editing a sketch is its own scope, falls back through Sketcher | `model.SKETCH_EDIT_SCOPE`, `runtime.workbench_scope`, `dialog.workbench_scopes` | drop the scope from `scope_chain` + `workbench_scopes` |
 | Four gestures per key | tap / double / hold / double-hold, quick-vs-held state machine | `runtime.Dispatcher` (`DOUBLE_MS`, `DEFER_MS`) | core, keep |
 | Hold = marking menu | a pie opened by a HOLD always runs as a marking menu, whatever its own run_on | `mode="release"` in `Dispatcher._open_deferred`, `mode` param through `open_pie`/`PieWidget` | stop passing the mode |
-| Move-opens-sooner | mouse movement during an ambiguous press opens the hold pie at once | `Dispatcher.eventFilter` MouseMove branch | delete that branch |
+| Mark-ahead | a stroke completed before the pie renders fires blind, compound marks continue through doors (3 levels), a 300ms stroke ghost confirms | `Runtime.blind_fire`, `_StrokeGhost`, the `moved` branch of `Dispatcher._release` | delete those three; strokes then fall back to opening the pie |
 | Key-up timeout | no release AND no motion for 2s = a device that never sends key-up: the pie demotes to click mode | `Dispatcher._keyup_guard`, `STUCK_MS` | delete the timer |
 | Letter accels | a binding's one-letter accel fires its slot while the pie is open (shown as an accent tag, beats P-to-pin) | `Binding.accel`, letter branch in `keyPressEvent`, "Shortcut letter…" in `_slot_menu` | delete those |
 | Mouse thumb buttons | Mouse4/Mouse5 bind like keys, all gestures | `runtime.MOUSE_KEYS`, mouse branches in `Dispatcher.eventFilter`, `dialog._MouseCatch` | delete those three |
@@ -80,7 +80,7 @@ fail and point at the rest. Params live under
 | Conflict badges | ⚠ where a bound key shadows a FreeCAD shortcut | `dialog.freecad_shortcuts`, badge block in `rebuild` | delete both |
 | Session revert | restore everything to window-open state | `_session_snapshot` in `__init__`, `revert_session` in footer | delete both |
 | Keys cheat sheet | Keys… button, every key on one page | `dialog.keys_dialog` | delete + footer button |
-
+| Doctor | Doctor… button: health scan (dead commands, orphaned binds/doors, shadowed keys, wide rings, context lint), the last 12 dispatches, and what each key resolves to right now | `dialog.doctor_findings/doctor_dialog`, `Dispatcher.trace` | delete all three |
 | Hover demos | ? buttons and keys-page rows play little demo GIFs on hover | `dialog.GifTip`, movies in `docs/gifs/` rendered by `nix run .#gifs` (`dev/gif_scenes.py`) | delete `GifTip` + call sites; the GIFs are plain files |
 | Usage stats panel | Stats… button, top tools + reset | `dialog.stats_dialog` | delete + footer button |
 | Live preview | union view, chooser flash, names spread | `dialog.PiePreview` | core-ish |

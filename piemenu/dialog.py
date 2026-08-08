@@ -450,6 +450,114 @@ def stats_dialog(parent):
     return dlg
 
 
+def doctor_findings(pies, binds):
+    """Everything suspicious in the whole configuration, as one flat
+    list of strings — dead commands, orphaned binds and doors, keys
+    shadowing FreeCAD's own, over-wide rings, context lint."""
+    findings = []
+    known = set(pies) | {model.SMART_NAME}
+    for name, pie in sorted(pies.items()):
+        for i, slot in enumerate(pie.items):
+            for b in slot or []:
+                if model.is_pie_command(b.cmd):
+                    target = model.pie_target(b.cmd)
+                    if target not in known:
+                        findings.append(
+                            f"{name} slot {i + 1}: door to missing "
+                            f"pie '{target}'")
+                elif not runtime.command_available(b.cmd):
+                    findings.append(
+                        f"{name} slot {i + 1}: command {b.cmd} is not "
+                        "available here")
+            for _j, message in model.slot_check(slot or []):
+                findings.append(f"{name} slot {i + 1}: {message}")
+        try:
+            if pie.family == "circle" and any(
+                    c > 8 for c in model.ring_plan(pie)):
+                findings.append(
+                    f"{name}: a ring wider than 8 slots is hard to aim "
+                    "— consider a door to a sub-pie")
+        except Exception:  # noqa: BLE001, S110 -- odd geometry only
+            pass
+    clashes = freecad_shortcuts()
+    for scope, keys in sorted(binds.items()):
+        for key, gestures in sorted(keys.items()):
+            if key in clashes:
+                findings.append(
+                    f"{key} ({scope}): shadows FreeCAD's "
+                    f"'{clashes[key]}'")
+            for gesture, target in sorted(gestures.items()):
+                if model.is_run(target):
+                    cmd = model.run_target(target)
+                    if not runtime.command_available(cmd):
+                        findings.append(
+                            f"{key} {gesture} ({scope}): runs {cmd}, "
+                            "which is not available here")
+                elif target not in known:
+                    findings.append(
+                        f"{key} {gesture} ({scope}): opens missing pie "
+                        f"'{target}'")
+    return findings
+
+
+def doctor_dialog(parent, pies, binds):
+    """One page that answers 'why didn't that work': a health scan of
+    every pie and bind, the last dispatches, and what each key would do
+    right now."""
+    dlg = QtWidgets.QDialog(parent)
+    dlg.setWindowTitle("Doctor")
+    lay = QtWidgets.QVBoxLayout(dlg)
+
+    health = QtWidgets.QGroupBox("Health")
+    hl = QtWidgets.QVBoxLayout(health)
+    findings = doctor_findings(pies, binds)
+    if findings:
+        listing = QtWidgets.QListWidget()
+        for line in findings:
+            listing.addItem(line)
+        listing.setMinimumWidth(520)
+        hl.addWidget(listing)
+    else:
+        hl.addWidget(QtWidgets.QLabel("all good — nothing suspect"))
+    lay.addWidget(health)
+
+    recent = QtWidgets.QGroupBox("Recent dispatches")
+    rl = QtWidgets.QVBoxLayout(recent)
+    run = runtime.runtime
+    trace = list(run.dispatcher.trace) if run is not None else []
+    if trace:
+        for line in reversed(trace):
+            rl.addWidget(QtWidgets.QLabel(line))
+    else:
+        rl.addWidget(QtWidgets.QLabel("nothing dispatched yet"))
+    lay.addWidget(recent)
+
+    now = QtWidgets.QGroupBox("Right now")
+    nl = QtWidgets.QVBoxLayout(now)
+    scope = current_scope() or ANY_SCOPE
+    counts = runtime.selection_counts(run.gui) if run is not None else {}
+    nl.addWidget(QtWidgets.QLabel(
+        f"scope {scope} — selection "
+        + (", ".join(f"{k}:{v}" for k, v in counts.items()) or "empty")))
+    keys = sorted({k for scope_keys in binds.values()
+                   for k in scope_keys})
+    for key in keys:
+        hits = model.gestures_for(key, scope, binds)
+        if hits:
+            what = "  ".join(f"{GLYPH[g]} {bind_label(hit[0])}"
+                             for g, hit in sorted(hits.items()))
+            nl.addWidget(QtWidgets.QLabel(f"{key}:  {what}"))
+    lay.addWidget(now)
+
+    buttons = QtWidgets.QHBoxLayout()
+    buttons.addStretch(1)
+    close = QtWidgets.QPushButton("Close")
+    close.clicked.connect(dlg.accept)
+    buttons.addWidget(close)
+    lay.addLayout(buttons)
+    return dlg
+
+
 def keys_dialog(parent):
     """Every key the addon answers to, in one place."""
     dlg = QtWidgets.QDialog(parent)
@@ -483,9 +591,9 @@ def keys_dialog(parent):
              "the more specific scope answers first", None),
             ("SketchEdit beats Sketcher",
              "while a sketch is open for editing", None),
-            ("moving while a key is held",
-             "opens the hold pie immediately, anchored at the press",
-             "gesture-aim"),
+            ("a fast flick",
+             ("fires blind before the pie even draws — the stroke "
+              "trace confirms it (mark-ahead)"), "gesture-aim"),
             ("a slot's shortcut letter",
              ("fires it while the pie is open (right-click a live "
               "slot to set one)"), None),
@@ -1682,6 +1790,13 @@ class PieMenuPreferences(QtWidgets.QDialog):
         keys_btn.setToolTip("Everything the keyboard does, on one page.")
         keys_btn.clicked.connect(lambda: keys_dialog(self).exec_())
         foot.addWidget(keys_btn)
+        doctor_btn = QtWidgets.QPushButton("Doctor…")
+        doctor_btn.setToolTip("Why didn't that work? Health scan, recent "
+                              "dispatches, and what each key would do "
+                              "right now.")
+        doctor_btn.clicked.connect(
+            lambda: doctor_dialog(self, self.pies, self.binds).exec_())
+        foot.addWidget(doctor_btn)
         p = App.ParamGet(runtime.MAIN)
         auto = QtWidgets.QCheckBox("Auto-open on selection")
         auto.setChecked(p.GetBool("AutoOpenSelection", False))

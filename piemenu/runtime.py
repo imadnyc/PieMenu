@@ -574,6 +574,8 @@ class PieWidget(QtWidgets.QWidget):
             btn.setVisible(False)
             return btn
         self._decorate(btn, binding, bool(live), len(live))
+        if face is not None:
+            btn.setProperty("cmd", face.cmd)   # for blind marks + Doctor
         if live:
             if len(live) > 1:
                 btn.installEventFilter(_ChooserFilter(self, btn, live))
@@ -584,10 +586,16 @@ class PieWidget(QtWidgets.QWidget):
                                                   pie.delay))
             elif pie.door_hover and is_pie_command(face.cmd):
                 # dwelling on a door descends into it mid-gesture;
-                # instant doors skip the dwell entirely
+                # instant doors skip the dwell, and a gesture in flight
+                # gets a fast fixed dwell so the stroke keeps moving
+                if pie.door_instant:
+                    dwell = 0
+                elif self.run_mode == "release":
+                    dwell = 100
+                else:
+                    dwell = pie.delay
                 btn.installEventFilter(_HoverFire(
-                    self, btn, face.cmd,
-                    0 if pie.door_instant else pie.delay))
+                    self, btn, face.cmd, dwell))
         if index % 2 and not is_pie_command(binding.cmd):
             btn.setProperty("alt", True)     # alternate fill, odd slots
         if self._last_fired and binding.cmd == self._last_fired:
@@ -1331,6 +1339,37 @@ def _watch_chooser(widget, chooser, btn, misses_limit=3):
 PieWidget.show_chooser = _show_chooser
 
 
+class _StrokeGhost(QtWidgets.QWidget):
+    """The 300ms mark trace: a line from press to release, then gone."""
+
+    def __init__(self, parent, start, end):
+        super().__init__(parent)
+        self._start = start
+        self._end = end
+        pad = 8
+        left = min(start.x(), end.x()) - pad
+        top = min(start.y(), end.y()) - pad
+        self.setGeometry(left, top,
+                         abs(start.x() - end.x()) + 2 * pad,
+                         abs(start.y() - end.y()) + 2 * pad)
+        self.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        self.show()
+        self.raise_()
+        QtCore.QTimer.singleShot(300, self.deleteLater)
+
+    def paintEvent(self, _event):
+        painter = QtGui.QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        color = accent()
+        painter.setPen(QtGui.QPen(color, 3, QtCore.Qt.SolidLine,
+                                  QtCore.Qt.RoundCap))
+        a = self.mapFromParent(self._start)
+        b = self.mapFromParent(self._end)
+        painter.drawLine(a, b)
+        painter.setBrush(color)
+        painter.drawEllipse(b, 4, 4)
+
+
 # ---- dispatch --------------------------------------------------------------
 
 class Dispatcher(QtCore.QObject):
@@ -1352,13 +1391,14 @@ class Dispatcher(QtCore.QObject):
     STUCK_MS = 2000               # no key-up AND no motion by then = stuck
 
     def __init__(self, opener, gestures, fallback=None, mode_of=None,
-                 fire=None, parent=None):
+                 fire=None, blind=None, parent=None):
         super().__init__(parent)
         self.opener = opener          # opener(name, at, hint, mode)
         self.gestures = gestures      # gestures(key) -> {gesture: pie_name}
         self.fallback = fallback or (lambda: None)   # the right-click pie
         self.mode_of = mode_of or (lambda name: "click")   # pie's run_on
         self.fire = fire or (lambda cmd: None)   # for Run: bind targets
+        self.blind = blind            # blind(name, at, release) mark-ahead
         self.trace = deque(maxlen=12)  # recent dispatches, for the Doctor
         self.current = None           # the open PieWidget
         self.last_tap = {}            # key -> ms timestamp
@@ -1446,15 +1486,6 @@ class Dispatcher(QtCore.QObject):
             if name is not None and not self._typing_focus() \
                     and self.gestures(name):
                 return self._press(name)
-        if etype == QtCore.QEvent.MouseMove and self._deferred is not None:
-            # moving right after the press means a gesture, not a tap:
-            # show the pie now instead of waiting out the double window
-            pos = QtGui.QCursor.pos()
-            dx = pos.x() - self._press_pos.x()
-            dy = pos.y() - self._press_pos.y()
-            if dx * dx + dy * dy > 100:
-                self._defer.stop()
-                self._open_deferred()
         if etype == QtCore.QEvent.MouseButtonRelease:
             name = MOUSE_KEYS.get(event.button())
             if name is not None and self.held == name:
@@ -1584,10 +1615,25 @@ class Dispatcher(QtCore.QObject):
         self._stuck.stop()
         self.held = None
         if self._deferred is not None:
-            # released before the held outcome: this was a tap
-            _key, quick, _held, quick_hint, _hh = self._deferred
+            # released before the held outcome could open
+            _key, quick, held, quick_hint, held_hint = self._deferred
             self._defer.stop()
             self._deferred = None
+            release = QtGui.QCursor.pos()
+            moved = (release - self._press_pos).manhattanLength() > 24
+            if moved and held is not None and not model.is_run(held):
+                # motion means a gesture: the whole stroke finished
+                # before the pie ever rendered, so resolve it blind and
+                # fire (mark-ahead); when that can't — a door with no
+                # stroke past it, a dead sector — show the pie instead
+                if self.blind is not None \
+                        and self.blind(held, self._press_pos, release):
+                    self.trace.append(f"{_key}: mark-ahead fired ({held})")
+                    return True
+                self.open_pie(held, at=self._press_pos, hint=held_hint)
+                self.trace.append(f"{_key}: stroke fell back to {held}")
+                return True
+            # a still tap
             if quick is not None and model.is_run(quick):
                 self.close()
                 self.fire(model.run_target(quick))
@@ -1701,7 +1747,7 @@ class Runtime:
             fallback=lambda: self._resolve(None),
             mode_of=lambda n: self.pies[n].run_on if n in self.pies
             else "click",
-            fire=self.fire)
+            fire=self.fire, blind=self.blind_fire)
         self._sel_observer = _SelectionWatch(self)
         self._sel_timer = QtCore.QTimer()
         self._sel_timer.setSingleShot(True)
@@ -1863,6 +1909,50 @@ class Runtime:
     def unregister_pin(self, widget):
         if widget in self._pinned:
             self._pinned.remove(widget)
+
+    def blind_fire(self, name, at, release, depth=0):
+        """Mark-ahead: resolve a completed stroke against the pie's
+        geometry without ever showing it. A stroke that runs on past a
+        door slot continues into that pie (a compound mark, up to three
+        levels). True when a command actually fired."""
+        pies = self._pies_for(name)
+        if name not in pies:
+            return False
+        widget = PieWidget(pies, name, self.counts(), self.fire,
+                           runtime=self, mode="release")
+        try:
+            widget.move(at.x() - int(widget._origin[0]),
+                        at.y() - int(widget._origin[1]))
+            btn = widget.nearest_slot(release)
+            if btn is None or not btn.isEnabled():
+                return False
+            cmd = btn.property("cmd") or ""
+            if is_pie_command(cmd):
+                if depth >= 2:
+                    return False
+                anchor = btn.mapToGlobal(QtCore.QPoint(
+                    btn.width() // 2, btn.height() // 2))
+                past = (release - anchor).manhattanLength() > 24
+                return past and self.blind_fire(
+                    pie_target(cmd), anchor, release, depth + 1)
+            btn.click()
+            if depth == 0:
+                self._stroke_ghost(at, release)
+            return True
+        finally:
+            widget.deleteLater()
+
+    def _stroke_ghost(self, start, end):
+        """A brief static trace of the mark, so a blind fire is never a
+        silent one. No animation: it appears, then it is gone."""
+        getmw = getattr(self.gui, "getMainWindow", None)
+        mw = getmw() if getmw is not None else None
+        if mw is None:
+            return
+        try:
+            _StrokeGhost(mw, mw.mapFromGlobal(start), mw.mapFromGlobal(end))
+        except Exception:  # noqa: BLE001, S110 -- feedback must never break the fire
+            pass
 
     def pin_pie(self, name, at=None):
         """A floating palette: tools fire without closing, conditional

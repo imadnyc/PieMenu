@@ -429,6 +429,24 @@ app.processEvents()
 assert dlg._wide_hint.isHidden()
 print("PASS wide-ring hint")
 
+# ---- the Doctor finds what's broken ------------------------------------------
+sick = Pie("Sick", slots=2, per_ring=2)
+model.normalise(sick)
+sick.items[0] = [Binding("PieMenu_NoSuchDoor")]
+sick.items[1] = [Binding("Macro:definitely-absent.FCMacro")]
+dlg.pies["Sick"] = sick
+model.set_bind("PartDesign", "F11", "GhostPie")
+findings = dialog.doctor_findings(dlg.pies, model.load_binds())
+assert any("NoSuchDoor" in f for f in findings)
+assert any("definitely-absent" in f for f in findings)
+assert any("GhostPie" in f for f in findings)
+dd = dialog.doctor_dialog(dlg, dlg.pies, model.load_binds())
+assert dd.findChildren(QtWidgets.QListWidget)
+dd.deleteLater()
+model.remove_key("F11")
+del dlg.pies["Sick"]
+print("PASS doctor")
+
 # ---- the keys cheat sheet builds and names the essentials --------------------
 kd = dialog.keys_dialog(dlg)
 kd_text = " ".join(lb.text() for lb in kd.findChildren(QtWidgets.QLabel))

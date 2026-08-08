@@ -36,6 +36,14 @@ config is migrated automatically and left untouched.
 - A gesture can run a single command instead of a pie (tap = Constrain
   Radius, hold = the constraints pie), and the preferences play little
   demo GIFs when you hover the help buttons.
+- Mark-ahead: a stroke completed before the pie renders fires blind
+  (compound marks continue through doors), confirmed by a brief stroke
+  trace; a hold always behaves as a marking menu; fresh installs start
+  with the full starter set.
+- Slots can carry one-letter shortcuts; Smart pie positions freeze so
+  muscle memory holds; a Doctor page explains why something didn't
+  fire; pies survive missing compositors (opaque switch) and devices
+  that never send key-up.
 - The aim is read as a direction (radius picks the ring on multi-ring
   pies): the aimed slot highlights, the centre names what release will
   do, dead or empty sectors are deliberate no-ops, and pies at the
