@@ -87,6 +87,21 @@ def workbench_scope(gui):
         return ""
 
 
+def text_halo(widget, color=None):
+    """A soft glow of the opposite luminance behind on-canvas text, so it
+    stays readable whatever the 3D view behind it looks like (sampling
+    what's underneath isn't possible on Wayland, a halo needs no answer)."""
+    if color is None:
+        color = widget.palette().color(QtGui.QPalette.WindowText)
+    light_text = QtGui.QColor(color).lightness() >= 128
+    effect = QtWidgets.QGraphicsDropShadowEffect(widget)
+    effect.setOffset(0, 0)
+    effect.setBlurRadius(7)
+    effect.setColor(QtGui.QColor(0, 0, 0, 230) if light_text
+                    else QtGui.QColor(255, 255, 255, 230))
+    widget.setGraphicsEffect(effect)
+
+
 def selection_counts(gui):
     """The selection as counts per axis, the shape every rule matches against.
 
@@ -396,6 +411,7 @@ class PieWidget(QtWidgets.QWidget):
         name_label.setStyleSheet(
             "color:#999;background:none;font-size:10px;")
         name_label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        text_halo(name_label, "#999")
         name_label.adjustSize()
         name_label.move(int(self._origin[0] - name_label.width() / 2),
                         int(self._origin[1] - name_label.height() / 2))
@@ -411,6 +427,7 @@ class PieWidget(QtWidgets.QWidget):
             tag = QtWidgets.QLabel(str(digit), btn)
             tag.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
             tag.setStyleSheet("color:#888;font-size:9px;background:none;")
+            text_halo(tag, "#888")
             tag.adjustSize()
             tag.move(btn.width() - tag.width() - 3, 1)
             tag.setVisible(True)
@@ -600,6 +617,7 @@ class PieWidget(QtWidgets.QWidget):
         btn.setFixedSize(size, size)
         btn.setText("◂")
         btn.setStyleSheet(f"QToolButton{{border-radius:{size // 2}px;}}")
+        text_halo(btn)
         btn.setToolTip(f"Back to {self._stack[-1]} (Backspace)")
         btn.move(int(self._origin[0] - size / 2),
                  int(self._origin[1] - size / 2))
@@ -615,6 +633,7 @@ class PieWidget(QtWidgets.QWidget):
         label = QtWidgets.QLabel(text, self)
         label.setStyleSheet("color:#999;background:none;font-size:10px;")
         label.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+        text_halo(label, "#999")
         label.adjustSize()
         label.move(int(self._origin[0] - label.width() / 2),
                    self.height() - label.height() - 2)
