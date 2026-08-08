@@ -894,6 +894,27 @@ class PieWidget(QtWidgets.QWidget):
                                      parent.width() - self.width())))
             top_left.setY(max(0, min(top_left.y(),
                                      parent.height() - self.height())))
+        else:
+            # a pie at the screen edge shifts fully on-screen; the hand
+            # is warped by the same shift so aim still starts centred
+            # (a no-op on Wayland, where clamping alone still helps)
+            screen = QtGui.QGuiApplication.screenAt(global_pos) \
+                or QtWidgets.QApplication.primaryScreen()
+            if screen is not None:
+                avail = screen.availableGeometry()
+                clamped = QtCore.QPoint(
+                    max(avail.left(),
+                        min(top_left.x(), avail.right() - self.width())),
+                    max(avail.top(),
+                        min(top_left.y(), avail.bottom() - self.height())))
+                delta = clamped - top_left
+                if not delta.isNull():
+                    top_left = clamped
+                    cursor = QtGui.QCursor.pos()
+                    # mid-stroke (hand already away from the anchor) a
+                    # warp would corrupt the gesture: skip it
+                    if (cursor - global_pos).manhattanLength() < 40:
+                        QtGui.QCursor.setPos(cursor + delta)
         self.move(top_left)
         self.show()
 

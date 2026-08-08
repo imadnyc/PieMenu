@@ -18,6 +18,7 @@ fail and point at the rest. Params live under
 | Angular aim | circle pies read the gesture as a direction: radius picks the ring, angle the slot; dead/empty sectors are no-ops; ~5° boundary stickiness | `PieWidget._angular_slot`, `_sectors` in `build` | delete both; the Euclidean fallback in `nearest_slot` takes over |
 | Aim feedback | the aimed slot wears an accent ring and the centre names what release will do ("Cancel" in the dead zone) | `PieWidget._set_aim`, `aimed` rule in `build`, `aimname` property in `_decorate` | delete those three |
 | Flick-overshoot lock | on grids and arc pies, releasing where nothing resolves fires the slot crossed <150 ms ago | `PieWidget._crossed` in `mouseMoveEvent` + `commit_gesture` | delete both `_crossed` blocks |
+| Screen clamp | a pie opened at the screen edge shifts fully on-screen (cursor warps along where the platform allows) | else-branch of `PieWidget.popup_at` | delete the branch |
 
 ## Slots and rules
 

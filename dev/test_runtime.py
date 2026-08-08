@@ -667,6 +667,15 @@ w.deleteLater()
 pies["Main"].run_on = "click"
 print("PASS aim feedback")
 
+# ---- a pie at the screen corner shifts fully on-screen ---------------------
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+w.popup_at(QtCore.QPoint(2, 2))
+avail = QtWidgets.QApplication.primaryScreen().availableGeometry()
+assert w.x() >= avail.left() and w.y() >= avail.top()
+w.close()
+w.deleteLater()
+print("PASS screen clamp")
+
 # ---- task panel slots ------------------------------------------------------
 holder = QtWidgets.QWidget()
 panel_box = QtWidgets.QDialogButtonBox(
