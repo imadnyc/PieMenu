@@ -40,9 +40,10 @@ def check():
         print(f"E2E pie widget ok: {len(buttons)} buttons, "
               f"{len(icons)} with real icons")
 
-        # dispatch through the app: the starter bind is TAB (fresh config)
-        key = next(iter(run._keys.values()), None)
-        assert key is not None, "no shortcut bound"
+        # dispatch through the app: F6 = View is press-only in every
+        # scope, so it opens unambiguously (F3 carries holds and defers)
+        key = run._keys.get("F6")
+        assert key == "F6", f"starter F6 bind missing: {run._keys}"
         qt_key = QtGui.QKeySequence(key)[0]
         mw = Gui.getMainWindow()
         appinst = QtWidgets.QApplication.instance()

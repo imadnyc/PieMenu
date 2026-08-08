@@ -14,6 +14,7 @@ FreeCAD GUI; ``start()`` wires the real thing.
 import itertools
 import math
 import os
+from collections import deque
 
 from PySide import QtCore, QtGui, QtWidgets
 
@@ -46,6 +47,7 @@ def behaviour():
         "rclick": p.GetBool("RightClickTrigger", False),
         "rclick_delay": p.GetInt("DelayRightClick", 0) or 350,
         "autoopen": p.GetBool("AutoOpenSelection", False),
+        "opaque": p.GetBool("OpaquePies", False),
     }
 
 
@@ -387,7 +389,7 @@ class PieWidget(QtWidgets.QWidget):
     """
 
     def __init__(self, pies, name, counts, fire, runtime=None, parent=None,
-                 pinned=False):
+                 pinned=False, mode=None):
         # a pinned palette is born with its final window role: inside the
         # main window as a plain child when there is one, else a Tool
         # window. Re-flagging a live popup crashes under Wayland (a
@@ -399,7 +401,14 @@ class PieWidget(QtWidgets.QWidget):
         else:
             flags = QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint
         super().__init__(parent, flags)
-        self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
+        # without a compositor (bare X11, VNC) translucency renders as a
+        # black rectangle — the OpaquePies switch paints a solid panel
+        try:
+            self._opaque = behaviour()["opaque"]
+        except Exception:  # noqa: BLE001 -- no params outside FreeCAD
+            self._opaque = False
+        if not self._opaque:
+            self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.pies = pies
         self.counts = counts
         self.fire = fire
@@ -409,14 +418,15 @@ class PieWidget(QtWidgets.QWidget):
         self._snapped_edge = None     # pinned palette resting on an edge
         self._collapsed = False
         self._expanded_geo = None
-        self._crossed = None          # (button, ms): last slot flown over
         self._sectors = []            # (ring, radius, angle, btn) circles
         self._aimed = None            # slot currently ringed by the aim
         self._aim_stick = None        # incumbent slot at sector boundaries
         self._hover_timer = None
         self._chooser = None
         self._aim = None              # cursor point for the gesture arrow
-        self.run_mode = None          # how this pie actually runs, see build()
+        # a pie opened by a HOLD is a marking menu whatever its own
+        # run_on says; build() keeps "release" once set (doors inherit)
+        self.run_mode = mode
         self._stack = []              # door trail, for the back button
         self.setMouseTracking(True)
         self.build(name)
@@ -431,7 +441,6 @@ class PieWidget(QtWidgets.QWidget):
             child.deleteLater()
         self._chooser = None
         self._aim = None
-        self._crossed = None
         self._aimed = None
         self._aim_stick = None
         pie = self.pies[name]
@@ -537,13 +546,17 @@ class PieWidget(QtWidgets.QWidget):
         name_label.setVisible(True)
         self._name_label = name_label
         digit = 0
-        for btn in self.buttons:      # 1..9 fire slots from the keyboard
-            if digit >= 9:
-                break
+        for btn in self.buttons:      # 1..9 and letter accels, as tags
             if btn.isHidden() or not btn.isEnabled():
                 continue
-            digit += 1
-            tag = HaloLabel(str(digit), btn, "#888", 9)
+            accel = btn.property("accel") or ""
+            if accel:                 # its own letter beats the number
+                tag = HaloLabel(accel, btn, self._accent.name(), 9)
+            elif digit < 9:
+                digit += 1
+                tag = HaloLabel(str(digit), btn, "#888", 9)
+            else:
+                continue
             tag.adjustSize()
             tag.move(btn.width() - tag.width() - 1, -1)
             tag.setVisible(True)
@@ -579,6 +592,8 @@ class PieWidget(QtWidgets.QWidget):
             btn.setProperty("alt", True)     # alternate fill, odd slots
         if self._last_fired and binding.cmd == self._last_fired:
             btn.setProperty("last", True)    # fired last time: faint ring
+        if binding.accel:
+            btn.setProperty("accel", binding.accel[:1].upper())
         btn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         btn.customContextMenuRequested.connect(
             lambda _pos, i=index, b=btn: self._slot_menu(i, b))
@@ -619,6 +634,8 @@ class PieWidget(QtWidgets.QWidget):
                        lambda: self._live_edit(index, j, "rule"))
         menu.addAction("Rename label…",
                        lambda: self._live_edit(index, j, "label"))
+        menu.addAction("Shortcut letter…",
+                       lambda: self._live_edit(index, j, "accel"))
         menu.addAction("Remove",
                        lambda: self._live_edit(index, j, "remove"))
         menu.exec_(QtGui.QCursor.pos())
@@ -648,6 +665,13 @@ class PieWidget(QtWidgets.QWidget):
                 text=slot[j].label)
             if ok:
                 slot[j].label = text.strip()
+        elif what == "accel":
+            text, ok = QtWidgets.QInputDialog.getText(
+                None, "Shortcut letter",
+                "One letter fires this slot while the pie is open\n"
+                "(blank removes it):", text=slot[j].accel)
+            if ok:
+                slot[j].accel = text.strip()[:1].upper()
         elif what == "remove":
             slot.pop(j)
             if not slot:
@@ -886,6 +910,15 @@ class PieWidget(QtWidgets.QWidget):
 
     def keyPressEvent(self, event):
         key = event.key()
+        text = event.text().upper()
+        if len(text) == 1 and text.isalpha():
+            # a slot's own letter fires it — and deliberately outranks
+            # the built-in P-to-pin when a slot claimed P
+            for btn in self.buttons:
+                if btn.property("accel") == text \
+                        and btn.isEnabled() and not btn.isHidden():
+                    btn.click()
+                    return
         if QtCore.Qt.Key_1 <= key <= QtCore.Qt.Key_9:
             index = key - QtCore.Qt.Key_1
             if index < len(self.buttons):
@@ -1065,18 +1098,8 @@ class PieWidget(QtWidgets.QWidget):
             self.close()             # released from the dead-zone: no aim
             return
         btn = self.nearest_slot(pos)
-        if btn is not None and not btn.isEnabled():
-            self.close()     # aimed at a dead slot: run nothing at all
-            return
-        if btn is None:
-            # overshot the ring on a fast flick: the slot just flown over
-            # (moments ago) is what the hand meant
-            if self._crossed is not None \
-                    and _now_ms() - self._crossed[1] < 150 \
-                    and self._crossed[0].isEnabled():
-                self._crossed[0].click()
-                return
-            self.close()
+        if btn is None or not btn.isEnabled():
+            self.close()     # nothing aimed, or a dead slot: run nothing
             return
         btn.click()
 
@@ -1100,16 +1123,21 @@ class PieWidget(QtWidgets.QWidget):
             beyond = (dx * dx + dy * dy) ** 0.5 \
                 >= max(24, self.pie.radius * 0.45)
             over = self.nearest_slot(spot) if beyond else None
-            # remember the slot the aim is flying over: a fast flick can
-            # overshoot an arc or grid pie before the release lands
-            if over is not None and over.isEnabled():
-                self._crossed = (over, _now_ms())
             self._set_aim(over)
             self.update()
         super().mouseMoveEvent(event)
 
     def paintEvent(self, event):
         super().paintEvent(event)
+        if self._opaque and not self._collapsed:
+            painter = QtGui.QPainter(self)
+            painter.setRenderHint(QtGui.QPainter.Antialiasing)
+            painter.setPen(QtGui.QPen(
+                self.palette().color(QtGui.QPalette.Mid), 1))
+            painter.setBrush(self.palette().window())
+            painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1),
+                                    10, 10)
+            painter.end()
         if self._collapsed:
             # the folded palette is just a slim tab on the window edge
             painter = QtGui.QPainter(self)
@@ -1321,15 +1349,17 @@ class Dispatcher(QtCore.QObject):
 
     DOUBLE_MS = 350
     DEFER_MS = 170
+    STUCK_MS = 2000               # no key-up AND no motion by then = stuck
 
     def __init__(self, opener, gestures, fallback=None, mode_of=None,
                  fire=None, parent=None):
         super().__init__(parent)
-        self.opener = opener          # opener(name, at, hint) -> PieWidget
+        self.opener = opener          # opener(name, at, hint, mode)
         self.gestures = gestures      # gestures(key) -> {gesture: pie_name}
         self.fallback = fallback or (lambda: None)   # the right-click pie
         self.mode_of = mode_of or (lambda name: "click")   # pie's run_on
         self.fire = fire or (lambda cmd: None)   # for Run: bind targets
+        self.trace = deque(maxlen=12)  # recent dispatches, for the Doctor
         self.current = None           # the open PieWidget
         self.last_tap = {}            # key -> ms timestamp
         self.held = None              # the key currently down
@@ -1341,6 +1371,14 @@ class Dispatcher(QtCore.QObject):
         self._defer.timeout.connect(self._open_deferred)
         self._deferred = None         # (key, pie name) waiting on the timer
         self._press_pos = QtCore.QPoint()
+        # some devices (MX Master, many Bluetooth and pen buttons) never
+        # deliver a key-up: with no release and no motion, demote the
+        # pie to click mode instead of waiting forever
+        self._stuck = QtCore.QTimer(self)
+        self._stuck.setSingleShot(True)
+        self._stuck.setInterval(self.STUCK_MS)
+        self._stuck.timeout.connect(self._keyup_guard)
+        self._still_at = None         # cursor at the last stuck-check
 
     # -- helpers
 
@@ -1365,15 +1403,20 @@ class Dispatcher(QtCore.QObject):
             if model.is_run(held):    # a held single command just runs
                 self.close()
                 self.fire(model.run_target(held))
+                self.trace.append(
+                    f"{key}: hold ran {model.run_target(held)}")
                 return
             # the hand is still down: the held outcome, anchored at the
-            # press point so movement so far counts as aim
-            self.open_pie(held, at=self._press_pos, hint=held_hint)
+            # press point so movement so far counts as aim — and a hold
+            # ALWAYS runs as a marking menu
+            self.open_pie(held, at=self._press_pos, hint=held_hint,
+                          mode="release")
+            self.trace.append(f"{key}: hold opened {held} (marking)")
             self.held = key           # open_pie's close() cleared it
 
-    def open_pie(self, name, at=None, hint=""):
+    def open_pie(self, name, at=None, hint="", mode=None):
         self.close()
-        self.current = self.opener(name, at, hint)
+        self.current = self.opener(name, at, hint, mode)
         return self.current
 
     def _reuse(self, name):
@@ -1403,10 +1446,6 @@ class Dispatcher(QtCore.QObject):
             if name is not None and not self._typing_focus() \
                     and self.gestures(name):
                 return self._press(name)
-        if etype == QtCore.QEvent.MouseButtonRelease:
-            name = MOUSE_KEYS.get(event.button())
-            if name is not None and self.held == name:
-                return self._release(name)
         if etype == QtCore.QEvent.MouseMove and self._deferred is not None:
             # moving right after the press means a gesture, not a tap:
             # show the pie now instead of waiting out the double window
@@ -1416,6 +1455,10 @@ class Dispatcher(QtCore.QObject):
             if dx * dx + dy * dy > 100:
                 self._defer.stop()
                 self._open_deferred()
+        if etype == QtCore.QEvent.MouseButtonRelease:
+            name = MOUSE_KEYS.get(event.button())
+            if name is not None and self.held == name:
+                return self._release(name)
         if App is not None and behaviour()["rclick"]:
             if etype == QtCore.QEvent.MouseButtonPress \
                     and event.button() == QtCore.Qt.RightButton:
@@ -1445,10 +1488,33 @@ class Dispatcher(QtCore.QObject):
             return False
         return self._press(self._key_of(event))
 
+    def _keyup_guard(self):
+        if self.held is None:
+            return
+        # stillness is measured tick-to-tick, not since the press: the
+        # screen-clamp warp (and ordinary aiming) moves the cursor once,
+        # then a truly stuck key sits still for a whole interval
+        pos = QtGui.QCursor.pos()
+        anchor = self._still_at if self._still_at is not None \
+            else self._press_pos
+        if (pos - anchor).manhattanLength() > 10:
+            self._still_at = pos
+            self._stuck.start()   # a hand mid-aim is not a stuck key
+            return
+        self.held = None
+        widget = self.current
+        if widget is not None and widget.isVisible() \
+                and getattr(widget, "run_mode", "") == "release":
+            widget.run_mode = "click"   # stays for the mouse instead
+            self.trace.append("no key-up arrived: pie demoted to click")
+
     def _press(self, key):
         gmap = self.gestures(key)
         if not gmap:
             return False
+        self._press_pos = QtGui.QCursor.pos()
+        self._still_at = None
+        self._stuck.start()
         now = _now_ms()
         double_ready = self._double(key, now)
         self._defer.stop()
@@ -1483,6 +1549,8 @@ class Dispatcher(QtCore.QObject):
                 # second tap just fires it again
                 self.close()
                 self.fire(model.run_target(name))
+                self.trace.append(
+                    f"{key}: press ran {model.run_target(name)}")
                 self.held = key
                 return True
             if self._reuse(name):
@@ -1494,6 +1562,7 @@ class Dispatcher(QtCore.QObject):
                     return True
             else:
                 self.open_pie(name, hint=quick_hint)
+                self.trace.append(f"{key}: opened {name}")
             self.held = key
             return True
         # ambiguous: hold (or movement) opens the held pie; an early
@@ -1512,6 +1581,7 @@ class Dispatcher(QtCore.QObject):
         return self._release(self.held)
 
     def _release(self, _key):
+        self._stuck.stop()
         self.held = None
         if self._deferred is not None:
             # released before the held outcome: this was a tap
@@ -1521,12 +1591,15 @@ class Dispatcher(QtCore.QObject):
             if quick is not None and model.is_run(quick):
                 self.close()
                 self.fire(model.run_target(quick))
+                self.trace.append(
+                    f"{_key}: tap ran {model.run_target(quick)}")
                 return True
             if quick is not None and self.mode_of(quick) != "release" \
                     and not self._reuse(quick):
                 # a persistent quick pie opens where the press happened;
                 # a release pie on a completed tap means nothing at all
                 self.open_pie(quick, at=self._press_pos, hint=quick_hint)
+                self.trace.append(f"{_key}: tap opened {quick}")
             return True
         widget = self.current
         if widget is None:
@@ -1706,8 +1779,8 @@ class Runtime:
 
     # -- opening
 
-    def _open_for_dispatch(self, name, at=None, hint=""):
-        return self.open_pie(name, at, hint)
+    def _open_for_dispatch(self, name, at=None, hint="", mode=None):
+        return self.open_pie(name, at, hint, mode=mode)
 
     def _pies_for(self, name):
         if name != model.SMART_NAME:
@@ -1722,12 +1795,12 @@ class Runtime:
             counts=self.counts())
         return pies
 
-    def open_pie(self, name, at=None, hint=""):
+    def open_pie(self, name, at=None, hint="", mode=None):
         pies = self._pies_for(name)
         if name not in pies:
             return None
         widget = PieWidget(pies, name, self.counts(), self.fire,
-                           runtime=self)
+                           runtime=self, mode=mode)
         if hint:
             opens = model._grp(f"Pies/{name}").GetInt("Opens", 0) + 1
             model._grp(f"Pies/{name}").SetInt("Opens", opens)

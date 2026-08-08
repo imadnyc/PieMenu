@@ -140,15 +140,6 @@ def _migrate_pie(index, i):
     return pie, g
 
 
-def _starter_pie():
-    pie = Pie(name="Main", slots=6, per_ring=6)
-    model.normalise(pie)
-    for i, cmd in enumerate(("Std_New", "Std_Open", "Std_Save",
-                             "Std_Undo", "Std_Redo", "Std_Refresh")):
-        pie.items[i] = [Binding(cmd)]
-    return pie
-
-
 def migrate():
     """Run the v1 -> v2 migration once.  Returns True when it did any work."""
     if model.get_schema_version() >= model.SCHEMA_VERSION:
@@ -164,11 +155,13 @@ def migrate():
             migrated.append(got)
 
     if not migrated:
-        starter = _starter_pie()
-        starter.default = True
-        model.save_pie(starter)
-        key = main.GetString("GlobalShortcutKey", "") or "F3"
-        model.set_bind(ANY_SCOPE, key, starter.name)
+        # a truly fresh install gets the full starter set, so the first
+        # press of F3 already shows what the addon can do
+        from . import starter
+        for pie in starter.build_pies().values():
+            model.save_pie(pie)
+        for scope, key, name, gesture in starter.BINDS:
+            model.set_bind(scope, key, name, gesture)
         model.set_schema_version(model.SCHEMA_VERSION)
         return True
 

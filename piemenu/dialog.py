@@ -266,6 +266,15 @@ def colors_dialog(parent, on_change):
         lab.setToolTip(what)
         form.addRow(lab, rowbox)
 
+    opaque = QtWidgets.QCheckBox("solid panel behind pies")
+    opaque.setChecked(p.GetBool("OpaquePies", False))
+    opaque.setToolTip("Without a compositor (bare X11, VNC) translucent "
+                      "pies render as black rectangles — this paints a "
+                      "solid rounded panel instead.")
+    opaque.toggled.connect(lambda v: (p.SetBool("OpaquePies", v),
+                                      on_change()))
+    form.addRow(QtWidgets.QLabel("No compositor:"), opaque)
+
     close = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.Close)
     close.rejected.connect(dlg.reject)
     close.clicked.connect(dlg.accept)
@@ -426,6 +435,13 @@ def stats_dialog(parent):
     reset = QtWidgets.QPushButton("Reset stats")
     reset.clicked.connect(lambda: (model.reset_stats(), dlg.accept()))
     buttons.addWidget(reset)
+    relay = QtWidgets.QPushButton("Rebuild Smart layout")
+    relay.setToolTip("Positions in the Smart pie are frozen so muscle "
+                     "memory holds; this forgets them and lays the pie "
+                     "out fresh from the current ranking.")
+    relay.clicked.connect(lambda: (model.reset_smart_layout(),
+                                   dlg.accept()))
+    buttons.addWidget(relay)
     buttons.addStretch(1)
     close = QtWidgets.QPushButton("Close")
     close.clicked.connect(dlg.accept)
@@ -470,6 +486,9 @@ def keys_dialog(parent):
             ("moving while a key is held",
              "opens the hold pie immediately, anchored at the press",
              "gesture-aim"),
+            ("a slot's shortcut letter",
+             ("fires it while the pie is open (right-click a live "
+              "slot to set one)"), None),
             ("a greyed-out slot", "aiming at it runs nothing at all",
              "dead-slot"),
         )),
@@ -1844,7 +1863,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
                  "button", "spacing", "accent", "run_on", "delay",
                  "show_names", "alt_size", "door_hover", "door_instant")}
         data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule),
-                           "label": b.label}
+                           "label": b.label, "accel": b.accel}
                           for b in (slot or [])] for slot in pie.items]
         data["requires"] = model.pie_requires(pie)
         return data
@@ -1864,7 +1883,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         for i, slot in enumerate(items[:len(pie.items)]):
             bindings = [Binding(e["cmd"],
                                 model.decode_rule(e.get("rule", "")),
-                                e.get("label", ""))
+                                e.get("label", ""),
+                                str(e.get("accel", ""))[:1].upper())
                         for e in slot if e.get("cmd")]
             pie.items[i] = bindings or None
         return pie

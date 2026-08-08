@@ -12,13 +12,15 @@ fail and point at the rest. Params live under
 | Per-workbench shortcuts | a key means different pies per workbench, `Any` is the fallback | `model.resolve_key`, `model.scope_chain` | core, keep |
 | SketchEdit scope | editing a sketch is its own scope, falls back through Sketcher | `model.SKETCH_EDIT_SCOPE`, `runtime.workbench_scope`, `dialog.workbench_scopes` | drop the scope from `scope_chain` + `workbench_scopes` |
 | Four gestures per key | tap / double / hold / double-hold, quick-vs-held state machine | `runtime.Dispatcher` (`DOUBLE_MS`, `DEFER_MS`) | core, keep |
+| Hold = marking menu | a pie opened by a HOLD always runs as a marking menu, whatever its own run_on | `mode="release"` in `Dispatcher._open_deferred`, `mode` param through `open_pie`/`PieWidget` | stop passing the mode |
 | Move-opens-sooner | mouse movement during an ambiguous press opens the hold pie at once | `Dispatcher.eventFilter` MouseMove branch | delete that branch |
+| Key-up timeout | no release AND no motion for 2s = a device that never sends key-up: the pie demotes to click mode | `Dispatcher._keyup_guard`, `STUCK_MS` | delete the timer |
+| Letter accels | a binding's one-letter accel fires its slot while the pie is open (shown as an accent tag, beats P-to-pin) | `Binding.accel`, letter branch in `keyPressEvent`, "Shortcut letter…" in `_slot_menu` | delete those |
 | Mouse thumb buttons | Mouse4/Mouse5 bind like keys, all gestures | `runtime.MOUSE_KEYS`, mouse branches in `Dispatcher.eventFilter`, `dialog._MouseCatch` | delete those three |
 | Right-click trigger | long right-click opens the resolved pie | `Dispatcher._arm_rclick`, `RightClickTrigger` param | delete methods + param |
 | Run binds | a gesture runs one command instead of opening a pie (tap = Constrain Radius, hold = the pie) | `model.RUN_PREFIX`, Run branches in `Dispatcher`, `_bind_command` in the table | delete those three |
 | Angular aim | circle pies read the gesture as a direction: radius picks the ring, angle the slot; dead/empty sectors are no-ops; ~5° boundary stickiness | `PieWidget._angular_slot`, `_sectors` in `build` | delete both; the Euclidean fallback in `nearest_slot` takes over |
 | Aim feedback | the aimed slot wears an accent ring and the centre names what release will do ("Cancel" in the dead zone) | `PieWidget._set_aim`, `aimed` rule in `build`, `aimname` property in `_decorate` | delete those three |
-| Flick-overshoot lock | on grids and arc pies, releasing where nothing resolves fires the slot crossed <150 ms ago | `PieWidget._crossed` in `mouseMoveEvent` + `commit_gesture` | delete both `_crossed` blocks |
 | Screen clamp | a pie opened at the screen edge shifts fully on-screen (cursor warps along where the platform allows) | else-branch of `PieWidget.popup_at` | delete the branch |
 
 ## Slots and rules
@@ -42,10 +44,10 @@ fail and point at the rest. Params live under
 
 | Feature | What | Lives in | Remove |
 |---|---|---|---|
-| Smart pie | transient pie of your most-used tools per workbench, decaying counts | `model.bump_stat/top_commands/fill_smart/smart_pie`, `Stats/*` params | delete `SMART_NAME` registration in `Runtime` |
+| Smart pie | transient pie of your most-used tools per workbench, decaying counts, FROZEN positions (first fill fixes the layout; tools are evicted in place, never shuffled; Stats… → Rebuild Smart layout resets) | `model.bump_stat/top_commands/fill_smart/smart_pie`, `smart_layout`, `Stats/*` + `Smart/Layout/*` params | delete `SMART_NAME` registration in `Runtime` |
 | Favorites | right-click → Keep in Smart; leads the pie, never decays out | `model.smart_favorites`, Smart branch of `_slot_menu`, `Smart/Favorites` param | delete those |
 | Ignore list | right-click → Ignore in Smart; counted but never offered | `model.smart_ignored`, same menu, `Smart/Ignored` param, row in `stats_dialog` | delete those |
-| Selection-aware ranking | tools you use with a face selected rank first when a face is selected | `axis=` in `bump_stat`, `@axis` stats groups, `dominant_axis`, `counts=` through `smart_pie` | drop the `axis` params; `@` groups age out via decay |
+| Selection-aware ranking | tools you use with a face selected enter free slots first when a face is selected — entry only, positions stay frozen | `axis=` in `bump_stat`, `@axis` stats groups, `dominant_axis`, `counts=` through `smart_pie` | drop the `axis` params; `@` groups age out via decay |
 | On-axis fill | the best-ranked tools land on the cardinal directions before the diagonals | `model._axis_order` in `fill_smart` | delete `_axis_order`, fill 0..n again |
 
 ## Pinned palettes
@@ -64,6 +66,7 @@ fail and point at the rest. Params live under
 | Shapes + styles | rounded/square/squircle/circle; flat/gradient/outline | `runtime.shape_radius`, style css in `build` | keep flat+rounded, delete the rest |
 | Colors | global Accent/Outline/Fill/Arrow + per-pie accent | `runtime.custom_color`, `dialog.colors_dialog` | delete dialog + params |
 | Outlined overlay text | centre name, hints, digit tags drawn with a contrast rim | `runtime.HaloLabel` | swap back to QLabel |
+| Opaque fallback | without a compositor translucent pies render black; the OpaquePies switch (Colors…) paints a solid rounded panel | `_opaque` in `PieWidget`, checkbox in `colors_dialog`, `OpaquePies` param | delete those |
 | Names under buttons | per-pie `show_names`, layout spreads to fit | `show_names` branches in `_slot_button`/`build` | uncheck per pie |
 | Gesture arrow | minimal centre→cursor arrow in hold mode | `PieWidget.paintEvent` tail | delete the paint block |
 
@@ -77,6 +80,7 @@ fail and point at the rest. Params live under
 | Conflict badges | ⚠ where a bound key shadows a FreeCAD shortcut | `dialog.freecad_shortcuts`, badge block in `rebuild` | delete both |
 | Session revert | restore everything to window-open state | `_session_snapshot` in `__init__`, `revert_session` in footer | delete both |
 | Keys cheat sheet | Keys… button, every key on one page | `dialog.keys_dialog` | delete + footer button |
+
 | Hover demos | ? buttons and keys-page rows play little demo GIFs on hover | `dialog.GifTip`, movies in `docs/gifs/` rendered by `nix run .#gifs` (`dev/gif_scenes.py`) | delete `GifTip` + call sites; the GIFs are plain files |
 | Usage stats panel | Stats… button, top tools + reset | `dialog.stats_dialog` | delete + footer button |
 | Live preview | union view, chooser flash, names spread | `dialog.PiePreview` | core-ish |
@@ -93,3 +97,4 @@ fail and point at the rest. Params live under
 | Preset provenance | reinstalling from the same source updates in place | `Pie.source`, `replacing` in `pie_import_file` | delete both |
 | Community browser | list + install from the shared GitHub repo | `dialog.browse_presets_dialog`, `PRESET_INDEX` | delete both |
 | Whole-setup bundles | every pie + the keybinds in one file, merge-import | `dialog.setup_export/setup_import` | delete both |
+| Fresh-install starter | a truly fresh profile gets the full starter set (piemenu/starter.py) at first migrate, so F3 works out of the box | fresh branch of `migrate.migrate` | seed a single bare pie again |

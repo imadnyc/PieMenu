@@ -363,10 +363,11 @@ gmaps = {"F6": {"press": "Main"}}
 run_of = {"Main": "click", "Sub": "click"}
 
 
-def opener(name, at=None, hint=""):
+def opener(name, at=None, hint="", mode=None):
     fw = FakeWidget(FakePie(name, run_of[name]))
     fw.at = at
     fw.hint = hint
+    fw.mode = mode
     opened.append(fw)
     return fw
 
@@ -637,6 +638,64 @@ w.close()
 w.deleteLater()
 print("PASS chooser timeout")
 
+# ---- a hold always opens a marking menu ------------------------------------
+model.set_bind(model.ANY_SCOPE, "F11", "Sub", "hold")
+rt.reload()
+QtGui.QCursor.setPos(QtCore.QPoint(500, 500))
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F11))
+wait(300)                                    # defer expires, pie opens
+held_w = rt.dispatcher.current
+assert held_w is not None and held_w.run_mode == "release"
+assert held_w.pie.name == "Sub"              # Sub's own run_on is click
+rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyRelease, QtCore.Qt.Key_F11))
+assert rt.dispatcher.current is None         # dead-zone release: closed
+wait(400)
+print("PASS hold is marking")
+
+# ---- devices that never send key-up ----------------------------------------
+rt.dispatcher._stuck.setInterval(400)
+QtGui.QCursor.setPos(QtCore.QPoint(700, 500))
+assert rt.dispatcher.eventFilter(
+    None, key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_F11))
+wait(1400)     # opens at 170ms; the warp counts as one tick of motion,
+stuck_w = rt.dispatcher.current              # the next tick demotes
+assert stuck_w is not None and stuck_w.isVisible()
+assert stuck_w.run_mode == "click"           # demoted: stays for the mouse
+assert rt.dispatcher.held is None
+stuck_w.close()
+rt.dispatcher.current = None
+rt.dispatcher._stuck.setInterval(rt.dispatcher.STUCK_MS)
+model.remove_key("F11")
+rt.reload()
+wait(400)
+print("PASS key-up timeout")
+
+# ---- letter accels fire their slot -----------------------------------------
+pies["Main"].items[1] = [Binding("Std_Undo", accel="U")]
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+fired.clear()
+w.keyPressEvent(QtGui.QKeyEvent(
+    QtCore.QEvent.KeyPress, QtCore.Qt.Key_U, QtCore.Qt.NoModifier, "u"))
+assert fired == ["Std_Undo"], fired
+assert not w.isVisible()
+w.deleteLater()
+pies["Main"].items[1] = [Binding("Std_Undo")]
+print("PASS letter accels")
+
+# ---- the opaque fallback paints without crashing ----------------------------
+App.ParamGet("User parameter:BaseApp/PieMenu").SetBool("OpaquePies", True)
+w = runtime.PieWidget(pies, "Main", {}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+assert w._opaque
+w.grab()                                     # exercises the paint path
+w.close()
+w.deleteLater()
+App.ParamGet("User parameter:BaseApp/PieMenu").RemBool("OpaquePies")
+print("PASS opaque fallback")
+
 # ---- Run: binds fire one command, no pie -----------------------------------
 model.set_bind(model.ANY_SCOPE, "F10", "Run:Std_New")
 rt.reload()
@@ -673,28 +732,18 @@ model.remove_key("F10")
 rt.reload()
 print("PASS run binds")
 
-# ---- flick overshoot locks the crossed slot (grids/arcs) -------------------
-# circles resolve any reach by angle now, so the lock's remaining home
-# is layouts where a far release resolves to nothing: grids and arcs
+# ---- a release that resolves nowhere runs nothing --------------------------
 fired.clear()
-# cols=4 puts the outer slots ~60px out, past the 36px dead zone
-gflick = Pie("GFlick", family="grid", cols=4, rows=1, radius=80,
-             run_on="release")
-model.normalise(gflick)
-gflick.items[0] = [Binding("Std_Undo")]
-gflick.items[1] = [Binding("Std_Redo")]
-w = runtime.PieWidget({"GFlick": gflick}, "GFlick", {}, fire)
+gfar = Pie("GFar", family="grid", cols=4, rows=1, radius=80,
+           run_on="release")
+model.normalise(gfar)
+gfar.items[0] = [Binding("Std_Undo")]
+w = runtime.PieWidget({"GFar": gfar}, "GFar", {}, fire)
 w.popup_at(QtCore.QPoint(400, 400))
-over = w.buttons[0].mapToGlobal(QtCore.QPoint(17, 17))
-w.mouseMoveEvent(QtGui.QMouseEvent(
-    QtCore.QEvent.MouseMove, QtCore.QPointF(w.mapFromGlobal(over)),
-    QtCore.QPointF(over), QtCore.Qt.NoButton, QtCore.Qt.NoButton,
-    QtCore.Qt.NoModifier))
-assert w._crossed is not None and w._crossed[0] is w.buttons[0]
 w.commit_gesture(pos=w.mapToGlobal(QtCore.QPoint(-3000, -3000)))
-assert fired == ["Std_Undo"], fired          # the flown-over slot fired
+assert fired == [] and not w.isVisible()     # far off a grid: abort
 w.deleteLater()
-print("PASS flick lock")
+print("PASS far release aborts")
 
 # ---- aim feedback: highlight ring and centre readout -----------------------
 pies["Main"].run_on = "release"

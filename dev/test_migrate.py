@@ -86,13 +86,19 @@ assert model.resolve_key("Space", "PartDesign", binds) == ("Modelling", "PartDes
 assert model.resolve_key("Space", "Sketcher", binds) == ("Main", model.ANY_SCOPE)
 print("PASS migration")
 
-# ---- fresh install --------------------------------------------------------
+# ---- fresh install: the full starter set, not a bare stub ------------------
 reset()
 assert migrate.migrate() is True
 pies = model.load_pies()
-assert list(pies) == ["Main"] and pies["Main"].default
-assert pies["Main"].items[0][0].cmd == "Std_New"
-assert model.resolve_key("F3", "PartDesign", model.load_binds())[0] == "Main"
+from piemenu import starter
+
+assert set(pies) == set(starter.build_pies())
+assert pies["View"].default                      # the starter's fallback
+binds = model.load_binds()
+assert model.resolve_key("F3", "PartDesign", binds)[0] == "Main"
+assert model.resolve_key("F3", "PartDesign", binds, "hold")[0] \
+    == "Modelling"
+assert model.resolve_key("F9", "Sketcher", binds)[0] == "Smart"
 print("PASS fresh install")
 
 reset()

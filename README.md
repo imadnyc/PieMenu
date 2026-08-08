@@ -22,13 +22,15 @@ internals redone from scratch.
   double-tap-then-hold. Hold gives you the marking-menu flow: the pie
   follows your aim with an arrow and firing happens on release. A quick
   tap on a hold binding does nothing instead of leaving a menu behind.
-  When a key is ambiguous (a hold pie waiting out a possible double-tap),
-  moving the mouse settles it instantly: motion means you're gesturing,
-  so the pie opens right away, anchored where you pressed — your movement
-  already counts toward the aim. The aim itself is read as a direction
-  (distance only picks the ring on multi-ring pies), the slot you're
-  aiming at lights up, and the centre of the pie names what release will
-  do — "Cancel" while you're in the dead zone.
+  A hold always behaves as a marking menu, whatever the pie's click
+  behavior. When a key is ambiguous (a hold pie waiting out a possible
+  double-tap), moving the mouse settles it instantly: motion means
+  you're gesturing, so the pie opens right away, anchored where you
+  pressed — your movement already counts toward the aim. The aim is
+  read as a direction (distance only picks the ring on multi-ring
+  pies), the slot you're aiming at lights up, and the centre names what release will do  up, and the centre names what release will do — "Cancel" in the dead
+  zone. Slots can also carry a one-letter shortcut that fires them
+  while the pie is open.
 
   ![aiming a hold gesture](docs/gifs/gesture-aim.gif)
 
@@ -58,7 +60,10 @@ internals redone from scratch.
   ![pinning a palette](docs/gifs/pinned-palette.gif)
 * There's a **Smart** pie that fills itself with your most-used tools for
   whatever workbench you're in. Counts decay over time so it tracks what
-  you're doing now, not last month. Bind it to a key and forget about it.
+  you're doing now, not last month — but positions freeze after the
+  first fill, because reshuffling is what kills muscle memory: tools are
+  replaced in place, never moved (Stats… has the reset).
+  Bind it to a key and forget about it.
   Right-click a tool in it to pin it so it never rotates out, or to
   ignore it entirely; your top tools land on the cardinal directions
   first, and what you use with a face selected leads when a face is
@@ -97,12 +102,11 @@ git clone https://github.com/imadnyc/PieMenu ~/PieMenu
 ln -s ~/PieMenu ~/.local/share/FreeCAD/v1-1/Mod/PieMenu
 ```
 
-Restart FreeCAD. An existing v1 PieMenu config gets migrated automatically;
-the v1 data itself is left alone.
-
-If you want a ready-made set of pies on F3-F9 (including the Smart pie),
-this merges them into your profile without touching anything you already
-have:
+Restart FreeCAD. A fresh install starts with the full F3-F9 starter set
+below, so the first press of F3 already works. An existing v1 PieMenu
+config gets migrated automatically instead; the v1 data itself is left
+alone. To merge the starter set into an existing config without touching
+anything you already have:
 
 ```sh
 freecadcmd ~/PieMenu/dev/install_seed.py

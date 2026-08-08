@@ -92,6 +92,7 @@ class Binding:
     cmd: str
     rule: dict = field(default_factory=dict)
     label: str = ""                 # display override ("Loft", not AdditiveLoft)
+    accel: str = ""                 # one letter that fires the slot directly
 
 
 def is_pie_command(cmd):
@@ -429,6 +430,10 @@ def save_pie(pie):
                 bg.SetString("Label", b.label)
             else:
                 bg.RemString("Label")
+            if b.accel:
+                bg.SetString("Accel", b.accel[:1].upper())
+            else:
+                bg.RemString("Accel")
 
 
 def set_last_used(name, index, cmd):
@@ -477,7 +482,8 @@ def load_pie(name):
             if cmd:
                 bindings.append(Binding(cmd,
                                         decode_rule(bg.GetString("Rule", "")),
-                                        bg.GetString("Label", "")))
+                                        bg.GetString("Label", ""),
+                                        bg.GetString("Accel", "")))
         pie.items[i] = bindings or None
     return pie
 
@@ -660,6 +666,22 @@ def dominant_axis(counts):
     return max(live, key=live.get) if live else None
 
 
+def smart_layout(workbench):
+    """The frozen slot order of the Smart pie for one workbench."""
+    raw = _grp("Smart/Layout").GetString(workbench or ANY_SCOPE, "")
+    return raw.split(",") if raw else []
+
+
+def set_smart_layout(workbench, layout):
+    _grp("Smart/Layout").SetString(workbench or ANY_SCOPE,
+                                   ",".join(layout))
+
+
+def reset_smart_layout():
+    """Forget every frozen layout; the next opens rebuild from rank."""
+    _grp("Smart").RemGroup("Layout")
+
+
 def _axis_order(pie):
     """Slot indices best-first: cardinals before diagonals, ring by
     ring — on-axis marks are faster and less error-prone with a mouse
@@ -685,18 +707,42 @@ def _axis_order(pie):
 
 
 def fill_smart(pie, workbench, counts=None):
-    """Overwrite a pie's slots: pinned favorites first, then what you
-    use most with this kind of selection, then most used overall — the
-    best-ranked landing on the cardinal directions first."""
+    """Fill a pie's slots from usage — with FROZEN positions.
+
+    Reshuffling is what kills pie muscle memory, so the first fill of a
+    workbench freezes its layout (favorites and best-ranked on the
+    cardinals first). After that, positions only change when a tool
+    decisively drops out of the extended ranking (evicted in place and
+    replaced by the best absent tool, favorites always forced in) or on
+    an explicit reset_smart_layout(). The selection axis influences only
+    what ENTERS a free slot, never where anything sits."""
     normalise(pie)
-    pie.items = [None] * len(pie.items)
+    n = len(pie.items)
     favs = [c for c in smart_favorites() if not is_pie_command(c)]
-    rest = [c for c in top_commands(workbench, len(pie.items),
-                                    axis=dominant_axis(counts))
-            if c not in favs]
+    ranked = top_commands(workbench, n + 3, axis=dominant_axis(counts))
+    frozen = smart_layout(workbench)
     order = _axis_order(pie)
-    for rank, cmd in enumerate((favs + rest)[:len(pie.items)]):
-        pie.items[order[rank]] = [Binding(cmd)]
+    if not frozen:
+        layout = [""] * n
+        fill = (favs + [c for c in ranked if c not in favs])[:n]
+        for rank, cmd in enumerate(fill):
+            layout[order[rank]] = cmd
+    else:
+        layout = (frozen + [""] * n)[:n]
+        keep = set(ranked) | set(favs)
+        for i, cmd in enumerate(layout):
+            if cmd and cmd not in keep:
+                layout[i] = ""              # decisively fallen: evict
+        present = {c for c in layout if c}
+        incoming = [f for f in favs if f not in present] \
+            + [c for c in ranked[:n] if c not in present and c not in favs]
+        for i in order:                     # refill best slots first
+            if not incoming:
+                break
+            if not layout[i]:
+                layout[i] = incoming.pop(0)
+    set_smart_layout(workbench, layout)
+    pie.items = [[Binding(c)] if c else None for c in layout]
     return pie
 
 

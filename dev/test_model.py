@@ -173,14 +173,24 @@ M.delete_pie("Lbl")
 M.bump_stat("Any", M.PIE_PREFIX + "Main")
 assert M.PIE_PREFIX + "Main" not in M.top_commands("Any", 8)  # no doors
 
-# pinned favorites lead the Smart pie, whatever the usage says
+# positions freeze after the first fill: a new favorite joins at a
+# FREE slot, the frozen tools never move
+M.reset_smart_layout()                       # the 4-slot probe above
+M.smart_pie("PartDesign")                    # refreeze at 8 slots
 M.set_smart_favorite("Z_Rare", True)
 assert M.smart_favorites() == ["Z_Rare"]
 sp = M.smart_pie("PartDesign")
-assert sp.items[0][0].cmd == "Z_Rare"        # favorite first (east)
-assert sp.items[2][0].cmd == "A"             # then rank, next cardinal
+placed = {i: s[0].cmd for i, s in enumerate(sp.items) if s}
+assert placed[0] == "A"                      # frozen position untouched
+assert "Z_Rare" in placed.values()
+z_at = next(i for i, c in placed.items() if c == "Z_Rare")
 M.set_smart_favorite("Z_Rare", False)
 assert M.smart_favorites() == []
+sp = M.smart_pie("PartDesign")
+after = {i: s[0].cmd for i, s in enumerate(sp.items) if s}
+assert z_at not in after                     # unpinned + unranked: gone
+assert all(after[i] == c for i, c in placed.items()
+           if i != z_at)                     # nothing else moved
 
 # the axis order itself: cardinals of the ring, then its diagonals
 order = M._axis_order(Pie("O", slots=8, per_ring=8))
@@ -194,8 +204,8 @@ assert M.stats("PartDesign")["A"] == 2       # still counted
 M.set_smart_ignored("A", False)
 assert "A" in M.top_commands("PartDesign", 8)
 
-# selection-aware ranking: tools used with a Face selected lead when
-# a face is selected now
+# selection-aware ranking decides what ENTERS a free slot — it never
+# moves a frozen position
 M.bump_stat("PartDesign", "FaceTool", axis="Face")
 assert M.top_commands("PartDesign", 8, axis="Face")[0] == "FaceTool"
 assert M.top_commands("PartDesign", 8)[0] == "A"   # plain rank intact
@@ -203,7 +213,12 @@ assert M.stats()["FaceTool"] == 1            # @-shadow not double-counted
 assert M.dominant_axis({"Face": 2, "Edge": 1}) == "Face"
 assert M.dominant_axis({}) is None
 sp_face = M.smart_pie("PartDesign", counts={"Face": 1})
-assert sp_face.items[0][0].cmd == "FaceTool"
+assert sp_face.items[0][0].cmd == "A"        # frozen stays put
+assert "FaceTool" in [s[0].cmd for s in sp_face.items if s]
+# an explicit layout reset rebuilds fresh, and now the axis leads
+M.reset_smart_layout()
+sp_fresh = M.smart_pie("PartDesign", counts={"Face": 1})
+assert sp_fresh.items[0][0].cmd == "FaceTool"
 
 # task-panel pseudo-commands need nothing installed
 pp = Pie("PP", slots=2, per_ring=2)
@@ -217,6 +232,14 @@ M.normalise(di)
 M.save_pie(di)
 assert M.load_pie("DI").door_instant is True
 M.delete_pie("DI")
+
+# accel letters persist per binding, upper-cased
+ap = Pie("Acc", slots=2, per_ring=2)
+M.normalise(ap)
+ap.items[0] = [Binding("Std_New", accel="n")]
+M.save_pie(ap)
+assert M.load_pie("Acc").items[0][0].accel == "N"
+M.delete_pie("Acc")
 
 # last-fired round trip
 M.set_last_fired("Main", "Std_Undo")
