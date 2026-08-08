@@ -419,6 +419,59 @@ def stats_dialog(parent):
     return dlg
 
 
+def keys_dialog(parent):
+    """Every key the addon answers to, in one place."""
+    dlg = QtWidgets.QDialog(parent)
+    dlg.setWindowTitle("Keys")
+    lay = QtWidgets.QVBoxLayout(dlg)
+    for title, rows in (
+        ("While a pie is open", (
+            ("1–9", "fire the numbered slot"),
+            ("Shift + pick", "fire without closing, chain several tools"),
+            ("Backspace", "back out of a sub-pie"),
+            ("P", "pin the pie as a floating palette"),
+            ("Esc / ✕", "close a pinned palette"),
+            ("right-click a slot", "edit it here in the preferences"),
+            ("hover a door slot", "glide into that pie"),
+        )),
+        ("Your bindings", (
+            ("· tap  ·· double  — hold  ··— double-hold",
+             "one key carries up to four pies (the table above)"),
+            ("workbench beats Any workbench",
+             "the more specific scope answers first"),
+            ("SketchEdit beats Sketcher",
+             "while a sketch is open for editing"),
+            ("moving while a key is held",
+             "opens the hold pie immediately, anchored at the press"),
+        )),
+    ):
+        box = QtWidgets.QGroupBox(title)
+        grid = QtWidgets.QGridLayout(box)
+        for r, (key, what) in enumerate(rows):
+            key_label = QtWidgets.QLabel(key)
+            key_label.setStyleSheet("font-weight:600;")
+            grid.addWidget(key_label, r, 0)
+            grid.addWidget(QtWidgets.QLabel(what), r, 1)
+        grid.setColumnStretch(1, 1)
+        lay.addWidget(box)
+    note = QtWidgets.QLabel(
+        "Bound keys are answered by PieMenu before FreeCAD sees them "
+        "(never while you are typing in a field), so pick keys FreeCAD "
+        "does not already use. The starter set sits on F3–F9 and skips "
+        "F1 (help), F2 (rename) and F5 (recompute) for exactly that "
+        "reason.")
+    note.setWordWrap(True)
+    note.setStyleSheet("color: gray;")
+    lay.addWidget(note)
+    buttons = QtWidgets.QHBoxLayout()
+    buttons.addStretch(1)
+    close = QtWidgets.QPushButton("Close")
+    close.clicked.connect(dlg.accept)
+    buttons.addWidget(close)
+    lay.addLayout(buttons)
+    return dlg
+
+
 def _help_button(text):
     """A small ? whose tooltip carries what used to be an inline caption."""
     btn = QtWidgets.QToolButton()
@@ -1389,6 +1442,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
         stats_btn.setToolTip("Your most used tools, and the reset.")
         stats_btn.clicked.connect(lambda: stats_dialog(self).exec_())
         foot.addWidget(stats_btn)
+        keys_btn = QtWidgets.QPushButton("Keys…")
+        keys_btn.setToolTip("Everything the keyboard does, on one page.")
+        keys_btn.clicked.connect(lambda: keys_dialog(self).exec_())
+        foot.addWidget(keys_btn)
         p = App.ParamGet(runtime.MAIN)
         auto = QtWidgets.QCheckBox("Auto-open on selection")
         auto.setChecked(p.GetBool("AutoOpenSelection", False))

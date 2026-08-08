@@ -331,6 +331,14 @@ win.deleteLater()
 app.processEvents()
 print("PASS non-modal prefs")
 
+# ---- the keys cheat sheet builds and names the essentials --------------------
+kd = dialog.keys_dialog(dlg)
+kd_text = " ".join(lb.text() for lb in kd.findChildren(QtWidgets.QLabel))
+for needle in ("1–9", "Backspace", "pin", "SketchEdit"):
+    assert needle in kd_text, f"keys dialog misses {needle}"
+kd.deleteLater()
+print("PASS keys dialog")
+
 # ---- SketchEdit is offered as a scope and chains through Sketcher ------------
 scopes = dialog.workbench_scopes()
 assert model.SKETCH_EDIT_SCOPE in scopes

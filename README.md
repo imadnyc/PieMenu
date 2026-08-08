@@ -101,6 +101,24 @@ Preferences are under Tools > Accessories > PieMenu preferences.
 | F8 | Datums | | |
 | F9 | Smart (your most used) | | |
 
+These sit on F3-F9 because FreeCAD already uses F1 (help), F2 (rename)
+and F5 (recompute). Bound keys are answered by PieMenu before FreeCAD
+sees them — never while you're typing in a field — so if you rebind,
+pick keys FreeCAD doesn't use.
+
+## Keys while a pie is open
+
+| Key | Does |
+|-----|------|
+| 1-9 | fire the numbered slot |
+| Shift + pick | fire without closing, chain several tools |
+| Backspace | back out of a sub-pie |
+| P | pin the pie as a floating palette |
+| Esc / ✕ | close a pinned palette |
+| right-click a slot | edit it in the preferences |
+
+The same list lives under **Keys…** in the preferences footer.
+
 ## Hacking on it
 
 There's a Nix dev environment with FreeCAD 1.1.1 pinned. Everything runs
