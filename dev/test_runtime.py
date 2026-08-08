@@ -554,6 +554,36 @@ assert gui.ran == []                     # a descend runs nothing
 w.close()
 print("PASS door via keys")
 
+# ---- the spare mouse buttons dispatch like keys ----------------------------
+def mouse_event(kind, button):
+    return QtGui.QMouseEvent(kind, QtCore.QPointF(0, 0),
+                             QtCore.QPointF(0, 0), button, button,
+                             QtCore.Qt.NoModifier)
+
+
+model.set_bind(model.ANY_SCOPE, "Mouse4", "Main")
+rt.reload()
+assert rt.dispatcher.eventFilter(
+    None, mouse_event(QtCore.QEvent.MouseButtonPress, QtCore.Qt.XButton1))
+mw_pie = rt.dispatcher.current
+assert mw_pie is not None and mw_pie.isVisible() \
+    and mw_pie.pie.name == "Main"
+assert rt.dispatcher.eventFilter(
+    None, mouse_event(QtCore.QEvent.MouseButtonRelease, QtCore.Qt.XButton1))
+assert mw_pie.isVisible()                # a click pie stays for the mouse
+assert rt.dispatcher.eventFilter(       # pressing again toggles it shut
+    None, mouse_event(QtCore.QEvent.MouseButtonPress, QtCore.Qt.XButton1))
+assert rt.dispatcher.current is None \
+    or not rt.dispatcher.current.isVisible()
+rt.dispatcher.eventFilter(
+    None, mouse_event(QtCore.QEvent.MouseButtonRelease, QtCore.Qt.XButton1))
+# an unbound thumb button is left alone entirely
+assert not rt.dispatcher.eventFilter(
+    None, mouse_event(QtCore.QEvent.MouseButtonPress, QtCore.Qt.XButton2))
+model.remove_key("Mouse4")
+rt.reload()
+print("PASS mouse buttons")
+
 # ---- pinned palettes -------------------------------------------------------
 gui.ran.clear()
 pw = rt.pin_pie("Main")

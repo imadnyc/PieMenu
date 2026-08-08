@@ -435,6 +435,8 @@ def keys_dialog(parent):
             ("hover a door slot", "glide into that pie"),
         )),
         ("Your bindings", (
+            ("Mouse4 / Mouse5",
+             "the spare mouse buttons bind like keys, all four gestures"),
             ("· tap  ·· double  — hold  ··— double-hold",
              "one key carries up to four pies (the table above)"),
             ("workbench beats Any workbench",
@@ -1200,11 +1202,31 @@ class ShortcutsTable(QtWidgets.QWidget):
         menu.exec_(QtGui.QCursor.pos())
 
 
+class _MouseCatch(QtCore.QObject):
+    """While the recorder is up, a spare mouse button is an answer too."""
+
+    def __init__(self, dlg, caught):
+        super().__init__(dlg)
+        self._dlg = dlg
+        self._caught = caught
+
+    def eventFilter(self, _obj, event):
+        if event.type() == QtCore.QEvent.MouseButtonPress:
+            name = runtime.MOUSE_KEYS.get(event.button())
+            if name is not None:
+                self._caught["key"] = name
+                self._dlg.accept()
+                return True
+        return False
+
+
 def record_key(parent, current):
     dlg = QtWidgets.QDialog(parent)
     dlg.setWindowTitle("Shortcut key")
     lay = QtWidgets.QVBoxLayout(dlg)
-    lay.addWidget(QtWidgets.QLabel("Press a key. Modifiers are included."))
+    lay.addWidget(QtWidgets.QLabel(
+        "Press a key (modifiers are included) —\n"
+        "or click a spare mouse button (back/forward)."))
     edit = QtWidgets.QKeySequenceEdit()
     if current:
         edit.setKeySequence(QtGui.QKeySequence(current))
@@ -1214,8 +1236,18 @@ def record_key(parent, current):
     bb.accepted.connect(dlg.accept)
     bb.rejected.connect(dlg.reject)
     lay.addWidget(bb)
-    if dlg.exec_() != QtWidgets.QDialog.Accepted:
+    caught = {}
+    catcher = _MouseCatch(dlg, caught)
+    app = QtWidgets.QApplication.instance()
+    app.installEventFilter(catcher)
+    try:
+        accepted = dlg.exec_() == QtWidgets.QDialog.Accepted
+    finally:
+        app.removeEventFilter(catcher)
+    if not accepted:
         return None
+    if caught.get("key"):
+        return caught["key"]
     seq = edit.keySequence().toString()
     return seq.split(",")[0].strip() if seq else None
 

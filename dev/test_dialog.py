@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, os.environ.get("PIEMENU_REPO", "/home/dre/Projects/PieMenu"))
 
-from PySide import QtGui, QtWidgets
+from PySide import QtCore, QtGui, QtWidgets
 
 app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
 
@@ -311,6 +311,18 @@ if os.path.isdir(preset_dir):
     assert "PartDesignMisc" in dlg.pies
     assert any(s for s in dlg.pies["PartDesignMisc"].items if s)
     print("PASS presets")
+
+# ---- mouse buttons: the recorder answers to a thumb click --------------------
+mdlg = QtWidgets.QDialog()
+mcaught = {}
+mc = dialog._MouseCatch(mdlg, mcaught)
+press4 = QtGui.QMouseEvent(
+    QtCore.QEvent.MouseButtonPress, QtCore.QPointF(0, 0),
+    QtCore.QPointF(0, 0), QtCore.Qt.XButton1, QtCore.Qt.XButton1,
+    QtCore.Qt.NoModifier)
+assert mc.eventFilter(None, press4) and mcaught["key"] == "Mouse4"
+mdlg.deleteLater()
+print("PASS mouse capture")
 
 # ---- session snapshot backs the Revert button --------------------------------
 if dlg._session_snapshot:

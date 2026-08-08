@@ -17,7 +17,8 @@ internals redone from scratch.
   Editing a sketch is its own scope (SketchEdit), falling back through
   Sketcher, so a key can do one thing in the sketcher and another while
   actually drawing.
-* One key can carry up to four pies: tap, double-tap, hold, and
+* One key — or a spare mouse button (Mouse4/Mouse5) — can carry up to
+  four pies: tap, double-tap, hold, and
   double-tap-then-hold. Hold gives you the marking-menu flow: the pie
   follows your aim with an arrow and firing happens on release. A quick
   tap on a hold binding does nothing instead of leaving a menu behind.

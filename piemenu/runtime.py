@@ -27,6 +27,10 @@ from .model import is_pie_command, pie_target
 MAIN = "User parameter:BaseApp/PieMenu"
 LOGO = os.path.join(resources.respath, "PieMenu_Logo.svg")
 
+# the spare thumb buttons; FreeCAD's navigation never uses them, and they
+# bind exactly like keys (all four gestures)
+MOUSE_KEYS = {QtCore.Qt.XButton1: "Mouse4", QtCore.Qt.XButton2: "Mouse5"}
+
 runtime = None      # the singleton, created by start()
 
 
@@ -1047,6 +1051,18 @@ class Dispatcher(QtCore.QObject):
             return self._key_press(event)
         if etype == QtCore.QEvent.KeyRelease and not event.isAutoRepeat():
             return self._key_release(event)
+        if etype in (QtCore.QEvent.MouseButtonPress,
+                     QtCore.QEvent.MouseButtonDblClick):
+            # a fast double sends DblClick instead of a second Press; our
+            # own double window does the counting, so both mean "down"
+            name = MOUSE_KEYS.get(event.button())
+            if name is not None and not self._typing_focus() \
+                    and self.gestures(name):
+                return self._press(name)
+        if etype == QtCore.QEvent.MouseButtonRelease:
+            name = MOUSE_KEYS.get(event.button())
+            if name is not None and self.held == name:
+                return self._release(name)
         if etype == QtCore.QEvent.MouseMove and self._deferred is not None:
             # moving right after the press means a gesture, not a tap:
             # show the pie now instead of waiting out the double window
@@ -1083,7 +1099,9 @@ class Dispatcher(QtCore.QObject):
     def _key_press(self, event):
         if self._typing_focus():
             return False
-        key = self._key_of(event)
+        return self._press(self._key_of(event))
+
+    def _press(self, key):
         gmap = self.gestures(key)
         if not gmap:
             return False
@@ -1140,6 +1158,9 @@ class Dispatcher(QtCore.QObject):
             return False
         if self._key_of(event) != self.held:
             return False
+        return self._release(self.held)
+
+    def _release(self, _key):
         self.held = None
         if self._deferred is not None:
             # released before the held outcome: this was a tap
@@ -1269,7 +1290,10 @@ class Runtime:
         self._keys = {}
         for scope in self.binds.values():
             for key in scope:
-                self._keys[QtGui.QKeySequence(key).toString()] = key
+                if key in MOUSE_KEYS.values():
+                    self._keys[key] = key    # not a key sequence
+                else:
+                    self._keys[QtGui.QKeySequence(key).toString()] = key
         self._register_commands()
         self._save_timer.start()     # edits survive a killed session too
 
