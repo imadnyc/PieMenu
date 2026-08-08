@@ -1269,6 +1269,35 @@ def _show_chooser(self, btn, bindings):
     if self._chooser is not None:
         self._chooser.deleteLater()
     self._chooser = _chooser_widget(self, btn, bindings)
+    _watch_chooser(self, self._chooser, btn)
+
+
+def _watch_chooser(widget, chooser, btn, misses_limit=3):
+    """The flyout goes away by itself ~750ms after the cursor has left
+    both it and its slot; hovering back in resets the clock."""
+    timer = QtCore.QTimer(chooser)     # dies with the chooser
+    timer.setInterval(250)
+    state = {"misses": 0}
+
+    def tick():
+        if widget._chooser is not chooser or not chooser.isVisible():
+            timer.stop()
+            return
+        pos = QtGui.QCursor.pos()
+        over = chooser.rect().adjusted(-8, -8, 8, 8).contains(
+            chooser.mapFromGlobal(pos)) \
+            or btn.rect().contains(btn.mapFromGlobal(pos))
+        if over:
+            state["misses"] = 0
+            return
+        state["misses"] += 1
+        if state["misses"] >= misses_limit:
+            timer.stop()
+            chooser.deleteLater()
+            widget._chooser = None
+
+    timer.timeout.connect(tick)
+    timer.start()
 
 
 PieWidget.show_chooser = _show_chooser

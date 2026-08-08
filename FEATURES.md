@@ -26,7 +26,7 @@ fail and point at the rest. Params live under
 | Feature | What | Lives in | Remove |
 |---|---|---|---|
 | Selection conditions | per-binding rules over six axes, first match wins | `model.match_rule`, `decode_rule` | core, keep |
-| Chooser | overloaded slot pops flavours, remembers last pick | `runtime._chooser_widget`, `last_used` | core-ish |
+| Chooser | overloaded slot pops flavours, remembers last pick, dismisses itself ~750ms after the cursor leaves | `runtime._chooser_widget`, `_watch_chooser`, `last_used` | core-ish; delete `_watch_chooser` to make it sticky again |
 | Doors | slots opening other pies in place, back button | `model.PIE_PREFIX`, `PieWidget.activate/back` | core, keep |
 | Hover doors + dwell ring | dwelling on a door descends mid-gesture | `_HoverFire` install in `_slot_button`, `door_hover` field | uncheck per pie, or delete the elif |
 | Instant doors | per-pie: descend on enter, no dwell | `door_instant` field, delay choice in `_slot_button`, checkbox in dialog settings | delete field + checkbox |

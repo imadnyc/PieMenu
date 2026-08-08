@@ -620,6 +620,23 @@ model.remove_key("Mouse4")
 rt.reload()
 print("PASS mouse buttons")
 
+# ---- the chooser dismisses itself once the cursor has left -----------------
+w = runtime.PieWidget(pies, "Main", {}, fire)
+w.popup_at(QtCore.QPoint(400, 400))
+live2 = model.live_bindings(pies["Main"].items[4], {})
+w.show_chooser(w.buttons[4], live2)
+assert w._chooser is not None
+QtGui.QCursor.setPos(w._chooser.mapToGlobal(          # parked on it: stays
+    w._chooser.rect().center()))
+wait(600)
+assert w._chooser is not None
+QtGui.QCursor.setPos(w.mapToGlobal(QtCore.QPoint(-500, -500)))
+wait(1200)                                            # left it: timed out
+assert w._chooser is None
+w.close()
+w.deleteLater()
+print("PASS chooser timeout")
+
 # ---- Run: binds fire one command, no pie -----------------------------------
 model.set_bind(model.ANY_SCOPE, "F10", "Run:Std_New")
 rt.reload()
