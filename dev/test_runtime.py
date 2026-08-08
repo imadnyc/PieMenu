@@ -180,6 +180,20 @@ pies["Main"].run_on = "click"
 pies["Main"].last_used.clear()
 print("PASS gesture faces")
 
+# ---- a dead slot under the aim is a no-op, not the neighbour ---------------
+fired.clear()
+pies["Main"].run_on = "release"
+w = runtime.PieWidget(pies, "Main", {"Face": 2}, fire)   # Groove goes dead
+w.popup_at(QtCore.QPoint(400, 400))
+assert not w.buttons[3].isEnabled()
+dead_at = w.buttons[3].mapToGlobal(QtCore.QPoint(17, 17))
+assert w.nearest_slot(dead_at) is w.buttons[3]   # the dead slot itself
+w.commit_gesture(pos=dead_at)
+assert fired == [] and not w.isVisible(), fired  # ran nothing, closed
+w.deleteLater()
+pies["Main"].run_on = "click"
+print("PASS dead slot no-op")
+
 # ---- doors on hover, chooser size ------------------------------------------
 fired.clear()
 pies["Main"].run_on = "release"

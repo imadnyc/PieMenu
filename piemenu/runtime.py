@@ -876,10 +876,12 @@ class PieWidget(QtWidgets.QWidget):
         self.show()
 
     def nearest_slot(self, global_pos):
-        """The enabled button nearest the cursor, for gesture release."""
+        """The button nearest the cursor, for gesture release. Disabled
+        slots take part: aiming at one is a deliberate no-op the caller
+        must honour, never a pass-through to the enabled neighbour."""
         best, dist = None, None
         for btn in self.buttons:
-            if not btn.isEnabled() or not btn.isVisible():
+            if not btn.isVisible():          # hidden = empty slot
                 continue
             centre = btn.mapToGlobal(
                 QtCore.QPoint(btn.width() // 2, btn.height() // 2))
@@ -915,6 +917,9 @@ class PieWidget(QtWidgets.QWidget):
             self.close()             # released from the dead-zone: no aim
             return
         btn = self.nearest_slot(pos)
+        if btn is not None and not btn.isEnabled():
+            self.close()     # aimed at a dead slot: run nothing at all
+            return
         if btn is None:
             # overshot the ring on a fast flick: the slot just flown over
             # (moments ago) is what the hand meant
@@ -948,7 +953,7 @@ class PieWidget(QtWidgets.QWidget):
             dy = self._aim.y() - self._origin[1]
             if (dx * dx + dy * dy) ** 0.5 >= max(24, self.pie.radius * 0.45):
                 over = self.nearest_slot(spot)
-                if over is not None:
+                if over is not None and over.isEnabled():
                     self._crossed = (over, _now_ms())
             self.update()
         super().mouseMoveEvent(event)
