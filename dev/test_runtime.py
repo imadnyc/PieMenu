@@ -572,14 +572,17 @@ pw.close()
 assert pw not in rt._pinned
 print("PASS pinned palettes")
 
-# pinning a dispatcher-opened pie detaches it from the dispatcher
+# P on an open popup closes it and spawns a separate born-pinned palette
+# (never re-flags the live window: that crashes under Wayland)
 w2 = rt.open_pie("Main")
 rt.dispatcher.current = w2
-w2.pin()
-assert rt.dispatcher.current is None and w2 in rt._pinned
-w2.close()
-assert w2 not in rt._pinned
-print("PASS pin detaches dispatcher")
+w2.keyPressEvent(key_event(QtCore.QEvent.KeyPress, QtCore.Qt.Key_P))
+assert not w2.isVisible()
+palette = rt._pinned[-1]
+assert palette is not w2 and palette.pinned and palette.isVisible()
+palette.close()
+assert palette not in rt._pinned
+print("PASS key P spawns a palette")
 
 # ---- sketch-edit scope -----------------------------------------------------
 class FakeSketch:

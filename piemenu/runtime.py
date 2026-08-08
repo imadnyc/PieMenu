@@ -334,14 +334,25 @@ class PieWidget(QtWidgets.QWidget):
     place) so fire only ever sees runnable commands.
     """
 
-    def __init__(self, pies, name, counts, fire, runtime=None, parent=None):
-        super().__init__(parent, QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint)
+    def __init__(self, pies, name, counts, fire, runtime=None, parent=None,
+                 pinned=False):
+        # a pinned palette is born with its final window role: inside the
+        # main window as a plain child when there is one, else a Tool
+        # window. Re-flagging a live popup crashes under Wayland (a
+        # surface's role can never change).
+        if pinned:
+            flags = QtCore.Qt.Widget if parent is not None else (
+                QtCore.Qt.Tool | QtCore.Qt.FramelessWindowHint
+                | QtCore.Qt.WindowStaysOnTopHint)
+        else:
+            flags = QtCore.Qt.Popup | QtCore.Qt.FramelessWindowHint
+        super().__init__(parent, flags)
         self.setAttribute(QtCore.Qt.WA_TranslucentBackground)
         self.pies = pies
         self.counts = counts
         self.fire = fire
         self._rt = runtime
-        self.pinned = False
+        self.pinned = pinned
         self._drag_at = None
         self._hover_timer = None
         self._chooser = None
@@ -350,6 +361,9 @@ class PieWidget(QtWidgets.QWidget):
         self._stack = []              # door trail, for the back button
         self.setMouseTracking(True)
         self.build(name)
+        if pinned:
+            self.setFocusPolicy(QtCore.Qt.ClickFocus)   # Esc after a click
+            self._pin_close_button()
 
     # -- construction
 
@@ -652,26 +666,6 @@ class PieWidget(QtWidgets.QWidget):
             label.move(int(self._origin[0] - label.width() / 2),
                        int(self._origin[1] + size / 2 + 2))
 
-    def pin(self):
-        """Turn this popup into a floating palette: no grab, stays open,
-        tools fire without closing, drag anywhere to move, Esc or the ✕
-        closes. Conditional slots keep re-resolving as the selection
-        changes (the runtime refreshes pinned pies)."""
-        if self.pinned:
-            return
-        self.pinned = True
-        position = self.pos()
-        self.setWindowFlags(QtCore.Qt.Tool
-                            | QtCore.Qt.FramelessWindowHint
-                            | QtCore.Qt.WindowStaysOnTopHint)
-        self.move(position)
-        self.show()
-        self._pin_close_button()
-        if self._rt is not None:
-            self._rt.register_pin(self)
-            if self._rt.dispatcher.current is self:
-                self._rt.dispatcher.current = None
-
     def _pin_close_button(self):
         btn = QtWidgets.QToolButton(self)
         btn.setText("✕")
@@ -690,15 +684,16 @@ class PieWidget(QtWidgets.QWidget):
         self._pin_close_button()
 
     def closeEvent(self, event):
-        if self.pinned and self._rt is not None:
-            self._rt.unregister_pin(self)
+        if self.pinned:
+            if self._rt is not None:
+                self._rt.unregister_pin(self)
+            self.deleteLater()        # palettes are throwaway children
         super().closeEvent(event)
 
     def mousePressEvent(self, event):
         if self.pinned:
-            self._drag_at = event.globalPosition().toPoint() - self.pos() \
-                if hasattr(event, "globalPosition") \
-                else event.globalPos() - self.pos()
+            self._drag_at = event.position().toPoint() \
+                if hasattr(event, "position") else event.pos()
         super().mousePressEvent(event)
 
     def show_hint(self, text):
@@ -721,8 +716,12 @@ class PieWidget(QtWidgets.QWidget):
         if key == QtCore.Qt.Key_Backspace and self._stack:
             self.back()
             return
-        if key == QtCore.Qt.Key_P and not self.pinned:
-            self.pin()
+        if key == QtCore.Qt.Key_P and not self.pinned \
+                and self._rt is not None:
+            at = self.mapToGlobal(QtCore.QPoint(int(self._origin[0]),
+                                                int(self._origin[1])))
+            self.close()              # release the popup grab first
+            self._rt.pin_pie(self.pie.name, at)
             return
         if key == QtCore.Qt.Key_Escape and self.pinned:
             self.close()
@@ -730,8 +729,16 @@ class PieWidget(QtWidgets.QWidget):
         super().keyPressEvent(event)
 
     def popup_at(self, global_pos):
-        self.move(int(global_pos.x() - self._origin[0]),
-                  int(global_pos.y() - self._origin[1]))
+        top_left = QtCore.QPoint(int(global_pos.x() - self._origin[0]),
+                                 int(global_pos.y() - self._origin[1]))
+        parent = self.parentWidget()
+        if parent is not None:        # pinned palette inside the main window
+            top_left = parent.mapFromGlobal(top_left)
+            top_left.setX(max(0, min(top_left.x(),
+                                     parent.width() - self.width())))
+            top_left.setY(max(0, min(top_left.y(),
+                                     parent.height() - self.height())))
+        self.move(top_left)
         self.show()
 
     def nearest_slot(self, global_pos):
@@ -784,9 +791,11 @@ class PieWidget(QtWidgets.QWidget):
     def mouseMoveEvent(self, event):
         if self.pinned and self._drag_at is not None \
                 and event.buttons() & QtCore.Qt.LeftButton:
-            here = event.globalPosition().toPoint() \
-                if hasattr(event, "globalPosition") else event.globalPos()
-            self.move(here - self._drag_at)
+            # local delta onto the current position: works the same for a
+            # child of the main window and a real window, no globals
+            here = event.position().toPoint() \
+                if hasattr(event, "position") else event.pos()
+            self.move(self.pos() + here - self._drag_at)
             return
         if self.run_mode == "release":
             self._aim = event.position().toPoint() \
@@ -1315,15 +1324,19 @@ class Runtime:
     def _open_for_dispatch(self, name, at=None, hint=""):
         return self.open_pie(name, at, hint)
 
+    def _pies_for(self, name):
+        if name != model.SMART_NAME:
+            return self.pies
+        # contents rebuilt every open: your most used tools, here, now;
+        # layout and behaviour come from the saved Smart pie, if any
+        pies = dict(self.pies)
+        pies[model.SMART_NAME] = model.smart_pie(
+            workbench_scope(self.gui),
+            base=self.pies.get(model.SMART_NAME))
+        return pies
+
     def open_pie(self, name, at=None, hint=""):
-        pies = self.pies
-        if name == model.SMART_NAME:
-            # contents rebuilt every open: your most used tools, here, now;
-            # layout and behaviour come from the saved Smart pie, if any
-            pies = dict(self.pies)
-            pies[model.SMART_NAME] = model.smart_pie(
-                workbench_scope(self.gui),
-                base=self.pies.get(model.SMART_NAME))
+        pies = self._pies_for(name)
         if name not in pies:
             return None
         widget = PieWidget(pies, name, self.counts(), self.fire,
@@ -1366,9 +1379,27 @@ class Runtime:
             self._pinned.remove(widget)
 
     def pin_pie(self, name, at=None):
-        widget = self.open_pie(name, at)
-        if widget is not None:
-            widget.pin()
+        """A floating palette: tools fire without closing, conditional
+        slots re-resolve as the selection changes, drag moves it, Esc or
+        the ✕ closes. Built as its own widget with its final window role
+        (inside the main window when there is one) -- re-flagging a live
+        popup crashes under Wayland."""
+        pies = self._pies_for(name)
+        if name not in pies:
+            return None
+        parent = None
+        getmw = getattr(self.gui, "getMainWindow", None)
+        if getmw is not None:
+            try:
+                parent = getmw()
+            except Exception:  # noqa: BLE001 -- half-built Gui
+                parent = None
+        widget = PieWidget(pies, name, self.counts(), self.fire,
+                           runtime=self, parent=parent, pinned=True)
+        widget.popup_at(at if at is not None and not at.isNull()
+                        else QtGui.QCursor.pos())
+        widget.raise_()
+        self.register_pin(widget)
         return widget
 
     def watch_selection(self):
