@@ -76,6 +76,7 @@ fail and point at the rest. Params live under
 | Conflict badges | ⚠ where a bound key shadows a FreeCAD shortcut | `dialog.freecad_shortcuts`, badge block in `rebuild` | delete both |
 | Session revert | restore everything to window-open state | `_session_snapshot` in `__init__`, `revert_session` in footer | delete both |
 | Keys cheat sheet | Keys… button, every key on one page | `dialog.keys_dialog` | delete + footer button |
+| Hover demos | ? buttons and keys-page rows play little demo GIFs on hover | `dialog.GifTip`, movies in `docs/gifs/` rendered by `nix run .#gifs` (`dev/gif_scenes.py`) | delete `GifTip` + call sites; the GIFs are plain files |
 | Usage stats panel | Stats… button, top tools + reset | `dialog.stats_dialog` | delete + footer button |
 | Live preview | union view, chooser flash, names spread | `dialog.PiePreview` | core-ish |
 | Wide-ring hint | a quiet note when a ring exceeds 8 slots, pointing at door slots | `_wide_hint` in the layout panel + `_fill_settings_labels` | delete both |

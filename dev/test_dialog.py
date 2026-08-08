@@ -380,6 +380,27 @@ tbl.search.setText("")
 assert not any(tbl.left.isRowHidden(r) for r in range(tbl.left.rowCount()))
 print("PASS table search")
 
+# ---- GifTip: hovering plays the movie, leaving stops it ----------------------
+from PIL import Image as PILImage
+
+tiny_dir = tempfile.mkdtemp(prefix="pm-gif-")
+tiny = os.path.join(tiny_dir, "tiny.gif")
+frame = PILImage.new("P", (8, 8))
+frame.save(tiny, save_all=True, append_images=[PILImage.new("P", (8, 8))],
+           duration=50, loop=0)
+gif_holder = QtWidgets.QWidget()
+gif_btn = QtWidgets.QToolButton(gif_holder)
+tip = dialog.GifTip(gif_btn, "does-not-exist")
+app.sendEvent(gif_btn, QtCore.QEvent(QtCore.QEvent.Enter))
+assert tip._pop is None                      # missing movie: quiet no-op
+tip._path = tiny
+app.sendEvent(gif_btn, QtCore.QEvent(QtCore.QEvent.Enter))
+assert tip._pop is not None and tip._pop.movie() is not None
+app.sendEvent(gif_btn, QtCore.QEvent(QtCore.QEvent.Leave))
+assert tip._pop is None
+gif_holder.deleteLater()
+print("PASS gif tip")
+
 # ---- task panel pseudo-commands surface in labels and the picker -------------
 assert dialog.command_label("Panel:OK") == "OK (task panel)"
 assert dlg._pie_dict(dlg.pies["Main"]).get("door_instant") is False

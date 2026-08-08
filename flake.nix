@@ -29,6 +29,7 @@
       pm-smoke = mkWrapper "pm-smoke" [ freecad ];
       pm-e2e = mkWrapper "pm-e2e" [ freecad ];
       pm-snap = mkWrapper "pm-snap" [ freecad pkgs.gnugrep ];
+      pm-gifs = mkWrapper "pm-gifs" [ freecad pkgs.gnugrep ];
       # pm-watch reuses pm-launch: entr -rd restarts it whenever a .py file changes.
       pm-watch = mkWrapper "pm-watch" [ pkgs.entr pkgs.findutils pm-launch ];
     in {
@@ -42,6 +43,7 @@
           pm-smoke
           pm-e2e
           pm-snap
+          pm-gifs
         ];
         shellHook = ''
           echo "PieMenu dev shell (freecad: $(command -v freecad))"
@@ -60,6 +62,7 @@
         smoke   = { type = "app"; program = "${pm-smoke}/bin/pm-smoke"; };
         e2e     = { type = "app"; program = "${pm-e2e}/bin/pm-e2e"; };
         snap    = { type = "app"; program = "${pm-snap}/bin/pm-snap"; };
+        gifs    = { type = "app"; program = "${pm-gifs}/bin/pm-gifs"; };
         default = self.apps.${system}.watch;
       };
     };

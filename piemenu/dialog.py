@@ -441,33 +441,43 @@ def keys_dialog(parent):
     lay = QtWidgets.QVBoxLayout(dlg)
     for title, rows in (
         ("While a pie is open", (
-            ("1–9", "fire the numbered slot"),
-            ("Shift + pick", "fire without closing, chain several tools"),
-            ("Backspace", "back out of a sub-pie"),
-            ("P", "pin the pie as a floating palette"),
-            ("Esc / ✕", "close a pinned palette"),
-            ("right-click a slot", "edit it here in the preferences"),
-            ("right-click a Smart tool", "pin it so it never rotates out"),
-            ("hover a door slot", "glide into that pie"),
+            ("1–9", "fire the numbered slot", None),
+            ("Shift + pick", "fire without closing, chain several tools",
+             None),
+            ("Backspace", "back out of a sub-pie", "door-dwell"),
+            ("P", "pin the pie as a floating palette", "pinned-palette"),
+            ("Esc / ✕", "close a pinned palette", None),
+            ("right-click a slot", "edit it here in the preferences",
+             None),
+            ("right-click a Smart tool", "pin it so it never rotates out",
+             None),
+            ("hover a door slot", "glide into that pie", "door-dwell"),
         )),
         ("Your bindings", (
             ("Mouse4 / Mouse5",
-             "the spare mouse buttons bind like keys, all four gestures"),
+             "the spare mouse buttons bind like keys, all four gestures",
+             None),
             ("· tap  ·· double  — hold  ··— double-hold",
-             "one key carries up to four pies (the table above)"),
+             "one key carries up to four pies (the table above)",
+             "gesture-aim"),
             ("workbench beats Any workbench",
-             "the more specific scope answers first"),
+             "the more specific scope answers first", None),
             ("SketchEdit beats Sketcher",
-             "while a sketch is open for editing"),
+             "while a sketch is open for editing", None),
             ("moving while a key is held",
-             "opens the hold pie immediately, anchored at the press"),
+             "opens the hold pie immediately, anchored at the press",
+             "gesture-aim"),
+            ("a greyed-out slot", "aiming at it runs nothing at all",
+             "dead-slot"),
         )),
     ):
         box = QtWidgets.QGroupBox(title)
         grid = QtWidgets.QGridLayout(box)
-        for r, (key, what) in enumerate(rows):
+        for r, (key, what, gif) in enumerate(rows):
             key_label = QtWidgets.QLabel(key)
             key_label.setStyleSheet("font-weight:600;")
+            if gif:
+                GifTip(key_label, gif)
             grid.addWidget(key_label, r, 0)
             grid.addWidget(QtWidgets.QLabel(what), r, 1)
         grid.setColumnStretch(1, 1)
@@ -491,13 +501,65 @@ def keys_dialog(parent):
     return dlg
 
 
-def _help_button(text):
-    """A small ? whose tooltip carries what used to be an inline caption."""
+GIF_DIR = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "docs", "gifs")
+
+
+class GifTip(QtCore.QObject):
+    """Hovering the watched widget plays a little demo movie beside it.
+
+    The player is a child of the widget's window, not a tooltip window
+    (Qt tooltips freeze GIFs at frame one, and child widgets sidestep
+    Wayland popup placement entirely, like the pinned palettes do)."""
+
+    def __init__(self, widget, name):
+        super().__init__(widget)
+        self._widget = widget
+        self._path = os.path.join(GIF_DIR, name + ".gif")
+        self._pop = None
+        widget.installEventFilter(self)
+
+    def eventFilter(self, _obj, event):
+        kind = event.type()
+        if kind == QtCore.QEvent.Enter and self._pop is None \
+                and os.path.exists(self._path):
+            window = self._widget.window()
+            pop = QtWidgets.QLabel(window)
+            movie = QtGui.QMovie(self._path)
+            pop.setMovie(movie)
+            pop.setFrameShape(QtWidgets.QFrame.Box)
+            movie.jumpToFrame(0)
+            size = movie.currentImage().size()
+            pop.resize(size.width() + 2, size.height() + 2)
+            at = window.mapFromGlobal(self._widget.mapToGlobal(
+                QtCore.QPoint(self._widget.width() + 10, 0)))
+            at.setX(max(0, min(at.x(),
+                               window.width() - pop.width() - 4)))
+            at.setY(max(0, min(at.y(),
+                               window.height() - pop.height() - 4)))
+            pop.move(at)
+            movie.start()
+            pop.show()
+            pop.raise_()
+            self._pop = pop
+        elif kind in (QtCore.QEvent.Leave, QtCore.QEvent.Hide,
+                      QtCore.QEvent.MouseButtonPress):
+            if self._pop is not None:
+                self._pop.deleteLater()
+                self._pop = None
+        return False
+
+
+def _help_button(text, gif=None):
+    """A small ? whose tooltip carries what used to be an inline caption;
+    with a gif name, hovering it also plays the demo movie."""
     btn = QtWidgets.QToolButton()
     btn.setText("?")
     btn.setAutoRaise(True)
     btn.setToolTip(text)
     btn.setCursor(QtCore.Qt.WhatsThisCursor)
+    if gif:
+        GifTip(btn, gif)
     return btn
 
 
@@ -1473,7 +1535,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         pv_head.addWidget(_help_button(
             "n badge — several tools share the slot<br>"
             "dot — conditional<br>ring — opens another pie<br>"
-            "dashed — empty<br>red — context clash"))
+            "dashed — empty<br>red — context clash",
+            gif="conditional-slots"))
         pv_lay.addLayout(pv_head)
         pv_lay.addWidget(self.preview)
         top.addWidget(pv_frame, 1)
@@ -1486,8 +1549,10 @@ class PieMenuPreferences(QtWidgets.QDialog):
         mid_bar.addStretch(1)
         add_btn = QtWidgets.QToolButton()
         add_btn.setText("+")
-        add_btn.setToolTip("Add a tool to the selected slot")
+        add_btn.setToolTip("Add a tool to the selected slot — several in "
+                           "one slot become a chooser")
         add_btn.clicked.connect(lambda: self.add_tool(self.slot))
+        GifTip(add_btn, "chooser")
         mid_bar.addWidget(add_btn)
         mid.addLayout(mid_bar)
         self.slots = QtWidgets.QTreeWidget()
@@ -1532,7 +1597,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
             "means gesturing, and it counts toward the aim<br>"
             "↳ italic flows in from Any workbench<br>"
             "the bold tinted column is the current workbench<br>"
-            "double-click binds the press, right-click everything else"))
+            "double-click binds the press, right-click everything else",
+            gif="gesture-aim"))
         sc_lay.addLayout(sc_head)
         self.shortcuts = ShortcutsTable(workbenches=workbenches)
         self.shortcuts.changed.connect(self._binds_changed)
@@ -2399,6 +2465,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         instant.setToolTip("Descend the moment the cursor enters a door "
                            "slot — for pies where you trust your aim.")
         instant.toggled.connect(lambda v: self._set("door_instant", v))
+        GifTip(doors, "door-dwell")
+        GifTip(instant, "door-dwell")
         names = row("Command names", QtWidgets.QCheckBox("show in slots"))
         names.setChecked(pie.show_names)
         names.toggled.connect(lambda v: self._set("show_names", v))

@@ -29,22 +29,29 @@ internals redone from scratch.
   (distance only picks the ring on multi-ring pies), the slot you're
   aiming at lights up, and the centre of the pie names what release will
   do — "Cancel" while you're in the dead zone.
-* Slots can have selection conditions (a face, two objects, an edge...).
-  The same pie with nothing selected and with a face selected:
 
-  ![nothing selected](docs/pie-no-selection.png)
-  ![a face selected](docs/pie-face-selected.png)
+  ![aiming a hold gesture](docs/gifs/gesture-aim.gif)
+* Slots can have selection conditions (a face, two objects, an edge...).
+  The same pie under different selections:
+
+  ![the same pie under different selections](docs/gifs/conditional-slots.gif)
 
   When several tools match, a small chooser pops up under the slot, and it
   remembers which one you picked last.
 
-  ![the chooser on an overloaded slot](docs/chooser.png)
+  ![the chooser on an overloaded slot](docs/gifs/chooser.gif)
 
 * Slots can open other pies. Hovering one glides straight into it at the
   cursor, and a back button appears in the middle.
+
+  ![dwelling on a door](docs/gifs/door-dwell.gif)
 * Press P in an open pie to pin it as a floating palette: it stays on
   top, tools fire without closing it, conditional slots keep following
-  your selection, and you drag it anywhere. Esc or the ✕ unpins.
+  your selection, and you drag it anywhere. Esc or the ✕ unpins. Dropped
+  near a window edge it snaps flush and tucks away to a slim tab when
+  the mouse leaves.
+
+  ![pinning a palette](docs/gifs/pinned-palette.gif)
 * There's a **Smart** pie that fills itself with your most-used tools for
   whatever workbench you're in. Counts decay over time so it tracks what
   you're doing now, not last month. Bind it to a key and forget about it.
