@@ -381,6 +381,9 @@ class PieWidget(QtWidgets.QWidget):
         self._rt = runtime
         self.pinned = pinned
         self._drag_at = None
+        self._snapped_edge = None     # pinned palette resting on an edge
+        self._collapsed = False
+        self._expanded_geo = None
         self._crossed = None          # (button, ms): last slot flown over
         self._hover_timer = None
         self._chooser = None
@@ -761,6 +764,72 @@ class PieWidget(QtWidgets.QWidget):
                 if hasattr(event, "position") else event.pos()
         super().mousePressEvent(event)
 
+    def mouseReleaseEvent(self, event):
+        if self.pinned and self._drag_at is not None:
+            self._drag_at = None
+            self._snap_to_edge()
+        super().mouseReleaseEvent(event)
+
+    def _snap_to_edge(self):
+        """Dropped near an edge of the main window, a palette rests flush
+        against it (and then tucks itself away when the mouse leaves)."""
+        parent = self.parentWidget()
+        if parent is None:
+            self._snapped_edge = None
+            return
+        margin, geo = 28, self.geometry()
+        edges = {"left": geo.x(),
+                 "top": geo.y(),
+                 "right": parent.width() - geo.x() - geo.width(),
+                 "bottom": parent.height() - geo.y() - geo.height()}
+        edge = min(edges, key=edges.get)
+        if edges[edge] > margin:
+            self._snapped_edge = None
+            return
+        self._snapped_edge = edge
+        if edge == "left":
+            self.move(2, geo.y())
+        elif edge == "right":
+            self.move(parent.width() - geo.width() - 2, geo.y())
+        elif edge == "top":
+            self.move(geo.x(), 2)
+        else:
+            self.move(geo.x(), parent.height() - geo.height() - 2)
+
+    def leaveEvent(self, event):
+        if self.pinned and self._snapped_edge and not self._collapsed:
+            self._collapse()
+        super().leaveEvent(event)
+
+    def enterEvent(self, event):
+        if self._collapsed:
+            self._expand()
+        super().enterEvent(event)
+
+    def _collapse(self):
+        """A snapped palette folds to a slim tab; hovering it reopens."""
+        self._collapsed = True
+        self._expanded_geo = self.geometry()
+        for child in self.findChildren(QtWidgets.QWidget):
+            child.setVisible(False)
+        parent, geo = self.parentWidget(), self._expanded_geo
+        if self._snapped_edge in ("left", "right"):
+            tab = QtCore.QRect(0, geo.y(), 14, min(geo.height(), 120))
+            if self._snapped_edge == "right":
+                tab.moveLeft(parent.width() - 14)
+        else:
+            tab = QtCore.QRect(geo.x(), 0, min(geo.width(), 120), 14)
+            if self._snapped_edge == "bottom":
+                tab.moveTop(parent.height() - 14)
+        self.setGeometry(tab)
+
+    def _expand(self):
+        self._collapsed = False
+        if self._expanded_geo is not None:
+            self.setGeometry(self._expanded_geo)
+        self.build(self.pie.name)
+        self._pin_close_button()
+
     def show_hint(self, text):
         """The binding that opened this pie, shown while it is still new."""
         label = HaloLabel(text, self, "#999", 10)
@@ -886,6 +955,15 @@ class PieWidget(QtWidgets.QWidget):
 
     def paintEvent(self, event):
         super().paintEvent(event)
+        if self._collapsed:
+            # the folded palette is just a slim tab on the window edge
+            painter = QtGui.QPainter(self)
+            painter.setRenderHint(QtGui.QPainter.Antialiasing)
+            painter.setPen(QtGui.QPen(self._accent, 1))
+            painter.setBrush(self.palette().button())
+            painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1),
+                                    5, 5)
+            return
         if self.run_mode != "release" or self._aim is None:
             return
         p1 = QtCore.QPointF(self._origin[0], self._origin[1])

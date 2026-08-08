@@ -634,6 +634,38 @@ assert "no task panel open" in pw2.buttons[0].toolTip()
 pw2.deleteLater()
 print("PASS task panel slots")
 
+# ---- pinned palette: edge snap + tuck-away ---------------------------------
+host = QtWidgets.QWidget()
+host.resize(800, 600)
+host.show()
+
+
+class MwGui(FakeGui):
+    def getMainWindow(self):
+        return host
+
+
+prt2 = runtime.Runtime(MwGui())
+prt2.reload()
+pal = prt2.pin_pie("Main")
+assert pal.parentWidget() is host
+pal.move(5, 200)                             # dropped near the left edge
+pal._drag_at = QtCore.QPoint(1, 1)
+pal.mouseReleaseEvent(QtGui.QMouseEvent(
+    QtCore.QEvent.MouseButtonRelease, QtCore.QPointF(1, 1),
+    QtCore.QPointF(6, 201), QtCore.Qt.LeftButton, QtCore.Qt.NoButton,
+    QtCore.Qt.NoModifier))
+assert pal._snapped_edge == "left" and pal.x() == 2
+pal._collapse()                              # mouse-leave folds to a tab
+assert pal._collapsed and pal.width() == 14
+assert all(c.isHidden() for c in pal.findChildren(QtWidgets.QWidget))
+pal._expand()                                # hover reopens
+assert not pal._collapsed
+assert any(not b.isHidden() for b in pal.buttons)
+pal.close()
+host.close()
+print("PASS palette snap")
+
 # ---- last fired wears the ring at the next open ----------------------------
 lf = rt.open_pie("Main")
 lf.activate("Std_Undo", sticky=True)     # fires without closing
