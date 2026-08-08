@@ -21,11 +21,23 @@ mkdir -p "$XDG_DATA_HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME"
 export PIEMENU_REPO="$repo"
 export PIEMENU_DEV="$dev"
 
-# first launch after a reset: seed the demo pies and build the playground doc
+# first launch after a reset: seed the demo pies
 grep -q "PieMenu/V2" "$XDG_CONFIG_HOME/FreeCAD/v1-1/user.cfg" 2>/dev/null || \
   freecadcmd "$repo/dev/demo_seed.py"
-[ -f "$dev/docs/PieMenuPlayground.FCStd" ] || \
-  freecadcmd "$repo/dev/demo_docs.py"
+
+# open FreeCAD's own PartDesign example (a writable copy in scratch);
+# fall back to the generated playground doc if this build lacks it
+doc="$dev/docs/PartDesignExample.FCStd"
+if [ ! -f "$doc" ]; then
+  src="$(dirname "$(dirname "$(readlink -f "$(command -v freecad)")")")"
+  src="$src/share/examples/PartDesignExample.FCStd"
+  mkdir -p "$dev/docs"
+  [ -f "$src" ] && install -m 644 "$src" "$doc"
+fi
+if [ ! -f "$doc" ]; then
+  doc="$dev/docs/PieMenuPlayground.FCStd"
+  [ -f "$doc" ] || freecadcmd "$repo/dev/demo_docs.py"
+fi
 
 echo "pm-launch: isolated config at $dev  (rm -rf to reset)" >&2
-exec freecad -M "$repo" "$dev/docs/PieMenuPlayground.FCStd" "$@"
+exec freecad -M "$repo" "$doc" "$@"
