@@ -1027,8 +1027,10 @@ class PieWidget(QtWidgets.QWidget):
         label = getattr(self, "_name_label", None)
         if label is None:
             return
-        if shown is None:
-            text = "Cancel"
+        if btn is None:
+            text = "Cancel"              # the dead zone: aim withdrawn
+        elif shown is None:
+            text = "—"                   # an empty sector: nothing here
         else:
             text = shown.property("aimname") or ""
             if not shown.isEnabled():

@@ -655,6 +655,12 @@ w.mouseMoveEvent(QtGui.QMouseEvent(
 assert w._aimed is w.buttons[1]
 assert w.buttons[1].property("aimed") is True
 assert w._name_label.text() == w.buttons[1].property("aimname")
+west = QtCore.QPoint(int(w._origin[0]) - 200, int(w._origin[1]))
+w.mouseMoveEvent(QtGui.QMouseEvent(
+    QtCore.QEvent.MouseMove, QtCore.QPointF(west),
+    QtCore.QPointF(w.mapToGlobal(west)), QtCore.Qt.NoButton,
+    QtCore.Qt.NoButton, QtCore.Qt.NoModifier))
+assert w._name_label.text() == "—"           # empty sector, not "Cancel"
 inside = QtCore.QPoint(int(w._origin[0]) + 2, int(w._origin[1]) + 2)
 w.mouseMoveEvent(QtGui.QMouseEvent(
     QtCore.QEvent.MouseMove, QtCore.QPointF(inside),
