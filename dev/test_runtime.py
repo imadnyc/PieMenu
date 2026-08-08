@@ -584,6 +584,17 @@ model.remove_key("Mouse4")
 rt.reload()
 print("PASS mouse buttons")
 
+# ---- last fired wears the ring at the next open ----------------------------
+lf = rt.open_pie("Main")
+lf.activate("Std_Undo", sticky=True)     # fires without closing
+lf.close()
+assert model.last_fired("Main") == "Std_Undo"
+lf = rt.open_pie("Main")
+marked = [b for b in lf.buttons if b.property("last")]
+assert len(marked) == 1 and "Undo" in marked[0].toolTip()
+lf.close()
+print("PASS last-fired ring")
+
 # ---- pinned palettes -------------------------------------------------------
 gui.ran.clear()
 pw = rt.pin_pie("Main")

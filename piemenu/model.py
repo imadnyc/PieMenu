@@ -629,6 +629,15 @@ def smart_pie(workbench, base=None):
     return fill_smart(pie, workbench)
 
 
+def last_fired(name):
+    """The command last run from this pie, for the subtle highlight."""
+    return _grp(f"Pies/{name}").GetString("LastFired", "")
+
+
+def set_last_fired(name, cmd):
+    _grp(f"Pies/{name}").SetString("LastFired", cmd)
+
+
 def get_schema_version():
     return _grp().GetInt("SchemaVersion", 0)
 

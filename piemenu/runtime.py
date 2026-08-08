@@ -403,13 +403,22 @@ class PieWidget(QtWidgets.QWidget):
         # QToolButton with images, which otherwise mask our fill entirely
         self._base_css = (f"background:{fill_css};background-image:none;"
                           f"{border}")
+        acc = self._accent
         self.setStyleSheet(
             f"QToolButton{{{self._base_css}border-radius:{radius}px;}}"
             f"{alt_rule}"
+            # the tool fired last time gets a faint accent ring, a small
+            # anchor for muscle memory
+            f'QToolButton[last="true"]{{border:1px solid '
+            f"rgba({acc.red()},{acc.green()},{acc.blue()},150);}}"
             f"QToolButton:hover{{border:2px solid {self._accent.name()};}}"
             "QToolButton:disabled{background:palette(window);"
             f"border:1px dashed {out_css};}}")
         self.pie = pie
+        try:
+            self._last_fired = model.last_fired(pie.name)
+        except Exception:  # noqa: BLE001 -- no params outside FreeCAD
+            self._last_fired = ""
         # entered mid-gesture, a sub-pie stays a gesture pie: glide, release
         self.run_mode = "release" if self.run_mode == "release" \
             else pie.run_on
@@ -493,6 +502,8 @@ class PieWidget(QtWidgets.QWidget):
                                                   pie.delay))
         if index % 2 and not is_pie_command(binding.cmd):
             btn.setProperty("alt", True)     # alternate fill, odd slots
+        if self._last_fired and binding.cmd == self._last_fired:
+            btn.setProperty("last", True)    # fired last time: faint ring
         btn.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         btn.customContextMenuRequested.connect(
             lambda _pos, i=index, b=btn: self._slot_menu(i, b))
@@ -644,6 +655,10 @@ class PieWidget(QtWidgets.QWidget):
         if sticky is None:
             sticky = bool(QtWidgets.QApplication.keyboardModifiers()
                           & QtCore.Qt.ShiftModifier)
+        try:
+            model.set_last_fired(self.pie.name, cmd)
+        except Exception:  # noqa: BLE001, S110 -- no params outside FreeCAD
+            pass
         if sticky or self.pinned:
             self.fire(cmd)
             return
