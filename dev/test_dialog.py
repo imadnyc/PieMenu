@@ -368,6 +368,18 @@ win.deleteLater()
 app.processEvents()
 print("PASS non-modal prefs")
 
+# ---- table search box filters by key and by pie name -------------------------
+tbl = dlg.shortcuts
+tbl.search.setText("f7")
+vis = [r for r in range(tbl.left.rowCount()) if not tbl.left.isRowHidden(r)]
+assert vis == [tbl.keys().index("F7")]
+tbl.search.setText("sub")                    # matches the pie name
+vis = [r for r in range(tbl.left.rowCount()) if not tbl.left.isRowHidden(r)]
+assert tbl.keys().index("F7") in vis
+tbl.search.setText("")
+assert not any(tbl.left.isRowHidden(r) for r in range(tbl.left.rowCount()))
+print("PASS table search")
+
 # ---- task panel pseudo-commands surface in labels and the picker -------------
 assert dialog.command_label("Panel:OK") == "OK (task panel)"
 assert dlg._pie_dict(dlg.pies["Main"]).get("door_instant") is False

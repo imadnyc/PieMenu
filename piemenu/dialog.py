@@ -1024,7 +1024,17 @@ class ShortcutsTable(QtWidgets.QWidget):
         self.binds = {}
         self.pies = {}
         self.workbenches = workbenches or workbench_scopes()
-        lay = QtWidgets.QHBoxLayout(self)
+        outer = QtWidgets.QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.setSpacing(2)
+        self.search = QtWidgets.QLineEdit()
+        self.search.setPlaceholderText("Filter keys and pies…")
+        self.search.setClearButtonEnabled(True)
+        self.search.setMaximumWidth(240)
+        self.search.textChanged.connect(self._apply_filter)
+        outer.addWidget(self.search, 0, QtCore.Qt.AlignRight)
+        lay = QtWidgets.QHBoxLayout()
+        outer.addLayout(lay)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(0)
 
@@ -1098,15 +1108,7 @@ class ShortcutsTable(QtWidgets.QWidget):
             h = max(self.left.rowHeight(row), self.right.rowHeight(row))
             self.left.setRowHeight(row, h)
             self.right.setRowHeight(row, h)
-        # the table takes the height its rows take, capped by the screen
-        needed = (self.right.horizontalHeader().sizeHint().height()
-                  + sum(self.right.rowHeight(r) for r in range(len(keys)))
-                  + self.right.horizontalScrollBar().sizeHint().height()
-                  + 2 * self.right.frameWidth() + 4)
-        screen = QtWidgets.QApplication.primaryScreen()
-        cap = int(screen.availableGeometry().height() * 0.45) if screen \
-            else 500
-        self.setFixedHeight(max(120, min(needed, cap)))
+        self._apply_filter()
 
         cur = current_scope()
         if cur in self.workbenches:
@@ -1127,6 +1129,35 @@ class ShortcutsTable(QtWidgets.QWidget):
                 self.right.scrollTo(
                     self.right.model().index(0, col),
                     QtWidgets.QAbstractItemView.EnsureVisible)
+
+    def _apply_filter(self, _text=None):
+        """Hide rows whose key and pies all miss the search box."""
+        query = self.search.text().strip().lower()
+        for row, key in enumerate(self.keys()):
+            hit = not query or query in key.lower()
+            if not hit:
+                for scope in self.binds.values():
+                    if any(query in name.lower()
+                           for name in (scope.get(key) or {}).values()):
+                        hit = True
+                        break
+            self.left.setRowHidden(row, not hit)
+            self.right.setRowHidden(row, not hit)
+        self._fit_height()
+
+    def _fit_height(self):
+        # the table takes the height its visible rows take, screen-capped
+        rows = [r for r in range(self.right.rowCount())
+                if not self.right.isRowHidden(r)]
+        needed = (self.right.horizontalHeader().sizeHint().height()
+                  + sum(self.right.rowHeight(r) for r in rows)
+                  + self.right.horizontalScrollBar().sizeHint().height()
+                  + 2 * self.right.frameWidth() + 4
+                  + self.search.sizeHint().height() + 4)
+        screen = QtWidgets.QApplication.primaryScreen()
+        cap = int(screen.availableGeometry().height() * 0.45) if screen \
+            else 500
+        self.setFixedHeight(max(140, min(needed, cap)))
 
     def _cell(self, key, scope):
         # the item carries the reference and the tint; the label the text

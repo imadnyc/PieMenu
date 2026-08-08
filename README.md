@@ -137,6 +137,8 @@ nix run .#e2e      # end-to-end in a real offscreen GUI
 nix run .#snap     # screenshot the widgets to /tmp/piemenu-snaps
 ```
 
+FEATURES.md is the full feature inventory — every feature, where it
+lives in the code, and how to remove it if it outgrows its welcome.
 IMPLEMENTATION.md has the schema notes, UI-FEEDBACK.md the design
 decisions, and mockups/ the HTML mockups the UI was designed in.
 
