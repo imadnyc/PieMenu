@@ -461,7 +461,8 @@ def keys_dialog(parent):
         "(never while you are typing in a field), so pick keys FreeCAD "
         "does not already use. The starter set sits on F3–F9 and skips "
         "F1 (help), F2 (rename) and F5 (recompute) for exactly that "
-        "reason.")
+        "reason. The shortcuts table marks a key that would shadow a "
+        "FreeCAD shortcut with ⚠.")
     note.setWordWrap(True)
     note.setStyleSheet("color: gray;")
     lay.addWidget(note)
@@ -968,6 +969,27 @@ class PreviewWidget(QtWidgets.QWidget):
             self.slot_activated.emit(index)
 
 
+def freecad_shortcuts():
+    """Key text -> action label for every shortcut FreeCAD itself has, so
+    the table can warn where a pie key would shadow one."""
+    if App is None or not App.GuiUp:
+        return {}
+    try:
+        import FreeCADGui as Gui
+        mw = Gui.getMainWindow()
+        action_type = getattr(QtGui, "QAction", None) \
+            or QtWidgets.QAction
+        out = {}
+        for act in mw.findChildren(action_type):
+            seq = act.shortcut().toString()
+            if seq:
+                label = act.text().replace("&", "") or act.objectName()
+                out.setdefault(seq, label)
+        return out
+    except Exception:  # noqa: BLE001 -- half-built Gui
+        return {}
+
+
 # ---- the shortcuts table ---------------------------------------------------
 
 class ShortcutsTable(QtWidgets.QWidget):
@@ -1030,11 +1052,18 @@ class ShortcutsTable(QtWidgets.QWidget):
         self.pies = pies
         self.binds = binds
         keys = self.keys()
+        clashes = freecad_shortcuts()
         for table in (self.left, self.right):
             table.setRowCount(len(keys))
         for row, key in enumerate(keys):
-            self.left.setVerticalHeaderItem(
-                row, QtWidgets.QTableWidgetItem(key))
+            header = QtWidgets.QTableWidgetItem(key)
+            if key in clashes:
+                header.setText(f"{key} ⚠")
+                header.setToolTip(
+                    f"Also a FreeCAD shortcut: {clashes[key]}. "
+                    "The pie answers first, so that command loses "
+                    "this key.")
+            self.left.setVerticalHeaderItem(row, header)
             self.left.setItem(row, 0, self._cell(key, ANY_SCOPE))
             self.left.setCellWidget(row, 0, self._cell_label(key, ANY_SCOPE))
             for col, wb in enumerate(self.workbenches):

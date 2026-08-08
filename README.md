@@ -54,8 +54,9 @@ internals redone from scratch.
 * Plus: number keys 1-9 fire slots, Shift keeps the pie open so you can
   chain tools, right-click a slot in a live pie to edit it, macros as
   slot targets, per-part colors, single-pie export/import as JSON, new
-  pie from any toolbar, a stats panel, optional auto-open when your
-  selection matches a conditional slot.
+  pie from any toolbar, a stats panel, the shortcuts table warns (⚠) when a key would
+  shadow one of FreeCAD's own, optional auto-open when your selection
+  matches a conditional slot.
 
 Icons come from FreeCAD's own command registry, so a pie full of Sketcher
 tools looks right even if you've never opened Sketcher this session:

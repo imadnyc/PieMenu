@@ -322,6 +322,8 @@ press4 = QtGui.QMouseEvent(
     QtCore.Qt.NoModifier)
 assert mc.eventFilter(None, press4) and mcaught["key"] == "Mouse4"
 mdlg.deleteLater()
+# headless there is no main window, so the conflict map is just empty
+assert dialog.freecad_shortcuts() == {}
 print("PASS mouse capture")
 
 # ---- session snapshot backs the Revert button --------------------------------

@@ -79,6 +79,11 @@ def check():
             "workbench icon failed"
         print("E2E registry icons ok")
 
+        # the conflict map harvests FreeCAD's real shortcuts
+        clashes = dialog.freecad_shortcuts()
+        assert clashes, "no FreeCAD shortcuts harvested"
+        print(f"E2E conflict map ok: {len(clashes)} FreeCAD shortcuts")
+
         # availability: real benches yes, ghosts no, and a ghost's button
         # renders dead with an explanation
         assert rt.prefix_available("PartDesign")
