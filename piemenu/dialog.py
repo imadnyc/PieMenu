@@ -407,6 +407,21 @@ def stats_dialog(parent):
             form.addWidget(QtWidgets.QLabel(
                 f"{count:>4} ×  {command_label(cmd)}"))
         lay.addWidget(box)
+    ignored = model.smart_ignored()
+    if ignored:
+        row = QtWidgets.QHBoxLayout()
+        note = QtWidgets.QLabel(
+            "Ignored by Smart: "
+            + ", ".join(command_label(c) for c in ignored))
+        note.setWordWrap(True)
+        note.setStyleSheet("color: gray;")
+        row.addWidget(note, 1)
+        clear = QtWidgets.QPushButton("Stop ignoring")
+        clear.clicked.connect(lambda: (
+            [model.set_smart_ignored(c, False) for c in ignored],
+            dlg.accept()))
+        row.addWidget(clear)
+        lay.addLayout(row)
     buttons = QtWidgets.QHBoxLayout()
     reset = QtWidgets.QPushButton("Reset stats")
     reset.clicked.connect(lambda: (model.reset_stats(), dlg.accept()))

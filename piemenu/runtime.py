@@ -549,10 +549,14 @@ class PieWidget(QtWidgets.QWidget):
         if self.pie.name == model.SMART_NAME:
             cmd = face.cmd
             kept = cmd in model.smart_favorites()
+            shunned = cmd in model.smart_ignored()
             menu = QtWidgets.QMenu(self)
             menu.addAction(
                 "Unpin from Smart" if kept else "Keep in Smart",
                 lambda: model.set_smart_favorite(cmd, not kept))
+            menu.addAction(
+                "Stop ignoring" if shunned else "Ignore in Smart",
+                lambda: model.set_smart_ignored(cmd, not shunned))
             menu.exec_(QtGui.QCursor.pos())
             return
         j = slot.index(face)
@@ -1404,12 +1408,14 @@ class Runtime:
     def _pies_for(self, name):
         if name != model.SMART_NAME:
             return self.pies
-        # contents rebuilt every open: your most used tools, here, now;
-        # layout and behaviour come from the saved Smart pie, if any
+        # contents rebuilt every open: your most used tools, here, now,
+        # weighted by what is selected; layout and behaviour come from
+        # the saved Smart pie, if any
         pies = dict(self.pies)
         pies[model.SMART_NAME] = model.smart_pie(
             workbench_scope(self.gui),
-            base=self.pies.get(model.SMART_NAME))
+            base=self.pies.get(model.SMART_NAME),
+            counts=self.counts())
         return pies
 
     def open_pie(self, name, at=None, hint=""):
@@ -1444,7 +1450,8 @@ class Runtime:
                 self.gui.activateWorkbench(cmd)
             else:
                 self.gui.runCommand(cmd, 0)
-            model.bump_stat(workbench_scope(self.gui), cmd)
+            model.bump_stat(workbench_scope(self.gui), cmd,
+                            axis=model.dominant_axis(self.counts()))
             self._save_timer.start()
         except Exception as exc:  # noqa: BLE001 -- a broken command must not kill the pie
             if App is not None:

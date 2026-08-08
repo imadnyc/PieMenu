@@ -550,10 +550,15 @@ PANEL_ACTIONS = ("OK", "Apply", "Cancel")
 
 
 
-def bump_stat(workbench, cmd):
+def bump_stat(workbench, cmd, axis=None):
+    """Count a fire; with an axis ("Face"...), also count it under
+    wb@axis so the Smart pie can rank by what is selected right now."""
     root = _grp("Stats")
     g = root.GetGroup(workbench or ANY_SCOPE)
     g.SetInt(cmd, g.GetInt(cmd, 0) + 1)
+    if axis:
+        ga = root.GetGroup(f"{workbench or ANY_SCOPE}@{axis}")
+        ga.SetInt(cmd, ga.GetInt(cmd, 0) + 1)
     total = root.GetInt("_total", 0) + 1
     root.SetInt("_total", total)
     if total % 200 == 0:
@@ -579,10 +584,12 @@ def reset_stats():
 
 
 def stats(workbench=None):
-    """cmd -> count for one workbench, or aggregated over all of them."""
+    """cmd -> count for one workbench, or aggregated over all of them
+    (the per-axis @-groups are shadows of the plain counts: skipped)."""
     root = _grp("Stats")
     out = {}
-    scopes = [workbench] if workbench else root.GetGroups()
+    scopes = [workbench] if workbench \
+        else [s for s in root.GetGroups() if "@" not in s]
     for scope in scopes:
         g = root.GetGroup(scope)
         for cmd in g.GetInts():
@@ -591,15 +598,19 @@ def stats(workbench=None):
     return out
 
 
-def top_commands(workbench, n=8):
-    """The n most used commands: this workbench's first, then everywhere."""
-    own = stats(workbench)
-    everywhere = stats()
-    ranked = sorted(own, key=lambda c: -own[c])
-    for cmd in sorted(everywhere, key=lambda c: -everywhere[c]):
-        if cmd not in ranked:
-            ranked.append(cmd)
-    return [c for c in ranked if not is_pie_command(c)][:n]
+def top_commands(workbench, n=8, axis=None):
+    """The n most used commands: what you use with this kind of selection
+    first (wb@axis), then this workbench's, then everywhere's."""
+    ranked = []
+    tables = ([stats(f"{workbench}@{axis}")] if axis else []) \
+        + [stats(workbench), stats()]
+    for table in tables:
+        for cmd in sorted(table, key=lambda c: -table[c]):
+            if cmd not in ranked:
+                ranked.append(cmd)
+    ignored = set(smart_ignored())
+    return [c for c in ranked
+            if not is_pie_command(c) and c not in ignored][:n]
 
 
 def smart_favorites():
@@ -615,25 +626,48 @@ def set_smart_favorite(cmd, keep):
     _grp("Smart").SetString("Favorites", ",".join(favs))
 
 
-def fill_smart(pie, workbench):
-    """Overwrite a pie's slots: pinned favorites first, then most used."""
+def smart_ignored():
+    """Commands the Smart pie must never offer (view toggles and such
+    pollute the usage ranking). Counted but filtered, so un-ignoring
+    restores their history."""
+    raw = _grp("Smart").GetString("Ignored", "")
+    return [c for c in raw.split(",") if c.strip()]
+
+
+def set_smart_ignored(cmd, ignored):
+    now = [c for c in smart_ignored() if c != cmd]
+    if ignored:
+        now.append(cmd)
+    _grp("Smart").SetString("Ignored", ",".join(now))
+
+
+def dominant_axis(counts):
+    """The selection's loudest axis, or None with nothing selected."""
+    live = {k: v for k, v in (counts or {}).items() if v}
+    return max(live, key=live.get) if live else None
+
+
+def fill_smart(pie, workbench, counts=None):
+    """Overwrite a pie's slots: pinned favorites first, then what you
+    use most with this kind of selection, then most used overall."""
     normalise(pie)
     pie.items = [None] * len(pie.items)
     favs = [c for c in smart_favorites() if not is_pie_command(c)]
-    rest = [c for c in top_commands(workbench, len(pie.items))
+    rest = [c for c in top_commands(workbench, len(pie.items),
+                                    axis=dominant_axis(counts))
             if c not in favs]
     for i, cmd in enumerate((favs + rest)[:len(pie.items)]):
         pie.items[i] = [Binding(cmd)]
     return pie
 
 
-def smart_pie(workbench, base=None):
+def smart_pie(workbench, base=None, counts=None):
     """The Smart pie: the user's saved layout/behaviour settings (if any)
     with its contents rebuilt from usage, fresh at every open."""
     pie = copy.deepcopy(base) if base is not None \
         else Pie(SMART_NAME, slots=8, per_ring=8)
     pie.name = SMART_NAME
-    return fill_smart(pie, workbench)
+    return fill_smart(pie, workbench, counts)
 
 
 def last_fired(name):

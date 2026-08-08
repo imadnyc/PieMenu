@@ -180,6 +180,25 @@ assert sp.items[1][0].cmd == "A"             # then the usual ranking
 M.set_smart_favorite("Z_Rare", False)
 assert M.smart_favorites() == []
 
+# the ignore list filters the offer but keeps the history
+M.set_smart_ignored("A", True)
+assert M.smart_ignored() == ["A"]
+assert "A" not in M.top_commands("PartDesign", 8)
+assert M.stats("PartDesign")["A"] == 2       # still counted
+M.set_smart_ignored("A", False)
+assert "A" in M.top_commands("PartDesign", 8)
+
+# selection-aware ranking: tools used with a Face selected lead when
+# a face is selected now
+M.bump_stat("PartDesign", "FaceTool", axis="Face")
+assert M.top_commands("PartDesign", 8, axis="Face")[0] == "FaceTool"
+assert M.top_commands("PartDesign", 8)[0] == "A"   # plain rank intact
+assert M.stats()["FaceTool"] == 1            # @-shadow not double-counted
+assert M.dominant_axis({"Face": 2, "Edge": 1}) == "Face"
+assert M.dominant_axis({}) is None
+sp_face = M.smart_pie("PartDesign", counts={"Face": 1})
+assert sp_face.items[0][0].cmd == "FaceTool"
+
 # task-panel pseudo-commands need nothing installed
 pp = Pie("PP", slots=2, per_ring=2)
 M.normalise(pp)
