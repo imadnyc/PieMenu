@@ -432,6 +432,7 @@ def keys_dialog(parent):
             ("P", "pin the pie as a floating palette"),
             ("Esc / ✕", "close a pinned palette"),
             ("right-click a slot", "edit it here in the preferences"),
+            ("right-click a Smart tool", "pin it so it never rotates out"),
             ("hover a door slot", "glide into that pie"),
         )),
         ("Your bindings", (

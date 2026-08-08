@@ -45,6 +45,7 @@ internals redone from scratch.
 * There's a **Smart** pie that fills itself with your most-used tools for
   whatever workbench you're in. Counts decay over time so it tracks what
   you're doing now, not last month. Bind it to a key and forget about it.
+  Right-click a tool in it to pin it so it never rotates out.
 * Layouts: circles with multiple rings (uniform, auto-fit by
   circumference, or custom counts like 8,16), or grids hanging off any
   side of the cursor with per-block offsets. Here's a two-ring pie and

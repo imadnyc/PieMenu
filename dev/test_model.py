@@ -170,6 +170,15 @@ assert M.load_pie("Lbl").items[0][0].label == "Loft"       # labels persist
 M.delete_pie("Lbl")
 M.bump_stat("Any", M.PIE_PREFIX + "Main")
 assert M.PIE_PREFIX + "Main" not in M.top_commands("Any", 8)  # no doors
+# pinned favorites lead the Smart pie, whatever the usage says
+M.set_smart_favorite("Z_Rare", True)
+assert M.smart_favorites() == ["Z_Rare"]
+sp = M.smart_pie("PartDesign")
+assert sp.items[0][0].cmd == "Z_Rare"        # favorite first
+assert sp.items[1][0].cmd == "A"             # then the usual ranking
+M.set_smart_favorite("Z_Rare", False)
+assert M.smart_favorites() == []
+
 M.App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 print("PASS stats + smart")
 

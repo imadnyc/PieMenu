@@ -503,13 +503,23 @@ class PieWidget(QtWidgets.QWidget):
         return btn
 
     def _slot_menu(self, index, _btn):
-        """Right-click a live slot: edit it without the big dialog."""
-        if self._rt is None or self.pie.name == model.SMART_NAME:
+        """Right-click a live slot: edit it without the big dialog. In the
+        Smart pie, pin or unpin the tool instead (its slots are computed)."""
+        if self._rt is None:
             return
         slot = self.pie.items[index]
         face = model.slot_face(slot, self.counts,
                                self.pie.last_used.get(index))
         if face is None:
+            return
+        if self.pie.name == model.SMART_NAME:
+            cmd = face.cmd
+            kept = cmd in model.smart_favorites()
+            menu = QtWidgets.QMenu(self)
+            menu.addAction(
+                "Unpin from Smart" if kept else "Keep in Smart",
+                lambda: model.set_smart_favorite(cmd, not kept))
+            menu.exec_(QtGui.QCursor.pos())
             return
         j = slot.index(face)
         menu = QtWidgets.QMenu(self)

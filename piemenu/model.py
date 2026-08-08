@@ -595,11 +595,27 @@ def top_commands(workbench, n=8):
     return [c for c in ranked if not is_pie_command(c)][:n]
 
 
+def smart_favorites():
+    """Commands pinned into the Smart pie, immune to decay and ranking."""
+    raw = _grp("Smart").GetString("Favorites", "")
+    return [c for c in raw.split(",") if c.strip()]
+
+
+def set_smart_favorite(cmd, keep):
+    favs = [c for c in smart_favorites() if c != cmd]
+    if keep:
+        favs.insert(0, cmd)
+    _grp("Smart").SetString("Favorites", ",".join(favs))
+
+
 def fill_smart(pie, workbench):
-    """Overwrite a pie's slots with the most used commands here."""
+    """Overwrite a pie's slots: pinned favorites first, then most used."""
     normalise(pie)
     pie.items = [None] * len(pie.items)
-    for i, cmd in enumerate(top_commands(workbench, len(pie.items))):
+    favs = [c for c in smart_favorites() if not is_pie_command(c)]
+    rest = [c for c in top_commands(workbench, len(pie.items))
+            if c not in favs]
+    for i, cmd in enumerate((favs + rest)[:len(pie.items)]):
         pie.items[i] = [Binding(cmd)]
     return pie
 
