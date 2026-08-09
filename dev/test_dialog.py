@@ -397,12 +397,17 @@ frame.save(tiny, save_all=True, append_images=[PILImage.new("P", (8, 8))],
            duration=50, loop=0)
 gif_holder = QtWidgets.QWidget()
 gif_btn = QtWidgets.QToolButton(gif_holder)
+gif_btn.setToolTip("what this does")
 tip = dialog.GifTip(gif_btn, "does-not-exist")
+assert gif_btn.toolTip() == "what this does"  # no movie: tooltip stays
 app.sendEvent(gif_btn, QtCore.QEvent(QtCore.QEvent.Enter))
 assert tip._pop is None                      # missing movie: quiet no-op
 tip._path = tiny
 app.sendEvent(gif_btn, QtCore.QEvent(QtCore.QEvent.Enter))
-assert tip._pop is not None and tip._pop.movie() is not None
+assert tip._pop is not None
+labels = tip._pop.findChildren(QtWidgets.QLabel)
+assert any(lb.movie() is not None for lb in labels)   # the movie plays
+assert any(lb.text() == "what this does" for lb in labels)
 app.sendEvent(gif_btn, QtCore.QEvent(QtCore.QEvent.Leave))
 assert tip._pop is None
 gif_holder.deleteLater()

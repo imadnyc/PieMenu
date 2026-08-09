@@ -647,17 +647,23 @@ GIF_DIR = os.path.join(os.path.dirname(os.path.dirname(
 
 
 class GifTip(QtCore.QObject):
-    """Hovering the watched widget plays a little demo movie beside it.
+    """The tooltip WITH the movie in it: hovering the watched widget
+    shows one tooltip-style bubble carrying the tooltip text and the
+    demo GIF playing right under it.
 
-    The player is a child of the widget's window, not a tooltip window
-    (Qt tooltips freeze GIFs at frame one, and child widgets sidestep
-    Wayland popup placement entirely, like the pinned palettes do)."""
+    Qt's native tooltips freeze GIFs at frame one (rich-text <img> is
+    static), so when the movie exists this bubble replaces the native
+    tooltip outright. It is a child of the widget's window, placed at
+    the cursor the way tooltips are (Wayland-safe, like the palettes)."""
 
     def __init__(self, widget, name):
         super().__init__(widget)
         self._widget = widget
         self._path = os.path.join(GIF_DIR, name + ".gif")
+        self._text = widget.toolTip()
         self._pop = None
+        if os.path.exists(self._path):
+            widget.setToolTip("")     # the bubble carries the text now
         widget.installEventFilter(self)
 
     def eventFilter(self, _obj, event):
@@ -665,15 +671,28 @@ class GifTip(QtCore.QObject):
         if kind == QtCore.QEvent.Enter and self._pop is None \
                 and os.path.exists(self._path):
             window = self._widget.window()
-            pop = QtWidgets.QLabel(window)
-            movie = QtGui.QMovie(self._path)
-            pop.setMovie(movie)
+            pop = QtWidgets.QFrame(window)
             pop.setFrameShape(QtWidgets.QFrame.Box)
+            pop.setStyleSheet(
+                "QFrame{background:palette(base);"
+                "border:1px solid palette(mid);}"
+                "QLabel{border:none;background:none;}")
+            lay = QtWidgets.QVBoxLayout(pop)
+            lay.setContentsMargins(8, 6, 8, 6)
+            if self._text:
+                text_label = QtWidgets.QLabel(self._text)
+                text_label.setWordWrap(True)
+                text_label.setMaximumWidth(370)
+                lay.addWidget(text_label)
+            movie = QtGui.QMovie(self._path)
+            movie_label = QtWidgets.QLabel()
+            movie_label.setMovie(movie)
             movie.jumpToFrame(0)
-            size = movie.currentImage().size()
-            pop.resize(size.width() + 2, size.height() + 2)
-            at = window.mapFromGlobal(self._widget.mapToGlobal(
-                QtCore.QPoint(self._widget.width() + 10, 0)))
+            movie_label.setFixedSize(movie.currentImage().size())
+            lay.addWidget(movie_label, 0, QtCore.Qt.AlignHCenter)
+            pop.adjustSize()
+            at = window.mapFromGlobal(
+                QtGui.QCursor.pos() + QtCore.QPoint(14, 18))
             at.setX(max(0, min(at.x(),
                                window.width() - pop.width() - 4)))
             at.setY(max(0, min(at.y(),
@@ -1762,6 +1781,9 @@ class PieMenuPreferences(QtWidgets.QDialog):
         sc_head = QtWidgets.QHBoxLayout()
         sc_head.addWidget(QtWidgets.QLabel("Shortcuts"))
         sc_head.addStretch(1)
+        add_key = QtWidgets.QPushButton("Add a shortcut key…")
+        add_key.clicked.connect(lambda: self.shortcuts.add_key())
+        sc_head.addWidget(add_key)
         sc_head.addWidget(_help_button(
             "· press &nbsp; ·· double-press &nbsp; — press-and-hold &nbsp; "
             "··— double-press-and-hold — four pies per key; whether release "
@@ -1780,44 +1802,9 @@ class PieMenuPreferences(QtWidgets.QDialog):
         sc_lay.addWidget(self.shortcuts)
         outer.addWidget(sc_frame)
 
-        # the global surface, inlined: the accent override and backup
+        # one quiet corner for everything global: the Settings menu
         foot = QtWidgets.QHBoxLayout()
-        add_key = QtWidgets.QPushButton("Add a shortcut key…")
-        add_key.clicked.connect(self.shortcuts.add_key)
-        foot.addWidget(add_key)
-        foot.addSpacing(16)
-        colors_btn = QtWidgets.QPushButton("Colors…")
-        colors_btn.setToolTip("Accent, outline, fill and arrow colors — "
-                               "each follows the FreeCAD theme unless "
-                               "overridden.")
-        colors_btn.clicked.connect(
-            lambda: colors_dialog(self, self.on_change).exec_())
-        foot.addWidget(colors_btn)
-        stats_btn = QtWidgets.QPushButton("Stats…")
-        stats_btn.setToolTip("Your most used tools, and the reset.")
-        stats_btn.clicked.connect(lambda: stats_dialog(self).exec_())
-        foot.addWidget(stats_btn)
-        keys_btn = QtWidgets.QPushButton("Keys…")
-        keys_btn.setToolTip("Everything the keyboard does, on one page.")
-        keys_btn.clicked.connect(lambda: keys_dialog(self).exec_())
-        foot.addWidget(keys_btn)
-        doctor_btn = QtWidgets.QPushButton("Doctor…")
-        doctor_btn.setToolTip("Why didn't that work? Health scan, recent "
-                              "dispatches, and what each key would do "
-                              "right now.")
-        doctor_btn.clicked.connect(
-            lambda: doctor_dialog(self, self.pies, self.binds).exec_())
-        foot.addWidget(doctor_btn)
         p = App.ParamGet(runtime.MAIN)
-        auto = QtWidgets.QCheckBox("Auto-open on selection")
-        auto.setChecked(p.GetBool("AutoOpenSelection", False))
-        auto.toggled.connect(lambda v: p.SetBool("AutoOpenSelection", v))
-        auto.setToolTip("When the selection changes and the workbench's pie "
-                        "has a matching conditional slot, open it at the "
-                        "cursor unasked.")
-        foot.addWidget(auto)
-        foot.addStretch(1)
-
         root = App.ParamGet("User parameter:BaseApp/PieMenu")
 
         def export_all():
@@ -1849,16 +1836,35 @@ class PieMenuPreferences(QtWidgets.QDialog):
                 else min(self.pies)
             self._binds_changed()
 
-        for label, fn in (("Export…", export_all), ("Import…", import_all),
-                          ("Revert…", revert_session)):
-            btn = QtWidgets.QPushButton(label)
-            btn.clicked.connect(fn)
-            if not hasattr(root, "Export"):
-                btn.setEnabled(False)
-            if label.startswith("Revert"):
-                btn.setToolTip("Back to how everything was when this "
-                               "window opened.")
-            foot.addWidget(btn)
+        settings_btn = QtWidgets.QPushButton("⚙ Settings")
+        menu = QtWidgets.QMenu(settings_btn)
+        menu.addAction("Colors and theme…",
+                       lambda: colors_dialog(self, self.on_change).exec_())
+        menu.addAction("Usage stats…", lambda: stats_dialog(self).exec_())
+        menu.addAction("Keys cheat sheet…",
+                       lambda: keys_dialog(self).exec_())
+        menu.addAction("Doctor…",
+                       lambda: doctor_dialog(self, self.pies,
+                                             self.binds).exec_())
+        menu.addSeparator()
+        auto = menu.addAction("Auto-open on selection")
+        auto.setCheckable(True)
+        auto.setChecked(p.GetBool("AutoOpenSelection", False))
+        auto.toggled.connect(lambda v: p.SetBool("AutoOpenSelection", v))
+        auto.setToolTip("When the selection changes and the workbench's "
+                        "pie has a matching conditional slot, open it at "
+                        "the cursor unasked.")
+        menu.addSeparator()
+        if hasattr(root, "Export"):
+            menu.addAction("Export all settings…", export_all)
+            menu.addAction("Import settings…", import_all)
+            revert = menu.addAction("Revert this session…",
+                                    revert_session)
+            revert.setToolTip("Back to how everything was when this "
+                              "window opened.")
+        settings_btn.setMenu(menu)
+        foot.addWidget(settings_btn)
+        foot.addStretch(1)
         close = QtWidgets.QPushButton("Close")
         close.clicked.connect(self.accept)
         foot.addWidget(close)

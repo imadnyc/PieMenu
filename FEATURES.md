@@ -81,7 +81,8 @@ fail and point at the rest. Params live under
 | Session revert | restore everything to window-open state | `_session_snapshot` in `__init__`, `revert_session` in footer | delete both |
 | Keys cheat sheet | Keys… button, every key on one page | `dialog.keys_dialog` | delete + footer button |
 | Doctor | Doctor… button: health scan (dead commands, orphaned binds/doors, shadowed keys, wide rings, context lint), the last 12 dispatches, and what each key resolves to right now | `dialog.doctor_findings/doctor_dialog`, `Dispatcher.trace` | delete all three |
-| Hover demos | ? buttons and keys-page rows play little demo GIFs on hover | `dialog.GifTip`, movies in `docs/gifs/` rendered by `nix run .#gifs` (`dev/gif_scenes.py`) | delete `GifTip` + call sites; the GIFs are plain files |
+| Hover demos | hovering a ? button or keys-page row shows one tooltip bubble with the text AND the demo GIF playing in it (replaces the native tooltip, which cannot animate) | `dialog.GifTip`, movies in `docs/gifs/` rendered by `nix run .#gifs` (`dev/gif_scenes.py`) | delete `GifTip` + call sites; the GIFs are plain files |
+| Settings menu | the footer is one ⚙ Settings menu (colors/theme, stats, keys, Doctor, auto-open, export/import/revert) + Close; Add-key lives on the shortcuts panel | the footer block of `PieMenuPreferences.__init__` | inline the buttons again |
 | Usage stats panel | Stats… button, top tools + reset | `dialog.stats_dialog` | delete + footer button |
 | Live preview | union view, chooser flash, names spread | `dialog.PiePreview` | core-ish |
 | Wide-ring hint | a quiet note when a ring exceeds 8 slots, pointing at door slots | `_wide_hint` in the layout panel + `_fill_settings_labels` | delete both |
