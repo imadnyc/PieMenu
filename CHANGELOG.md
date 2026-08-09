@@ -22,7 +22,8 @@ config is migrated automatically and left untouched.
   selection; drag to move, Esc or ✕ to close.
 - Layouts: multi-ring circles (uniform/auto/custom counts) or grids hung
   off any side of the cursor; shapes (rounded/square/squircle/circle) and
-  styles (flat/gradient/outline); global and per-pie colors.
+  seven button styles (flat/gradient/outline/soft/glass/bold/minimal);
+  one-click light/dark pie themes; global and per-pie colors.
 - Per-pie export/import as JSON with a `requires` list; missing
   workbenches warn at import and degrade to disabled buttons, never
   errors. A community preset browser installs shared pies and updates

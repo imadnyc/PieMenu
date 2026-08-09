@@ -197,7 +197,8 @@ class Pie:
     spacing: int = 6
     accent: str = ""                # per-pie accent override (hex), "" = global
     shape: str = "rounded"          # rounded | square | squircle | circle
-    style: str = "flat"             # flat | gradient | outline
+    style: str = "flat"             # flat | gradient | outline | soft |
+                                    # glass | bold | minimal
     source: str = ""                # where an installed preset came from
     # trigger
     open_on: str = "single"         # single | double | hold | double-hold

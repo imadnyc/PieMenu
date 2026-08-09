@@ -79,7 +79,8 @@ internals redone from scratch.
   ![a two-ring pie with conditional slots](docs/slots-and-rules.png)
 * Plus: number keys 1-9 fire slots, Shift keeps the pie open so you can
   chain tools, right-click a slot in a live pie to edit it, macros as
-  slot targets, per-part colors, single-pie export/import as JSON, a
+  slot targets, per-part colors plus one-click light/dark pie themes
+  and seven button styles, single-pie export/import as JSON, a
   whole-setup export/import (every pie plus the keybinds, one file), new
   pie from any toolbar, a stats panel, the tool you fired last gets a
   faint accent ring, the shortcuts table warns (⚠) when a key would

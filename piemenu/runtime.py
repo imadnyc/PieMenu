@@ -51,6 +51,26 @@ def behaviour():
     }
 
 
+# the two built-in looks; explicit color overrides still beat them
+THEMES = {
+    "light": {"fill": "#f0f0f0", "outline": "#b9b9b9",
+              "text": "#2f2f2f", "window": "#fafafa"},
+    "dark": {"fill": "#3c3c3c", "outline": "#5a5a5a",
+             "text": "#e4e4e4", "window": "#2d2d2d"},
+}
+
+
+def active_theme():
+    """"light", "dark", or "" for following the FreeCAD palette."""
+    if App is None:
+        return ""
+    try:
+        name = _param().GetString("Theme", "")
+    except Exception:  # noqa: BLE001 -- no params outside FreeCAD
+        return ""
+    return name if name in THEMES else ""
+
+
 def custom_color(name):
     """The user's color override for a param, or None."""
     if App is None:
@@ -447,12 +467,23 @@ class PieWidget(QtWidgets.QWidget):
         model.normalise(pie)
         own = QtGui.QColor(pie.accent) if pie.accent else QtGui.QColor()
         self._accent = own if own.isValid() else accent()
-        fill = custom_color("FillColor")
-        out = custom_color("OutlineColor")
+        theme = active_theme()
+        spec = THEMES.get(theme, {})
+        fill = custom_color("FillColor") or (
+            QtGui.QColor(spec["fill"]) if spec else None)
+        out = custom_color("OutlineColor") or (
+            QtGui.QColor(spec["outline"]) if spec else None)
         fill_css = fill.name() if fill else "palette(button)"
-        alt_css = fill.lighter(114).name() if fill \
-            else "palette(alternate-base)"
+        if fill:
+            alt = fill.darker(106) if theme == "light" \
+                else fill.lighter(114)
+            alt_css = alt.name()
+        else:
+            alt_css = "palette(alternate-base)"
         out_css = out.name() if out else "palette(mid)"
+        text_css = f"color:{spec['text']};" if spec else ""
+        win_css = spec["window"] if spec else "palette(window)"
+        self._panel_color = QtGui.QColor(spec["window"]) if spec else None
         radius = shape_radius(pie)
         border = f"border:1px solid {out_css};"
         alt_rule = f'QToolButton[alt="true"]{{background:{alt_css};}}'
@@ -466,10 +497,26 @@ class PieWidget(QtWidgets.QWidget):
             fill_css = "transparent"
             border = f"border:2px solid {out_css};"
             alt_rule = ""
+        elif pie.style == "soft":
+            border = "border:none;"        # fill only, no edges at all
+        elif pie.style == "glass":
+            base = fill or QtWidgets.QApplication.palette().button().color()
+            edge = out or QtWidgets.QApplication.palette().mid().color()
+            fill_css = (f"rgba({base.red()},{base.green()},"
+                        f"{base.blue()},170)")
+            border = (f"border:1px solid rgba({edge.red()},"
+                      f"{edge.green()},{edge.blue()},120);")
+            alt_rule = ""
+        elif pie.style == "bold":
+            border = f"border:2px solid {out_css};"
+        elif pie.style == "minimal":
+            fill_css = "transparent"       # bare icons, hover ring only
+            border = "border:none;"
+            alt_rule = ""
         # background-image:none beats theme stylesheets that paint
         # QToolButton with images, which otherwise mask our fill entirely
         self._base_css = (f"background:{fill_css};background-image:none;"
-                          f"{border}")
+                          f"{text_css}{border}")
         acc = self._accent
         self.setStyleSheet(
             f"QToolButton{{{self._base_css}border-radius:{radius}px;}}"
@@ -482,7 +529,7 @@ class PieWidget(QtWidgets.QWidget):
             f'QToolButton[aimed="true"]{{border:2px solid '
             f"{self._accent.name()};}}"
             f"QToolButton:hover{{border:2px solid {self._accent.name()};}}"
-            "QToolButton:disabled{background:palette(window);"
+            f"QToolButton:disabled{{background:{win_css};"
             f"border:1px dashed {out_css};}}")
         self.pie = pie
         try:
@@ -1142,7 +1189,8 @@ class PieWidget(QtWidgets.QWidget):
             painter.setRenderHint(QtGui.QPainter.Antialiasing)
             painter.setPen(QtGui.QPen(
                 self.palette().color(QtGui.QPalette.Mid), 1))
-            painter.setBrush(self.palette().window())
+            painter.setBrush(self._panel_color
+                             or self.palette().window())
             painter.drawRoundedRect(self.rect().adjusted(0, 0, -1, -1),
                                     10, 10)
             painter.end()

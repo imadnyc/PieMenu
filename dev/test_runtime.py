@@ -722,6 +722,35 @@ w.deleteLater()
 pies["Main"].items[1] = [Binding("Std_Undo")]
 print("PASS letter accels")
 
+# ---- light and dark themes, and the style presets --------------------------
+pth = App.ParamGet("User parameter:BaseApp/PieMenu")
+pth.SetString("Theme", "dark")
+w = runtime.PieWidget(pies, "Main", {}, fire)
+assert runtime.THEMES["dark"]["fill"] in w._base_css
+assert runtime.THEMES["dark"]["text"] in w._base_css
+w.deleteLater()
+pth.SetString("Theme", "light")
+w = runtime.PieWidget(pies, "Main", {}, fire)
+assert runtime.THEMES["light"]["fill"] in w._base_css
+w.deleteLater()
+pth.SetString("FillColor", "#123456")    # explicit override beats theme
+w = runtime.PieWidget(pies, "Main", {}, fire)
+assert "#123456" in w._base_css
+w.deleteLater()
+pth.RemString("FillColor")
+pth.RemString("Theme")
+for style_name, needle in (("soft", "border:none"),
+                           ("glass", "rgba("),
+                           ("bold", "border:2px solid"),
+                           ("minimal", "background:transparent")):
+    pies["Main"].style = style_name
+    w = runtime.PieWidget(pies, "Main", {}, fire)
+    assert needle in w._base_css, (style_name, w._base_css)
+    w.grab()
+    w.deleteLater()
+pies["Main"].style = "flat"
+print("PASS themes and styles")
+
 # ---- the opaque fallback paints without crashing ----------------------------
 App.ParamGet("User parameter:BaseApp/PieMenu").SetBool("OpaquePies", True)
 w = runtime.PieWidget(pies, "Main", {}, fire)

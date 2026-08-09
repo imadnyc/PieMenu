@@ -227,6 +227,17 @@ def colors_dialog(parent, on_change):
     dlg.setWindowTitle("Pie colors")
     form = QtWidgets.QFormLayout(dlg)
 
+    theme_pick = QtWidgets.QComboBox()
+    theme_pick.addItems(["Follow FreeCAD", "Light", "Dark"])
+    theme_pick.setCurrentIndex(
+        {"": 0, "light": 1, "dark": 2}.get(p.GetString("Theme", ""), 0))
+    theme_pick.setToolTip("A simple built-in look for the pies; the "
+                          "color overrides below still win over it.")
+    theme_pick.currentIndexChanged.connect(
+        lambda i: (p.SetString("Theme", ["", "light", "dark"][i]),
+                   on_change()))
+    form.addRow(QtWidgets.QLabel("Theme:"), theme_pick)
+
     def swatch_css(param):
         color = runtime.custom_color(param)
         return (f"background:{color.name()};" if color
@@ -2582,7 +2593,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         shape.setCurrentText(pie.shape)
         shape.currentTextChanged.connect(lambda v: self._set("shape", v))
         style = row("Style", QtWidgets.QComboBox())
-        style.addItems(["flat", "gradient", "outline"])
+        style.addItems(["flat", "gradient", "outline", "soft", "glass",
+                        "bold", "minimal"])
         style.setCurrentText(pie.style)
         style.currentTextChanged.connect(lambda v: self._set("style", v))
         if pie.family == "grid":
