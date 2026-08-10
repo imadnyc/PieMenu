@@ -6,16 +6,29 @@ the live pie in several selection states and of the preferences dialog to
 captures without needing a visible screen.
 """
 import os
+import sys
 import traceback
 
 import FreeCADGui as Gui
-from PySide import QtCore, QtWidgets
+from PySide import QtCore, QtGui, QtWidgets
 
 OUT = "/tmp/piemenu-snaps"
+REPO = os.environ.get("PIEMENU_REPO", "/home/dre/Projects/PieMenu")
+sys.path.insert(0, os.path.join(REPO, "dev"))
+
+import dark_shot  # lives in dev/, needs the path above
 
 
 def snap(widget, name):
-    widget.grab().save(os.path.join(OUT, name + ".png"))
+    # pies grab with a transparent background (they're translucent popups);
+    # flatten onto the dark backdrop so the PNG reads the same on any page
+    shot = widget.grab()
+    canvas = QtGui.QPixmap(shot.size())
+    canvas.fill(QtGui.QColor(*dark_shot.BG))
+    painter = QtGui.QPainter(canvas)
+    painter.drawPixmap(0, 0, shot)
+    painter.end()
+    canvas.save(os.path.join(OUT, name + ".png"))
     print(f"SNAP {name}", flush=True)
 
 
@@ -28,6 +41,7 @@ def run():
         run_ = rt.runtime
         assert run_ is not None and run_.pies, "runtime not up"
         print("SNAP step: runtime up", flush=True)
+        dark_shot.apply()
 
         def fire(cmd):
             pass  # never actually run tools while photographing

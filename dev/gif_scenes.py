@@ -10,6 +10,7 @@ frames as it goes; a synthetic cursor is drawn onto the frames since
 import copy
 import io
 import os
+import sys
 import traceback
 
 import FreeCADGui as Gui  # noqa: F401 -- GUI must be up for real icons
@@ -17,9 +18,14 @@ from PIL import Image, ImageDraw
 from PySide import QtCore, QtGui, QtWidgets
 
 REPO = os.environ.get("PIEMENU_REPO", "/home/dre/Projects/PieMenu")
+sys.path.insert(0, os.path.join(REPO, "dev"))
+
+import dark_shot  # lives in dev/, needs the path above
+
 OUT = os.path.join(REPO, "docs", "gifs")
 CANVAS = (360, 320)
-BG = (242, 242, 242)
+BG = dark_shot.BG
+CAPTION = (165, 165, 165)         # reads against the dark backdrop
 FPS_MS = 90
 
 
@@ -52,9 +58,9 @@ class Recorder:
             x = off[0] + int(cursor.x())
             y = off[1] + int(cursor.y())
             draw.polygon([(x, y), (x + 11, y + 4), (x + 4, y + 11)],
-                         fill=(20, 20, 20), outline=(255, 255, 255))
+                         fill=(240, 240, 240), outline=(20, 20, 20))
         if caption:
-            draw.text((8, self.size[1] - 16), caption, fill=(90, 90, 90))
+            draw.text((8, self.size[1] - 16), caption, fill=CAPTION)
         self.frames.append(canvas.convert(
             "P", palette=Image.Palette.ADAPTIVE, colors=128))
         self.durations.append(FPS_MS * hold)
@@ -63,7 +69,7 @@ class Recorder:
         canvas = Image.new("RGB", self.size, BG)
         if caption:
             ImageDraw.Draw(canvas).text((8, self.size[1] - 16), caption,
-                                        fill=(90, 90, 90))
+                                        fill=CAPTION)
         self.frames.append(canvas.convert(
             "P", palette=Image.Palette.ADAPTIVE, colors=128))
         self.durations.append(FPS_MS * hold)
@@ -261,6 +267,7 @@ def run():
         os.makedirs(OUT, exist_ok=True)
         from piemenu import runtime as rt
         assert rt.runtime is not None and rt.runtime.pies, "runtime not up"
+        dark_shot.apply()
         for scene in (scene_gesture_aim, scene_conditional_slots,
                       scene_chooser, scene_door_dwell, scene_dead_slot,
                       scene_pinned_palette):
