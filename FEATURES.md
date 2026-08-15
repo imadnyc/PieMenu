@@ -77,6 +77,7 @@ fail and point at the rest. Params live under
 | Non-modal window | preferences float next to FreeCAD, singleton | `dialog.open_preferences`, `_open_dialog` | swap `show()` for `exec_()` |
 | Shortcuts table | key × workbench grid, per-gesture lines, inheritance shown | `dialog.ShortcutsTable` | core, keep |
 | Table search box | filter rows by key or pie name | `ShortcutsTable.search`, `_apply_filter` | delete both |
+| Key clash prompt | rekeying onto a taken key offers swap / unbind instead of doing nothing | `ShortcutsTable._rekey`, `_move_key`, `_key_opens` | drop the prompt, keep `_move_key` |
 | Conflict badges | ⚠ where a bound key shadows a FreeCAD shortcut | `dialog.freecad_shortcuts`, badge block in `rebuild` | delete both |
 | Session revert | restore everything to window-open state | `_session_snapshot` in `__init__`, `revert_session` in footer | delete both |
 | Keys cheat sheet | Keys… button, every key on one page | `dialog.keys_dialog` | delete + footer button |

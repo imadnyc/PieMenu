@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- PieMenu: four ring segments around the cursor point.
+       Same glyph as preferences-piemenu.svg (that name is FreeCAD's
+       preference-group icon convention). -->
+  <g fill="none" stroke-width="11" stroke-linecap="round">
+    <path stroke="#5b8fd8" d="M 53.7 28.2 A 22 22 0 0 0 35.8 10.3"/>
+    <path stroke="#8b8b8b" d="M 28.2 10.3 A 22 22 0 0 0 10.3 28.2"/>
+    <path stroke="#8b8b8b" d="M 10.3 35.8 A 22 22 0 0 0 28.2 53.7"/>
+    <path stroke="#8b8b8b" d="M 35.8 53.7 A 22 22 0 0 0 53.7 35.8"/>
+  </g>
+  <circle cx="32" cy="32" r="4" fill="#8b8b8b"/>
+</svg>

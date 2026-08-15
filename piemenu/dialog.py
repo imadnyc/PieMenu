@@ -1503,16 +1503,49 @@ class ShortcutsTable(QtWidgets.QWidget):
         model.clear_bind(scope, key, gesture)
         self.changed.emit()
 
+    def _key_opens(self, key):
+        names = {n for keys in self.binds.values()
+                 for n in (keys.get(key) or {}).values()}
+        return ", ".join(sorted(bind_label(n) for n in names)) or "nothing"
+
+    def _move_key(self, old, new, swap=False):
+        """Give old's binds to new, in every scope.  swap=True hands new's
+        binds back to old instead of dropping them."""
+        moving = {s: dict(keys.get(old) or {})
+                  for s, keys in self.binds.items()}
+        back = {s: dict(keys.get(new) or {})
+                for s, keys in self.binds.items()} if swap else {}
+        model.remove_key(old)
+        model.remove_key(new)
+        for key, per_scope in ((new, moving), (old, back)):
+            for scope, gestures in per_scope.items():
+                for g, name in gestures.items():
+                    model.set_bind(scope, key, name, g)
+        self.changed.emit()
+
     def _rekey(self, row):
         old = self.keys()[row]
         new = record_key(self, old)
-        if not new or new == old or new in self.keys():
+        if not new or new == old:
             return
-        for scope, keys in self.binds.items():
-            for g, name in (keys.get(old) or {}).items():
-                model.set_bind(scope, new, name, g)
-        model.remove_key(old)
-        self.changed.emit()
+        swap = False
+        if new in self.keys():
+            box = QtWidgets.QMessageBox(self)
+            box.setWindowTitle("That key is taken")
+            box.setText(f"{new} already opens {self._key_opens(new)}.")
+            box.setInformativeText(
+                f"{old} opens {self._key_opens(old)}.")
+            swap_btn = box.addButton(f"Swap {old} and {new}",
+                                     QtWidgets.QMessageBox.AcceptRole)
+            take_btn = box.addButton(f"Unbind {new}",
+                                     QtWidgets.QMessageBox.DestructiveRole)
+            box.addButton(QtWidgets.QMessageBox.Cancel)
+            box.exec_()
+            if box.clickedButton() is swap_btn:
+                swap = True
+            elif box.clickedButton() is not take_btn:
+                return
+        self._move_key(old, new, swap)
 
     def _key_menu(self, point):
         row = self.left.verticalHeader().logicalIndexAt(point)
@@ -1528,7 +1561,14 @@ class ShortcutsTable(QtWidgets.QWidget):
 
     def add_key(self):
         new = record_key(self, "")
-        if not new or new in self.keys():
+        if not new:
+            return
+        if new in self.keys():
+            QtWidgets.QMessageBox.information(
+                self, "That key is taken",
+                f"{new} already opens {self._key_opens(new)}.  It is in the "
+                "table already — double-click its row to change what it "
+                "opens, or its key to record a different one.")
             return
         menu = QtWidgets.QMenu(self)
         for name in sorted(self.pies) + [model.SMART_NAME]:

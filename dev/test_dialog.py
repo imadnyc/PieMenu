@@ -80,6 +80,27 @@ dlg._binds_changed()
 app.processEvents()
 print("PASS shortcuts table")
 
+# ---- rekeying onto a taken key: swap, or take it over ------------------------
+table._move_key("F6", "F7", swap=True)
+dlg._binds_changed()
+app.processEvents()
+binds = model.load_binds()
+assert binds[model.ANY_SCOPE]["F7"]["press"] == "Main", binds
+assert binds["PartDesign"]["F6"]["press"] == "Sub", binds
+table._move_key("F6", "F7")            # no swap: F7's own bind is dropped
+dlg._binds_changed()
+app.processEvents()
+binds = model.load_binds()
+assert binds["PartDesign"]["F7"]["press"] == "Sub", binds
+assert "F6" not in binds["PartDesign"] and "F6" not in binds[model.ANY_SCOPE]
+assert "press" not in binds[model.ANY_SCOPE].get("F7", {}), binds
+model.remove_key("F7")
+model.set_bind(model.ANY_SCOPE, "F6", "Main")
+model.set_bind("PartDesign", "F7", "Sub")
+dlg._binds_changed()
+app.processEvents()
+print("PASS rekey conflict")
+
 # ---- opened by --------------------------------------------------------------
 dlg.select_pie("Sub")
 area_text = []
