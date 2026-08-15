@@ -115,16 +115,17 @@ def workbench_scope(gui):
 
 
 class HaloLabel(QtWidgets.QLabel):
-    """Text drawn with a thin rim of the opposite luminance, so it reads
-    over any scene without sampling what's behind it (Wayland forbids
-    that anyway). A crisp stroked outline, not a blur: blurs wash out
-    against busy geometry."""
+    """Flat overlay text. Given a chip color it sits on a rounded pill,
+    so floating text reads over any scene without sampling what's behind
+    it (Wayland forbids that anyway); bare, it's for tags on surfaces
+    the theme already colors."""
 
-    PAD = 3
-
-    def __init__(self, text, parent, color="#999", px=10):
+    def __init__(self, text, parent, color="#999", px=10, chip=None):
         super().__init__(text, parent)
         self._color = QtGui.QColor(color)
+        self._chip = chip
+        self._pad_x = 7 if chip is not None else 3
+        self._pad_y = 3
         font = self.font()
         font.setPixelSize(px)
         self.setFont(font)
@@ -132,21 +133,23 @@ class HaloLabel(QtWidgets.QLabel):
 
     def sizeHint(self):
         base = super().sizeHint()
-        return QtCore.QSize(base.width() + 2 * self.PAD,
-                            base.height() + 2 * self.PAD)
+        return QtCore.QSize(base.width() + 2 * self._pad_x,
+                            base.height() + 2 * self._pad_y)
 
     def paintEvent(self, _event):
         painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
+        if self._chip is not None:
+            bg = QtGui.QColor(self._chip)
+            bg.setAlpha(235)
+            painter.setPen(QtCore.Qt.NoPen)
+            painter.setBrush(bg)
+            radius = self.height() / 2
+            painter.drawRoundedRect(self.rect(), radius, radius)
         path = QtGui.QPainterPath()
-        path.addText(self.PAD, self.PAD + self.fontMetrics().ascent(),
+        path.addText(self._pad_x,
+                     self._pad_y + self.fontMetrics().ascent(),
                      self.font(), self.text())
-        rim = QtGui.QColor(0, 0, 0, 200) \
-            if self._color.lightness() >= 128 \
-            else QtGui.QColor(255, 255, 255, 200)
-        painter.strokePath(path, QtGui.QPen(
-            rim, 3.0, QtCore.Qt.SolidLine,
-            QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
         painter.fillPath(path, self._color)
 
 
@@ -484,6 +487,14 @@ class PieWidget(QtWidgets.QWidget):
         text_css = f"color:{spec['text']};" if spec else ""
         win_css = spec["window"] if spec else "palette(window)"
         self._panel_color = QtGui.QColor(spec["window"]) if spec else None
+        # overlay text (centre name, digit tags, hints) follows the
+        # theme's text color -- or the palette when following FreeCAD;
+        # floating labels sit on a pill of the matching window color so
+        # they stay legible over the scene
+        self._halo = spec["text"] if spec else \
+            self.palette().color(QtGui.QPalette.WindowText).name()
+        self._chip = self._panel_color \
+            or self.palette().color(QtGui.QPalette.Window)
         radius = shape_radius(pie)
         border = f"border:1px solid {out_css};"
         alt_rule = f'QToolButton[alt="true"]{{background:{alt_css};}}'
@@ -586,7 +597,8 @@ class PieWidget(QtWidgets.QWidget):
                     ring, k = ring + 1, 0
         # the pie says its name at the centre, so you always know which
         # one answered the key
-        name_label = HaloLabel(pie.name, self, "#999", 10)
+        name_label = HaloLabel(pie.name, self, self._halo, 10,
+                               chip=self._chip)
         name_label.adjustSize()
         name_label.move(int(self._origin[0] - name_label.width() / 2),
                         int(self._origin[1] - name_label.height() / 2))
@@ -601,7 +613,7 @@ class PieWidget(QtWidgets.QWidget):
                 tag = HaloLabel(accel, btn, self._accent.name(), 9)
             elif digit < 9:
                 digit += 1
-                tag = HaloLabel(str(digit), btn, "#888", 9)
+                tag = HaloLabel(str(digit), btn, self._halo, 9)
             else:
                 continue
             tag.adjustSize()
@@ -957,7 +969,7 @@ class PieWidget(QtWidgets.QWidget):
 
     def show_hint(self, text):
         """The binding that opened this pie, shown while it is still new."""
-        label = HaloLabel(text, self, "#999", 10)
+        label = HaloLabel(text, self, self._halo, 10, chip=self._chip)
         label.adjustSize()
         label.move(int(self._origin[0] - label.width() / 2),
                    self.height() - label.height() - 2)

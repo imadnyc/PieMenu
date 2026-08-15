@@ -65,7 +65,7 @@ fail and point at the rest. Params live under
 |---|---|---|---|
 | Shapes + styles | rounded/square/squircle/circle; flat/gradient/outline/soft/glass/bold/minimal | `runtime.shape_radius`, style css in `build` | keep flat+rounded, delete the rest |
 | Colors + theme | one-click Light/Dark pie theme (Colors…), global Accent/Outline/Fill/Arrow + per-pie accent still win over it | `runtime.THEMES/active_theme`, `runtime.custom_color`, `dialog.colors_dialog` | delete dialog + params |
-| Outlined overlay text | centre name, hints, digit tags drawn with a contrast rim | `runtime.HaloLabel` | swap back to QLabel |
+| Overlay text | centre name + hints on a flat pill of the theme's window color, digit/accel tags bare; all follow the theme's text color (palette when following FreeCAD) | `runtime.HaloLabel`, `_halo`/`_chip` in `build` | swap back to QLabel |
 | Opaque fallback | without a compositor translucent pies render black; the OpaquePies switch (Colors…) paints a solid rounded panel | `_opaque` in `PieWidget`, checkbox in `colors_dialog`, `OpaquePies` param | delete those |
 | Names under buttons | per-pie `show_names`, layout spreads to fit | `show_names` branches in `_slot_button`/`build` | uncheck per pie |
 | Gesture arrow | minimal centre→cursor arrow in hold mode | `PieWidget.paintEvent` tail | delete the paint block |
