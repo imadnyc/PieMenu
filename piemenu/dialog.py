@@ -2838,3 +2838,61 @@ def open_preferences(parent=None, on_change=None):
     dlg.show()
     _open_dialog = dlg
     return dlg
+
+
+class PreferencePage:
+    """Edit > Preferences > PieMenu.  The global switches live here; the
+    pies themselves are edited in the editor window, which stays its own
+    non-modal window so the preview can sit next to the 3D view."""
+
+    _THEMES = ("", "light", "dark")
+
+    def __init__(self, parent=None):
+        form = QtWidgets.QWidget()
+        form.setWindowTitle("PieMenu")
+        lay = QtWidgets.QVBoxLayout(form)
+        editor = QtWidgets.QGroupBox("Editor")
+        v = QtWidgets.QVBoxLayout(editor)
+        open_btn = QtWidgets.QPushButton("Open the PieMenu editor…")
+        open_btn.clicked.connect(self._open_editor)
+        v.addWidget(open_btn)
+        note = QtWidgets.QLabel("Pies, slots and keys are edited there — "
+                                "it floats next to the 3D view.")
+        note.setWordWrap(True)
+        note.setStyleSheet("color: gray;")
+        v.addWidget(note)
+        lay.addWidget(editor)
+        both = QtWidgets.QGroupBox("All pies")
+        grid = QtWidgets.QFormLayout(both)
+        self.theme = QtWidgets.QComboBox()
+        self.theme.addItems(["Follow FreeCAD", "Light", "Dark"])
+        grid.addRow("Theme:", self.theme)
+        self.auto_open = QtWidgets.QCheckBox("Auto-open on selection")
+        self.auto_open.setToolTip(
+            "When the selection changes and the workbench's pie has a "
+            "matching conditional slot, open it at the cursor unasked.")
+        grid.addRow(self.auto_open)
+        lay.addWidget(both)
+        lay.addStretch(1)
+        self.form = form
+
+    def _open_editor(self):
+        opener = getattr(runtime.runtime, "open_preferences", None)
+        if opener is None:
+            return
+        window = self.form.window()
+        if isinstance(window, QtWidgets.QDialog):
+            window.accept()      # keep edits made on the other pages
+        QtCore.QTimer.singleShot(0, opener)
+
+    def loadSettings(self):
+        p = App.ParamGet(runtime.MAIN)
+        theme = p.GetString("Theme", "")
+        self.theme.setCurrentIndex(
+            self._THEMES.index(theme) if theme in self._THEMES else 0)
+        self.auto_open.setChecked(p.GetBool("AutoOpenSelection", False))
+
+    def saveSettings(self):
+        p = App.ParamGet(runtime.MAIN)
+        p.SetString("Theme", self._THEMES[self.theme.currentIndex()])
+        p.SetBool("AutoOpenSelection", self.auto_open.isChecked())

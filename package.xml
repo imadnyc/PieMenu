@@ -14,13 +14,13 @@ PieMenu.</description>
   <url type="bugtracker">https://github.com/imadnyc/PieMenu/issues</url>
   <url type="readme">https://github.com/imadnyc/PieMenu/blob/v2-build/README.md</url>
 
-  <icon>Resources/PieMenu_Logo.svg</icon>
+  <icon>Resources/icons/PieMenu_Logo.svg</icon>
 
   <content>
     <workbench>
       <name>PieMenu v2 (beta)</name>
       <subdirectory>./</subdirectory>
-      <icon>Resources/PieMenu_Logo.svg</icon>
+      <icon>Resources/icons/PieMenu_Logo.svg</icon>
       <tag>pie</tag>
       <tag>menu</tag>
       <tag>marking-menu</tag>

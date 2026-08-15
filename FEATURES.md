@@ -75,6 +75,7 @@ fail and point at the rest. Params live under
 | Feature | What | Lives in | Remove |
 |---|---|---|---|
 | Non-modal window | preferences float next to FreeCAD, singleton | `dialog.open_preferences`, `_open_dialog` | swap `show()` for `exec_()` |
+| Preferences page | Edit ▸ Preferences ▸ PieMenu: theme, auto-open, and the way into the editor (replaces the Tools ▸ Accessories timer hack) | `dialog.PreferencePage`, registration in `InitGui`, `Resources/icons/preferences-piemenu.svg` | delete all three |
 | Shortcuts table | key × workbench grid, per-gesture lines, inheritance shown | `dialog.ShortcutsTable` | core, keep |
 | Table search box | filter rows by key or pie name | `ShortcutsTable.search`, `_apply_filter` | delete both |
 | Key clash prompt | rekeying onto a taken key offers swap / unbind instead of doing nothing | `ShortcutsTable._rekey`, `_move_key`, `_key_opens` | drop the prompt, keep `_move_key` |

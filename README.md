@@ -116,7 +116,7 @@ anything you already have:
 freecadcmd ~/PieMenu/dev/install_seed.py
 ```
 
-Preferences are under Tools > Accessories > PieMenu preferences.
+Settings live under **Edit ▸ Preferences ▸ PieMenu** — theme and auto-open there, and the button that opens the full PieMenu editor (its own window, so it can float next to the 3D view). Right-clicking any slot in a live pie also lands you in the editor.
 
 ## The starter keys
 
@@ -147,7 +147,7 @@ pick keys FreeCAD doesn't use.
 | Esc / ✕ | close a pinned palette |
 | right-click a slot | edit it in the preferences |
 
-The same list lives under **Keys…** in the preferences footer.
+The same list lives under **⚙ Settings ▸ Keys cheat sheet** in the editor.
 
 ## Hacking on it
 

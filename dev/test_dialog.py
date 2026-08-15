@@ -12,7 +12,7 @@ app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv)
 
 import FreeCAD as App
 
-from piemenu import dialog, model
+from piemenu import dialog, model, runtime
 from piemenu.model import Binding, Pie
 
 ROOT = App.ParamGet("User parameter:BaseApp/PieMenu")
@@ -492,6 +492,21 @@ assert not hasattr(dlg, "g_toggle")      # the behaviour toggles are gone
 assert not hasattr(dlg, "g_rclick")
 assert not hasattr(dialog, "behaviour_dialog")
 print("PASS behaviour dialog")
+
+# ---- the Edit > Preferences page round-trips its params ----------------------
+page = dialog.PreferencePage()
+p = App.ParamGet(runtime.MAIN)
+p.SetString("Theme", "dark")
+p.SetBool("AutoOpenSelection", True)
+page.loadSettings()
+assert page.theme.currentIndex() == 2 and page.auto_open.isChecked()
+page.theme.setCurrentIndex(1)
+page.auto_open.setChecked(False)
+page.saveSettings()
+assert p.GetString("Theme", "") == "light"
+assert not p.GetBool("AutoOpenSelection", True)
+p.SetString("Theme", "")
+print("PASS preference page")
 
 ROOT.RemGroup("V2")
 print("DIALOG-TESTS-PASS")
