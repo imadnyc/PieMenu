@@ -1019,7 +1019,6 @@ class PreviewWidget(QtWidgets.QWidget):
         self._press_pos = None
         self._drag_xy = None         # pie-space position while dragging
         self._drag_snapped = False
-        self._scale = 1.0            # the show-names spread factor
         self._mock_chooser = None    # (slot index, size): chooser-size demo
         self._stats = {}             # cmd -> fires, for never-used dimming
         self.setMinimumSize(420, 320)
@@ -1060,23 +1059,6 @@ class PreviewWidget(QtWidgets.QWidget):
     def _geometry(self):
         pie = self.pie
         pos = model.positions(pie)
-        scale = 1.0
-        if pie.show_names and len(pos) > 1:
-            # spread like the live pie does, so full labels have room
-            fm = self.fontMetrics()
-            widest = max((fm.horizontalAdvance(command_label(s[0].cmd))
-                          for s in pie.items if s), default=0) + 10
-            if pie.family == "circle":
-                step = pie.button + pie.spacing + 10
-                chord = min(
-                    2 * math.sin(math.pi / max(2, c))
-                    * max(1, pie.radius + ring * step)
-                    for ring, c in enumerate(model.ring_plan(pie, len(pos))))
-                scale = max(1.0, widest / chord)
-            else:
-                scale = max(1.0, widest / (pie.button + pie.spacing))
-            pos = [(x * scale, y * scale) for x, y in pos]
-        self._scale = scale
         cx, cy = self.width() / 2, self.height() / 2
         size = pie.button
         return [(int(cx + x - size / 2), int(cy + y - size / 2)) for x, y in pos]
@@ -1110,8 +1092,8 @@ class PreviewWidget(QtWidgets.QWidget):
         drag = self._drag_from if self._drag_xy is not None else None
         if drag is not None and drag < len(geo):
             cx, cy = self.width() / 2, self.height() / 2
-            geo[drag] = (int(cx + self._drag_xy[0] * self._scale - size / 2),
-                         int(cy + self._drag_xy[1] * self._scale - size / 2))
+            geo[drag] = (int(cx + self._drag_xy[0] - size / 2),
+                         int(cy + self._drag_xy[1] - size / 2))
             # a dashed guide from the centre; on a 45° axis it turns
             # accent and extends through, so alignments are visible
             tx, ty = geo[drag][0] + size / 2, geo[drag][1] + size / 2
@@ -1158,19 +1140,6 @@ class PreviewWidget(QtWidgets.QWidget):
                 else:
                     icon.paint(painter, rect.adjusted(6, 6, -6, -6))
                 painter.setOpacity(1.0)
-                if pie.show_names:
-                    painter.setPen(pal.color(QtGui.QPalette.ButtonText))
-                    text = command_label(first.cmd)
-                    tw = painter.fontMetrics().horizontalAdvance(text) + 8
-                    below = QtCore.QRect(
-                        rect.center().x() - tw // 2, rect.bottom() + 2,
-                        tw, painter.fontMetrics().height())
-                    # never off the edge of the preview
-                    below.moveLeft(max(2, min(below.left(),
-                                              self.width() - tw - 2)))
-                    below.moveTop(min(below.top(),
-                                      self.height() - below.height() - 2))
-                    painter.drawText(below, QtCore.Qt.AlignCenter, text)
                 conditional = any(b.rule for b in slot)
                 if len(slot) > 1:
                     badge = QtCore.QRect(rect.right() - 9, rect.top() - 5,
@@ -1249,8 +1218,8 @@ class PreviewWidget(QtWidgets.QWidget):
                 event.globalPos(), "Layout is locked — right-click the "
                 "pie in the list to unlock.", self)
             return
-        x = (event.pos().x() - self.width() / 2) / self._scale
-        y = (event.pos().y() - self.height() / 2) / self._scale
+        x = (event.pos().x() - self.width() / 2)
+        y = (event.pos().y() - self.height() / 2)
         snap = not event.modifiers() & QtCore.Qt.ShiftModifier
         if snap:
             x, y = self._snap(x, y)
@@ -1285,8 +1254,8 @@ class PreviewWidget(QtWidgets.QWidget):
             return                   # a plain click, handled on press
         size = self.pie.button
         cx, cy = self.width() / 2, self.height() / 2
-        rect = QtCore.QRect(int(cx + dropped[0] * self._scale - size / 2),
-                            int(cy + dropped[1] * self._scale - size / 2),
+        rect = QtCore.QRect(int(cx + dropped[0] - size / 2),
+                            int(cy + dropped[1] - size / 2),
                             size, size)
         for i, (gx, gy) in enumerate(self._geometry()):
             if i != index and rect.intersects(
@@ -2135,7 +2104,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
                  "ring_counts", "radius", "arc", "arc_face", "stagger",
                  "stagger_by", "cols", "rows", "anchors", "anchor_offsets",
                  "button", "spacing", "accent", "run_on", "delay",
-                 "show_names", "alt_size", "door_hover", "door_instant",
+                 "alt_size", "door_hover", "door_instant",
                  "placed", "layout_lock")}
         data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule),
                            "label": b.label, "accel": b.accel,
@@ -2857,9 +2826,6 @@ class PieMenuPreferences(QtWidgets.QDialog):
         instant.toggled.connect(lambda v: self._set("door_instant", v))
         GifTip(doors, "door-dwell")
         GifTip(instant, "door-dwell")
-        names = row("Command names", QtWidgets.QCheckBox("show in slots"))
-        names.setChecked(pie.show_names)
-        names.toggled.connect(lambda v: self._set("show_names", v))
 
         opened = QtWidgets.QGroupBox("Opened by")
         ob = QtWidgets.QVBoxLayout(opened)

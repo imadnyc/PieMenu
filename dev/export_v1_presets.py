@@ -74,7 +74,7 @@ for name, pie in sorted(pies.items()):
              "ring_counts", "radius", "arc", "arc_face", "stagger",
              "stagger_by", "cols", "rows", "anchors", "anchor_offsets",
              "button", "spacing", "accent", "run_on", "delay",
-             "show_names", "alt_size", "door_hover")}
+             "alt_size", "door_hover")}
     data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule),
                        "label": b.label}
                       for b in (slot or [])] for slot in pie.items]

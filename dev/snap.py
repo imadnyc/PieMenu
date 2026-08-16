@@ -80,12 +80,16 @@ def run():
             snap(w, "pie-constraints")
             w.close()
 
-            run_.pies["Constraints"].show_names = True
-            w = rt.PieWidget(run_.pies, "Constraints", {}, fire)
+            # hover names the slot at the centre (the labels' successor);
+            # a click pie -- gesture pies let the aim readout do this
+            w = rt.PieWidget(run_.pies, "Main", {}, fire)
             w.popup_at(QtCore.QPoint(600, 400))
-            snap(w, "pie-constraints-names")
+            hovered = next(b for b in w.buttons
+                           if b.isEnabled() and not b.isHidden())
+            QtWidgets.QApplication.sendEvent(
+                hovered, QtCore.QEvent(QtCore.QEvent.Enter))
+            snap(w, "pie-main-hover")
             w.close()
-            run_.pies["Constraints"].show_names = False
 
         print("SNAP step: pies done, building dialog", flush=True)
         try:  # so the current-workbench column highlight shows in the PNG
@@ -98,10 +102,8 @@ def run():
         snap(dlg, "dialog-main")
         dlg.select_pie("Modelling")
         snap(dlg, "dialog-modelling")
-        dlg.pies["Constraints"].show_names = True
         dlg.select_pie("Constraints")
-        snap(dlg, "dialog-constraints-names")
-        dlg.pies["Constraints"].show_names = False
+        snap(dlg, "dialog-constraints")
         dlg.deleteLater()
 
         print("SNAP-DONE", flush=True)

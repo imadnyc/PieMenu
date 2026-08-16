@@ -580,27 +580,8 @@ class PieWidget(QtWidgets.QWidget):
             else pie.run_on
         pos = model.positions(pie)
         pad = 24
-        # buttons size themselves (command names grow them), so bounds come
-        # from the real widgets, not from pie.button
         self.buttons = [self._slot_button(pie.items[i], i)
                         for i in range(len(pos))]
-        if pie.show_names and len(pos) > 1:
-            # grown buttons need grown distances or names cover each other
-            maxw = max(b.width() for b in self.buttons) + 6
-            maxh = max(b.height() for b in self.buttons) + 6
-            if pie.family == "circle":
-                # neighbours sit a chord apart: scale the radius just
-                # enough, judged at the tightest ring
-                step = pie.button + pie.spacing + 10
-                chord = min(
-                    2 * math.sin(math.pi / max(2, c))
-                    * max(1, pie.radius + ring * step)
-                    for ring, c in enumerate(model.ring_plan(pie, len(pos))))
-                scale = max(1.0, maxw / chord, maxh / chord)
-            else:
-                base = pie.button + pie.spacing
-                scale = max(1.0, maxw / base, maxh / base)
-            pos = [(x * scale, y * scale) for x, y in pos]
         min_x = min(x - b.width() / 2 for (x, _), b in zip(pos, self.buttons)) - pad
         max_x = max(x + b.width() / 2 for (x, _), b in zip(pos, self.buttons)) + pad
         min_y = min(y - b.height() / 2 for (_, y), b in zip(pos, self.buttons)) - pad
@@ -661,6 +642,7 @@ class PieWidget(QtWidgets.QWidget):
             btn.setVisible(False)
             return btn
         self._decorate(btn, binding, bool(live), len(live))
+        btn.installEventFilter(self)     # hover names it at the centre
         if any(b.rule for b in slot):
             # conditional slot: a quiet accent dot, so a rule-bearing slot
             # is tellable from a plain one without opening the editor
@@ -829,17 +811,6 @@ class PieWidget(QtWidgets.QWidget):
         else:
             text = cmd.split("_", 1)[-1]
         btn.setProperty("aimname", text)     # the centre readout's word
-        if self.pie.show_names:
-            btn.setToolButtonStyle(QtCore.Qt.ToolButtonTextUnderIcon)
-            btn.setText(text)
-            # a 34px square clips text-under-icon into nothing: size from the
-            # style's own hint (font metrics undercount once a theme
-            # stylesheet swaps fonts in), plus margin
-            hint = btn.sizeHint()
-            btn.setFixedSize(
-                max(self.pie.button, hint.width() + 10),
-                max(self.pie.button + btn.fontMetrics().height() + 6,
-                    hint.height() + 4))
         if n_live > 1:
             tip += f"  ({n_live} apply — hover to choose)"
         btn.setToolTip(tip)
@@ -1180,13 +1151,33 @@ class PieWidget(QtWidgets.QWidget):
             text = shown.property("aimname") or ""
             if not shown.isEnabled():
                 text += " — unavailable"
-        if text != label.text():
-            centre = label.geometry().center()
-            label.setText(text)
-            label.adjustSize()
-            geo = label.geometry()
-            geo.moveCenter(centre)
-            label.move(geo.topLeft())
+        self._center_text(text)
+
+    def _center_text(self, text):
+        """Swap the centre label's word, keeping it centred."""
+        label = getattr(self, "_name_label", None)
+        if label is None or text == label.text():
+            return
+        centre = label.geometry().center()
+        label.setText(text)
+        label.adjustSize()
+        geo = label.geometry()
+        geo.moveCenter(centre)
+        label.move(geo.topLeft())
+
+    def eventFilter(self, obj, event):
+        """Hovering a slot names it at the centre — the labels' job, done
+        by the pie name tag instead of text glued under every icon.
+        Gesture pies keep the aim readout as the authority."""
+        # buttons install this mid-build, before self.buttons exists
+        if self.run_mode != "release" \
+                and obj in getattr(self, "buttons", ()):
+            etype = event.type()
+            if etype == QtCore.QEvent.Enter:
+                self._center_text(obj.property("aimname") or self.pie.name)
+            elif etype == QtCore.QEvent.Leave:
+                self._center_text(self.pie.name)
+        return False
 
     def commit_gesture(self, pos=None):
         """Release in a hold pie: run whatever the cursor is aimed at.

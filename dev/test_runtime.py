@@ -278,18 +278,16 @@ w.deleteLater()
 pies["Main"].shape = "rounded"
 pies["Main"].style = "flat"
 
-pies["Main"].show_names = True           # names need room, buttons grow
+# hovering a slot names it at the centre; leaving restores the pie name
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
-assert w.buttons[1].text() == "Undo"
-assert w.buttons[1].height() > pies["Main"].button
-long_pie = Pie("Long", slots=2, per_ring=2, show_names=True)
-model.normalise(long_pie)
-long_pie.items[0] = [Binding("Sketcher_ConstrainPerpendicular")]
-lw = runtime.PieWidget({"Long": long_pie}, "Long", {}, fire)
-hint = lw.buttons[0].sizeHint()
-assert lw.buttons[0].width() >= hint.width()      # style says it fits
-assert lw.buttons[0].height() >= hint.height()
-lw.deleteLater()
+assert w.buttons[1].property("aimname") == "Undo"
+QtWidgets.QApplication.sendEvent(
+    w.buttons[1], QtCore.QEvent(QtCore.QEvent.Enter))
+assert w._name_label.text() == "Undo", w._name_label.text()
+QtWidgets.QApplication.sendEvent(
+    w.buttons[1], QtCore.QEvent(QtCore.QEvent.Leave))
+assert w._name_label.text() == "Main"
+w.deleteLater()
 
 # color overrides: params win, empty follows the theme
 P = App.ParamGet(runtime.MAIN)
@@ -319,12 +317,6 @@ assert runtime.command_available("Macro:avail-probe.FCMacro")
 os.unlink(probe)
 assert not runtime.command_available("Macro:definitely-absent.FCMacro")
 print("PASS availability")
-shown = [b.geometry() for b in w.buttons if not b.isHidden()]
-for i, r1 in enumerate(shown):           # ...and the layout spreads so no
-    for r2 in shown[i + 1:]:             # name is covered by a neighbour
-        assert not r1.intersects(r2), (r1, r2)
-w.deleteLater()
-pies["Main"].show_names = False
 pies["Main"].alt_size = 24
 pies["Main"].delay = 250
 pies["Main"].last_used.clear()

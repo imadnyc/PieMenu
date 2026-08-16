@@ -92,10 +92,10 @@ tools looks right even if you've never opened Sketcher this session:
 
 ![a constraints pie](docs/pie-icons.png)
 
-Command names can be shown under the buttons, and the layout spreads so
-nothing overlaps:
+Hovering a slot names it at the centre of the pie — no labels glued
+under the icons:
 
-![command names on](docs/pie-names.png)
+![hover names the slot](docs/pie-hover-name.png)
 
 ![the gesture arrow](docs/gesture-arrow.png)
 

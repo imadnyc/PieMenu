@@ -205,7 +205,6 @@ class Pie:
     open_on: str = "single"         # single | double | hold | double-hold
     run_on: str = "click"           # click | hover | release
     delay: int = 250
-    show_names: bool = False
     alt_size: int = 24              # chooser (overload menu) button size
     door_hover: bool = True         # dwelling on a door descends into it
     door_instant: bool = False      # no dwell at all: enter = descend
@@ -402,7 +401,7 @@ def _grp(path=""):
     return App.ParamGet(V2_ROOT + ("/" + path if path else ""))
 
 
-_BOOLS = ("default", "stagger", "show_names", "door_hover",
+_BOOLS = ("default", "stagger", "door_hover",
           "door_instant", "layout_lock")
 _INTS = ("slots", "per_ring", "radius", "arc", "arc_face", "stagger_by",
          "cols", "rows", "button", "spacing", "delay", "alt_size")

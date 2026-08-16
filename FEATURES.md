@@ -67,7 +67,7 @@ fail and point at the rest. Params live under
 | Colors + theme | one-click Light/Dark pie theme (Colors…), global Accent/Outline/Fill/Arrow + per-pie accent still win over it | `runtime.THEMES/active_theme`, `runtime.custom_color`, `dialog.colors_dialog` | delete dialog + params |
 | Overlay text | centre name + hints on a flat pill of the theme's window color, digit/accel tags bare; all follow the theme's text color (palette when following FreeCAD) | `runtime.HaloLabel`, `_halo`/`_chip` in `build` | swap back to QLabel |
 | Opaque fallback | without a compositor translucent pies render black; the OpaquePies switch (Colors…) paints a solid rounded panel | `_opaque` in `PieWidget`, checkbox in `colors_dialog`, `OpaquePies` param | delete those |
-| Names under buttons | per-pie `show_names`, layout spreads to fit | `show_names` branches in `_slot_button`/`build` | uncheck per pie |
+| Hover names | hovering a slot puts its name in the centre tag (gesture aim already did); replaces the old under-icon labels entirely | `PieWidget.eventFilter`/`_center_text` | delete both, aim keeps its own path |
 | Gesture arrow | minimal centre→cursor arrow in hold mode | `PieWidget.paintEvent` tail | delete the paint block |
 
 ## Preferences
@@ -86,7 +86,7 @@ fail and point at the rest. Params live under
 | Hover demos | hovering a ? button or keys-page row shows one tooltip bubble with the text AND the demo GIF playing in it (replaces the native tooltip, which cannot animate) | `dialog.GifTip`, movies in `docs/gifs/` rendered by `nix run .#gifs` (`dev/gif_scenes.py`) | delete `GifTip` + call sites; the GIFs are plain files |
 | Settings menu | the footer is one ⚙ Settings menu (colors/theme, stats, keys, Doctor, auto-open, export/import/revert) + Close; Add-key lives on the shortcuts panel | the footer block of `PieMenuPreferences.__init__` | inline the buttons again |
 | Usage stats panel | Stats… button, top tools + reset | `dialog.stats_dialog` | delete + footer button |
-| Live preview | union view, chooser flash, names spread | `dialog.PiePreview` | core-ish |
+| Live preview | union view, chooser flash | `dialog.PiePreview` | core-ish |
 | Hand-placed slots | drag a slot on the preview: snaps to 15° / 5 px (grid: cell steps), **Shift = free placement**, drop on a slot swaps, overlapping drops are refused with the reason | `Pie.placed`, `model._place`, drag handlers + `_snap` in `PreviewWidget`, `_slot_placed` | delete those + the `Pos` slot param |
 | Layout lock | per-pie switch: preview drags are refused (context menu of the pie list) | `Pie.layout_lock`, `_lock_layout`, lock check in `mouseMoveEvent` | delete all three |
 | Reset positions | per-slot (slot context menu) and whole-pie (pie context menu) return to the computed layout | `_reset_position`, `_reset_positions` | delete both |
