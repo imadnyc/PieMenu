@@ -661,6 +661,18 @@ class PieWidget(QtWidgets.QWidget):
             btn.setVisible(False)
             return btn
         self._decorate(btn, binding, bool(live), len(live))
+        if any(b.rule for b in slot):
+            # conditional slot: a quiet accent dot, so a rule-bearing slot
+            # is tellable from a plain one without opening the editor
+            acc = self._accent
+            dot = QtWidgets.QLabel("", btn)
+            dot.setFixedSize(6, 6)
+            dot.setStyleSheet(
+                f"background:rgba({acc.red()},{acc.green()},{acc.blue()},"
+                "170);border-radius:3px;")
+            dot.setAttribute(QtCore.Qt.WA_TransparentForMouseEvents)
+            dot.move(btn.width() - 8, btn.height() - 8)
+            dot.setVisible(True)
         if face is not None:
             btn.setProperty("cmd", face.cmd)   # for blind marks + Doctor
         if live:
