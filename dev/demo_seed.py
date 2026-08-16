@@ -21,15 +21,23 @@ from piemenu import model
 
 App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 
-for pie in build_pies().values():
+pies = build_pies()
+pies["Main"].labels_always = True    # Mouse4: always-visible name pills
+for pie in pies.values():
     model.save_pie(pie)
 for scope, key, name, gesture in BINDS:
     model.set_bind(scope, key, name, gesture)
 
-# demo-only: the mouse side buttons drive pies too (full gestures --
-# tap opens, hold marks), so the scratch GUI shows off MOUSE_KEYS
+# demo-only: the mouse side buttons show off the label modes on
+# MOUSE_KEYS.  Mouse4 = a click pie with the Labels box ticked;
+# Mouse5 = a hover-fire pie, where the pills are forced on (pointing
+# at a slot to read it would run it)
+hover = build_pies()["Modelling"]    # 12 slots = two rings of pills
+hover.name = "HoverLab"
+hover.run_on = "hover"
+model.save_pie(hover)
 model.set_bind(model.ANY_SCOPE, "Mouse4", "Main")
-model.set_bind(model.ANY_SCOPE, "Mouse5", "Modelling")
+model.set_bind(model.ANY_SCOPE, "Mouse5", "HoverLab")
 
 model.set_schema_version(model.SCHEMA_VERSION)
 print("DEMO-SEEDED:", ", ".join(sorted(model.load_pies())))
