@@ -278,15 +278,25 @@ w.deleteLater()
 pies["Main"].shape = "rounded"
 pies["Main"].style = "flat"
 
-# hovering a slot names it at the centre; leaving restores the pie name
+# hovering a slot names it in a pill outward of the slot; the centre
+# stays the pie name (in hover-fire pies the dwell owns the hover)
 w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
 assert w.buttons[1].property("aimname") == "Undo"
 QtWidgets.QApplication.sendEvent(
     w.buttons[1], QtCore.QEvent(QtCore.QEvent.Enter))
-assert w._name_label.text() == "Undo", w._name_label.text()
+pill = w._hover_pill
+assert pill is not None and not pill.isHidden()
+assert pill.text() == "Undo", pill.text()
+assert w._name_label.text() == "Main"        # centre untouched
+for b in w.buttons:                          # outward: collides with nothing
+    if b is not w.buttons[1] and not b.isHidden():
+        assert not pill.geometry().intersects(b.geometry())
 QtWidgets.QApplication.sendEvent(
     w.buttons[1], QtCore.QEvent(QtCore.QEvent.Leave))
-assert w._name_label.text() == "Main"
+assert pill.isHidden()
+w.buttons[1].setProperty("aimname", "A" * 60)
+w._show_pill(w.buttons[1])                   # long names elide, no overflow
+assert pill.text().endswith("…") and pill.width() <= 160, pill.text()
 w.deleteLater()
 
 # color overrides: params win, empty follows the theme

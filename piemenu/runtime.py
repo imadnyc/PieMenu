@@ -494,6 +494,7 @@ class PieWidget(QtWidgets.QWidget):
         self._aim = None
         self._aimed = None
         self._aim_stick = None
+        self._hover_pill = None      # its widget died with the children
         pie = self.pies[name]
         model.normalise(pie)
         own = QtGui.QColor(pie.accent) if pie.accent else QtGui.QColor()
@@ -1166,18 +1167,46 @@ class PieWidget(QtWidgets.QWidget):
         label.move(geo.topLeft())
 
     def eventFilter(self, obj, event):
-        """Hovering a slot names it at the centre — the labels' job, done
-        by the pie name tag instead of text glued under every icon.
+        """Hovering a slot names it in a pill on the slot's outward side
+        — the centre is the aim readout's turf, and in hover-fire pies
+        you are never idly hovering (the dwell is already running).
         Gesture pies keep the aim readout as the authority."""
         # buttons install this mid-build, before self.buttons exists
         if self.run_mode != "release" \
                 and obj in getattr(self, "buttons", ()):
             etype = event.type()
             if etype == QtCore.QEvent.Enter:
-                self._center_text(obj.property("aimname") or self.pie.name)
+                self._show_pill(obj)
             elif etype == QtCore.QEvent.Leave:
-                self._center_text(self.pie.name)
+                self._hide_pill()
         return False
+
+    def _show_pill(self, btn):
+        text = btn.property("aimname") or ""
+        if not text:
+            return
+        pill = self._hover_pill
+        if pill is None:
+            pill = HaloLabel("", self, self._halo, 10, chip=self._chip)
+            self._hover_pill = pill
+        pill.setText(pill.fontMetrics().elidedText(
+            text, QtCore.Qt.ElideRight, 140))
+        pill.adjustSize()
+        geo = btn.geometry()
+        # outward of the ring — below lower-half slots, above upper-half
+        # — where there is never another button to collide with; clamped
+        # into the widget either way
+        below = geo.center().y() >= self._origin[1]
+        y = geo.bottom() + 3 if below else geo.top() - pill.height() - 3
+        x = geo.center().x() - pill.width() // 2
+        pill.move(max(0, min(int(x), self.width() - pill.width())),
+                  max(0, min(int(y), self.height() - pill.height())))
+        pill.setVisible(True)
+        pill.raise_()
+
+    def _hide_pill(self):
+        if self._hover_pill is not None:
+            self._hover_pill.setVisible(False)
 
     def commit_gesture(self, pos=None):
         """Release in a hold pie: run whatever the cursor is aimed at.

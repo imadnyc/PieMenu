@@ -67,7 +67,7 @@ fail and point at the rest. Params live under
 | Colors + theme | one-click Light/Dark pie theme (Colors…), global Accent/Outline/Fill/Arrow + per-pie accent still win over it | `runtime.THEMES/active_theme`, `runtime.custom_color`, `dialog.colors_dialog` | delete dialog + params |
 | Overlay text | centre name + hints on a flat pill of the theme's window color, digit/accel tags bare; all follow the theme's text color (palette when following FreeCAD) | `runtime.HaloLabel`, `_halo`/`_chip` in `build` | swap back to QLabel |
 | Opaque fallback | without a compositor translucent pies render black; the OpaquePies switch (Colors…) paints a solid rounded panel | `_opaque` in `PieWidget`, checkbox in `colors_dialog`, `OpaquePies` param | delete those |
-| Hover names | hovering a slot puts its name in the centre tag (gesture aim already did); replaces the old under-icon labels entirely | `PieWidget.eventFilter`/`_center_text` | delete both, aim keeps its own path |
+| Hover names | hovering a slot shows its name in a pill outward of the slot (never colliding, long names elide to …); replaces the old under-icon labels; gesture pies keep the centre aim readout | `PieWidget.eventFilter`/`_show_pill` | delete both, aim keeps its own path |
 | Gesture arrow | minimal centre→cursor arrow in hold mode | `PieWidget.paintEvent` tail | delete the paint block |
 
 ## Preferences

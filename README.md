@@ -92,8 +92,9 @@ tools looks right even if you've never opened Sketcher this session:
 
 ![a constraints pie](docs/pie-icons.png)
 
-Hovering a slot names it at the centre of the pie — no labels glued
-under the icons:
+Hovering a slot names it in a small pill beside it — no labels glued
+under the icons, and nothing to read at the centre mid-dwell in
+hover-fire pies:
 
 ![hover names the slot](docs/pie-hover-name.png)
 
