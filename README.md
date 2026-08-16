@@ -118,6 +118,8 @@ freecadcmd ~/PieMenu/dev/install_seed.py
 
 Settings live under **Edit ▸ Preferences ▸ PieMenu** — theme and auto-open there, and the button that opens the full PieMenu editor (its own window, so it can float next to the 3D view). Right-clicking any slot in a live pie also lands you in the editor.
 
+In the editor, drag a slot on the preview to hand-place it: positions snap to angle and distance steps (grids snap to the cell grid), and **holding Shift while dragging disables the snap** for free placement. Drop a slot onto another to swap them; drops that would overlap a neighbour are refused. Right-click the pie in the list to lock the layout or reset all positions.
+
 ## The starter keys
 
 | Key | Anywhere | PartDesign | Sketcher |

@@ -493,6 +493,28 @@ assert not hasattr(dlg, "g_rclick")
 assert not hasattr(dialog, "behaviour_dialog")
 print("PASS behaviour dialog")
 
+# ---- hand-placed slots: snap math and the JSON round-trip --------------------
+import json as _json
+
+pv = dialog.PreviewWidget()
+pv.pie = Pie("SnapCircle", slots=4)
+sx, sy = pv._snap(52, 3)                     # near 0°, r≈52
+assert (round(sx), round(sy)) == (50, 0), (sx, sy)
+pv.pie = Pie("SnapGrid", family="grid")      # cell step = 34 + 6
+gx, gy = pv._snap(37, -22)
+assert (gx, gy) == (40.0, -40.0), (gx, gy)
+pv.deleteLater()
+jpie = Pie("Json", slots=4)
+model.normalise(jpie)
+jpie.items[0] = [Binding("Std_New")]
+jpie.placed = {1: (30, -60)}
+jpie.layout_lock = True
+back = dialog.PieMenuPreferences._pie_from_dict(
+    _json.loads(_json.dumps(dialog.PieMenuPreferences._pie_dict(jpie))))
+assert back.placed == {1: (30, -60)}, back.placed
+assert back.layout_lock is True
+print("PASS placed json")
+
 # ---- the Edit > Preferences page round-trips its params ----------------------
 page = dialog.PreferencePage()
 p = App.ParamGet(runtime.MAIN)

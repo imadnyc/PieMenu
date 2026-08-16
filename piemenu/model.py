@@ -212,6 +212,10 @@ class Pie:
     items: list = field(default_factory=list)
     # slot index -> cmd the user last picked from that slot's chooser
     last_used: dict = field(default_factory=dict)
+    # slot index -> (x, y) hand-placed position (same space as positions());
+    # slots not listed keep the computed layout
+    placed: dict = field(default_factory=dict)
+    layout_lock: bool = False       # preview drags are refused
     # grid: anchor -> its own offset from the cursor (falls back to radius),
     # so blocks can be spaced independently and never collide
     anchor_offsets: dict = field(default_factory=dict)
@@ -283,7 +287,7 @@ def positions(pie):
             k += 1
             if k >= in_ring:
                 ring, k = ring + 1, 0
-        return out
+        return _place(pie, out)
     cols, rows = max(1, pie.cols), max(1, pie.rows)
     per = cols * rows
     order = [a for a in ANCHOR_ORDER if a in pie.anchors] or ["Center"]
@@ -305,6 +309,14 @@ def positions(pie):
         elif anchor == "Right":
             x += off_x
         out.append((x, y))
+    return _place(pie, out)
+
+
+def _place(pie, out):
+    """Overlay hand-placed slot positions on the computed layout."""
+    for i, xy in pie.placed.items():
+        if 0 <= i < len(out):
+            out[i] = (xy[0], xy[1])
     return out
 
 
@@ -390,7 +402,7 @@ def _grp(path=""):
 
 
 _BOOLS = ("default", "stagger", "show_names", "door_hover",
-          "door_instant")
+          "door_instant", "layout_lock")
 _INTS = ("slots", "per_ring", "radius", "arc", "arc_face", "stagger_by",
          "cols", "rows", "button", "spacing", "delay", "alt_size")
 _STRINGS = ("family", "icon", "open_on", "run_on", "ring_mode", "accent",
@@ -418,9 +430,14 @@ def save_pie(pie):
     g.RemGroup("Slots")
     slots = g.GetGroup("Slots")
     for i, slot in enumerate(pie.items):
-        if not slot:
+        pos = pie.placed.get(i)
+        if not slot and pos is None:
             continue
         sg = slots.GetGroup(f"S{i}")
+        if pos is not None:          # empty slots can be placed too
+            sg.SetString("Pos", f"{int(pos[0])},{int(pos[1])}")
+        if not slot:
+            continue
         if pie.last_used.get(i):
             sg.SetString("Last", pie.last_used[i])
         for j, b in enumerate(slot):
@@ -473,6 +490,13 @@ def load_pie(name):
         if not 0 <= i < len(pie.items):
             continue
         sg = slots.GetGroup(sname)
+        pos = sg.GetString("Pos", "")
+        if "," in pos:
+            try:
+                x, y = pos.split(",", 1)
+                pie.placed[i] = (int(x), int(y))
+            except ValueError:
+                pass
         last = sg.GetString("Last", "")
         if last:
             pie.last_used[i] = last

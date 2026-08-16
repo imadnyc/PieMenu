@@ -1001,11 +1001,12 @@ class PickerDialog(QtWidgets.QDialog):
 class PreviewWidget(QtWidgets.QWidget):
     """The union view: every slot drawn with markers (count badge, condition
     dot, door ring), never resolved.  Click selects, double-click picks,
-    drag swaps."""
+    drop on a slot swaps, drop on empty space hand-places the slot."""
 
     slot_selected = QtCore.Signal(int)
     slot_activated = QtCore.Signal(int)
     slots_swapped = QtCore.Signal(int, int)
+    slot_placed = QtCore.Signal(int, float, float)
     slot_menu = QtCore.Signal(int, QtCore.QPoint)
 
     def __init__(self, parent=None):
@@ -1015,9 +1016,17 @@ class PreviewWidget(QtWidgets.QWidget):
         self.selected = 0
         self.highlight = -1
         self._drag_from = None
+        self._press_pos = None
+        self._drag_xy = None         # pie-space position while dragging
+        self._drag_snapped = False
+        self._scale = 1.0            # the show-names spread factor
         self._mock_chooser = None    # (slot index, size): chooser-size demo
         self._stats = {}             # cmd -> fires, for never-used dimming
         self.setMinimumSize(420, 320)
+        self.setToolTip(
+            "Drag a slot to hand-place it — positions snap to angle and "
+            "distance steps; hold Shift while dragging to place freely. "
+            "Drop onto another slot to swap the two.")
 
     def flash_chooser(self, index, size):
         """Show a mock chooser under a slot, so the chooser-size knob has
@@ -1051,6 +1060,7 @@ class PreviewWidget(QtWidgets.QWidget):
     def _geometry(self):
         pie = self.pie
         pos = model.positions(pie)
+        scale = 1.0
         if pie.show_names and len(pos) > 1:
             # spread like the live pie does, so full labels have room
             fm = self.fontMetrics()
@@ -1066,6 +1076,7 @@ class PreviewWidget(QtWidgets.QWidget):
             else:
                 scale = max(1.0, widest / (pie.button + pie.spacing))
             pos = [(x * scale, y * scale) for x, y in pos]
+        self._scale = scale
         cx, cy = self.width() / 2, self.height() / 2
         size = pie.button
         return [(int(cx + x - size / 2), int(cy + y - size / 2)) for x, y in pos]
@@ -1091,7 +1102,26 @@ class PreviewWidget(QtWidgets.QWidget):
         tile_radius = {"square": 0, "rounded": 4,
                        "squircle": max(4, int(size * 0.32)),
                        "circle": size // 2}.get(pie.shape, 4)
-        for i, (x, y) in enumerate(self._geometry()):
+        geo = self._geometry()
+        drag = self._drag_from if self._drag_xy is not None else None
+        if drag is not None and drag < len(geo):
+            cx, cy = self.width() / 2, self.height() / 2
+            geo[drag] = (int(cx + self._drag_xy[0] * self._scale - size / 2),
+                         int(cy + self._drag_xy[1] * self._scale - size / 2))
+            # a dashed guide from the centre; on a 45° axis it turns
+            # accent and extends through, so alignments are visible
+            tx, ty = geo[drag][0] + size / 2, geo[drag][1] + size / 2
+            angle = math.degrees(math.atan2(ty - cy, tx - cx)) % 360
+            on_axis = self._drag_snapped and min(angle % 45,
+                                                 45 - angle % 45) < 0.5
+            painter.setPen(QtGui.QPen(
+                accent if on_axis else pal.color(QtGui.QPalette.Mid),
+                1, QtCore.Qt.DashLine))
+            painter.drawLine(int(cx), int(cy), int(tx), int(ty))
+            if on_axis:
+                painter.drawLine(int(cx), int(cy),
+                                 int(2 * cx - tx), int(2 * cy - ty))
+        for i, (x, y) in enumerate(geo):
             rect = QtCore.QRect(x, y, size, size)
             slot = pie.items[i] if i < len(pie.items) else None
             if not slot:
@@ -1152,6 +1182,11 @@ class PreviewWidget(QtWidgets.QWidget):
                     painter.setBrush(accent)
                     painter.drawEllipse(rect.topLeft()
                                         + QtCore.QPoint(0, 0), 4, 4)
+            if i in pie.placed:      # hand-placed: a small corner tick
+                painter.setPen(QtCore.Qt.NoPen)
+                painter.setBrush(pal.color(QtGui.QPalette.Mid))
+                painter.drawEllipse(
+                    rect.bottomLeft() + QtCore.QPoint(2, -2), 2, 2)
             if i == self.selected:
                 painter.setPen(QtGui.QPen(accent, 2))
                 painter.setBrush(QtCore.Qt.NoBrush)
@@ -1192,18 +1227,75 @@ class PreviewWidget(QtWidgets.QWidget):
             return
         if event.button() == QtCore.Qt.LeftButton:
             self._drag_from = index
+            self._press_pos = event.pos()
             self.slot_selected.emit(index)
         elif event.button() == QtCore.Qt.RightButton:
             self.slot_selected.emit(index)
             self.slot_menu.emit(index, event.globalPos())
 
-    def mouseReleaseEvent(self, event):
-        if self._drag_from is None:
+    def mouseMoveEvent(self, event):
+        if self._drag_from is None or self.pie is None \
+                or not event.buttons() & QtCore.Qt.LeftButton:
             return
-        target = self.slot_at(event.pos())
-        if target is not None and target != self._drag_from:
-            self.slots_swapped.emit(self._drag_from, target)
+        if self._drag_xy is None and \
+                (event.pos() - self._press_pos).manhattanLength() < 8:
+            return
+        if self.pie.layout_lock:
+            QtWidgets.QToolTip.showText(
+                event.globalPos(), "Layout is locked — right-click the "
+                "pie in the list to unlock.", self)
+            return
+        x = (event.pos().x() - self.width() / 2) / self._scale
+        y = (event.pos().y() - self.height() / 2) / self._scale
+        snap = not event.modifiers() & QtCore.Qt.ShiftModifier
+        if snap:
+            x, y = self._snap(x, y)
+        self._drag_xy = (x, y)
+        self._drag_snapped = snap
+        self.update()
+
+    def _snap(self, x, y):
+        """Angle (15°) and distance (5 px) steps for circles, the cell
+        grid for grids.  Shift while dragging skips this entirely."""
+        pie = self.pie
+        if pie.family == "circle":
+            r = max(20.0, 5 * round(math.hypot(x, y) / 5))
+            a = math.radians(
+                15 * round(math.degrees(math.atan2(y, x)) / 15))
+            return math.cos(a) * r, math.sin(a) * r
+        step = max(8, pie.button + pie.spacing)
+        return float(round(x / step) * step), float(round(y / step) * step)
+
+    def mouseReleaseEvent(self, event):
+        index, dropped = self._drag_from, self._drag_xy
         self._drag_from = None
+        self._drag_xy = None
+        if index is None or self.pie is None:
+            return
+        self.update()
+        target = self.slot_at(event.pos())
+        if target is not None and target != index:
+            self.slots_swapped.emit(index, target)
+            return
+        if dropped is None:
+            return                   # a plain click, handled on press
+        size = self.pie.button
+        cx, cy = self.width() / 2, self.height() / 2
+        rect = QtCore.QRect(int(cx + dropped[0] * self._scale - size / 2),
+                            int(cy + dropped[1] * self._scale - size / 2),
+                            size, size)
+        for i, (gx, gy) in enumerate(self._geometry()):
+            if i != index and rect.intersects(
+                    QtCore.QRect(gx, gy, size, size)):
+                slot = self.pie.items[i] \
+                    if i < len(self.pie.items) else None
+                name = command_label(slot[0].cmd) if slot \
+                    else "an empty slot"
+                QtWidgets.QToolTip.showText(
+                    event.globalPos(),
+                    f"Overlaps {name} — not placed.", self)
+                return
+        self.slot_placed.emit(index, dropped[0], dropped[1])
 
     def mouseDoubleClickEvent(self, event):
         index = self.slot_at(event.pos())
@@ -1759,6 +1851,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
         self.preview.slot_selected.connect(self._slot_picked)
         self.preview.slot_activated.connect(lambda i: self.add_tool(i))
         self.preview.slots_swapped.connect(self._swap)
+        self.preview.slot_placed.connect(self._slot_placed)
         self.preview.slot_menu.connect(self._slot_context)
         pv_frame, pv_lay = _panel()
         pv_head = QtWidgets.QHBoxLayout()
@@ -2015,6 +2108,12 @@ class PieMenuPreferences(QtWidgets.QDialog):
         menu.addAction("Use when no workbench matches", self.pie_default)
         pin = menu.addAction("Pin to screen", self._pin_current)
         pin.setEnabled(runtime.runtime is not None)
+        lock = menu.addAction("Lock layout")
+        lock.setCheckable(True)
+        lock.setChecked(self.pie().layout_lock)
+        lock.toggled.connect(self._lock_layout)
+        reset = menu.addAction("Reset slot positions", self._reset_positions)
+        reset.setEnabled(bool(self.pie().placed))
         menu.addSeparator()
         menu.addAction("Export this pie…", self.pie_export)
         menu.addAction("Import a pie…", self.pie_import)
@@ -2032,7 +2131,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
                  "ring_counts", "radius", "arc", "arc_face", "stagger",
                  "stagger_by", "cols", "rows", "anchors", "anchor_offsets",
                  "button", "spacing", "accent", "run_on", "delay",
-                 "show_names", "alt_size", "door_hover", "door_instant")}
+                 "show_names", "alt_size", "door_hover", "door_instant",
+                 "placed", "layout_lock")}
         data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule),
                            "label": b.label, "accel": b.accel}
                           for b in (slot or [])] for slot in pie.items]
@@ -2044,12 +2144,17 @@ class PieMenuPreferences(QtWidgets.QDialog):
         """A Pie from an exported dict; raises on malformed rules."""
         data = dict(data)
         items = data.pop("items", [])
+        placed = data.pop("placed", {}) or {}
         pie = Pie(name="Imported")
         for key, value in data.items():
             if hasattr(pie, key):
                 setattr(pie, key, value)
         pie.name = str(data.get("name", "Imported"))
         pie.default = False
+        # JSON turns the int slot keys into strings; put them back
+        pie.placed = {int(k): (v[0], v[1]) for k, v in placed.items()
+                      if str(k).lstrip("-").isdigit()
+                      and isinstance(v, (list, tuple)) and len(v) == 2}
         model.normalise(pie)
         for i, slot in enumerate(items[:len(pie.items)]):
             bindings = [Binding(e["cmd"],
@@ -2459,7 +2564,14 @@ class PieMenuPreferences(QtWidgets.QDialog):
         if pie.items[index]:
             menu.addAction("Clear this slot",
                            lambda: self._clear_slot(index))
+        if index in pie.placed:
+            menu.addAction("Reset position",
+                           lambda: self._reset_position(index))
         menu.exec_(global_pos)
+
+    def _reset_position(self, index):
+        self.pie().placed.pop(index, None)
+        self._changed(True)
 
     def add_tool(self, index, replace=None):
         pie = self.pie()
@@ -2510,6 +2622,18 @@ class PieMenuPreferences(QtWidgets.QDialog):
         items = self.pie().items
         items[i], items[j] = items[j], items[i]
         self.slot = j
+        self._changed(True)
+
+    def _slot_placed(self, index, x, y):
+        self.pie().placed[index] = (int(x), int(y))
+        self._changed(True)
+
+    def _lock_layout(self, value):
+        self.pie().layout_lock = bool(value)
+        self._changed(True)
+
+    def _reset_positions(self):
+        self.pie().placed.clear()
         self._changed(True)
 
     # -- settings

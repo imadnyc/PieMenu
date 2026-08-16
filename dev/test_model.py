@@ -406,4 +406,23 @@ M.delete_pie("Sticky")
 App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
 print("PASS slot face")
 
+# ---- hand-placed slots and layout lock round-trip ----------------------------
+pie = Pie("Placed", slots=4)
+M.normalise(pie)
+pie.items[0] = [Binding("Std_New")]
+pie.placed = {0: (10, -40), 2: (-55, 5)}     # slot 2 is empty AND placed
+pie.layout_lock = True
+M.save_pie(pie)
+back = M.load_pie("Placed")
+assert back.placed == {0: (10, -40), 2: (-55, 5)}, back.placed
+assert back.layout_lock is True
+pos = M.positions(back)
+assert pos[0] == (10, -40) and pos[2] == (-55, 5), pos
+assert pos[1] != (10, -40)                   # unplaced slots keep the layout
+back.placed.clear()
+assert M.positions(back)[0] != (10, -40)     # reset restores the layout
+M.delete_pie("Placed")
+App.ParamGet("User parameter:BaseApp/PieMenu").RemGroup("V2")
+print("PASS placed slots")
+
 print("MODEL-TESTS-PASS")
