@@ -94,6 +94,7 @@ fail and point at the rest. Params live under
 | Binding icon override | per-binding icon file shown in live pies and the preview | `Binding.icon`, `Icon…` in the tree menu, icon branch in `_decorate` | delete those |
 | Rule dot | live slots carrying conditional rules wear a small accent dot | dot block in `PieWidget._slot_button` | delete the block |
 | Capture by pointing | right-click any toolbar button → add that command to a pie (first empty slot) | `Dispatcher._capture_menu`/`_capture_add` | delete both |
+| CI | GitHub Action runs the same ruff + smoke + e2e gates | `.github/workflows/ci.yml` | delete the file |
 | Wide-ring hint | a quiet note when a ring exceeds 8 slots, pointing at door slots | `_wide_hint` in the layout panel + `_fill_settings_labels` | delete both |
 | Auto-open on selection | opt-in: selection matching a conditional slot opens the pie | `Runtime._auto_open`, `AutoOpenSelection` param | already opt-in |
 
