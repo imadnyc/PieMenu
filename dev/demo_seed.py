@@ -26,5 +26,10 @@ for pie in build_pies().values():
 for scope, key, name, gesture in BINDS:
     model.set_bind(scope, key, name, gesture)
 
+# demo-only: the mouse side buttons drive pies too (full gestures --
+# tap opens, hold marks), so the scratch GUI shows off MOUSE_KEYS
+model.set_bind(model.ANY_SCOPE, "Mouse4", "Main")
+model.set_bind(model.ANY_SCOPE, "Mouse5", "Modelling")
+
 model.set_schema_version(model.SCHEMA_VERSION)
 print("DEMO-SEEDED:", ", ".join(sorted(model.load_pies())))
