@@ -787,6 +787,11 @@ class PieWidget(QtWidgets.QWidget):
                 f"QToolButton{{border:2px solid {color};"
                 f"border-radius:{shape_radius(self.pie)}px;}}")
             live = live and not dead
+        elif binding.icon and os.path.exists(binding.icon):
+            btn.setIcon(QtGui.QIcon(binding.icon))
+            action = command_action(cmd)
+            if action is not None:
+                tip = action.toolTip() or cmd
         else:
             icon = command_icon(cmd)
             if icon is not None:

@@ -90,6 +90,8 @@ fail and point at the rest. Params live under
 | Hand-placed slots | drag a slot on the preview: snaps to 15° / 5 px (grid: cell steps), **Shift = free placement**, drop on a slot swaps, overlapping drops are refused with the reason | `Pie.placed`, `model._place`, drag handlers + `_snap` in `PreviewWidget`, `_slot_placed` | delete those + the `Pos` slot param |
 | Layout lock | per-pie switch: preview drags are refused (context menu of the pie list) | `Pie.layout_lock`, `_lock_layout`, lock check in `mouseMoveEvent` | delete all three |
 | Reset positions | per-slot (slot context menu) and whole-pie (pie context menu) return to the computed layout | `_reset_position`, `_reset_positions` | delete both |
+| Slot copy/paste | copy one slot's whole binding stack, paste onto any slot of any pie | `_copy_slot`/`_paste_slot`, `_slot_clipboard` | delete all three |
+| Binding icon override | per-binding icon file shown in live pies and the preview | `Binding.icon`, `Icon…` in the tree menu, icon branch in `_decorate` | delete those |
 | Wide-ring hint | a quiet note when a ring exceeds 8 slots, pointing at door slots | `_wide_hint` in the layout panel + `_fill_settings_labels` | delete both |
 | Auto-open on selection | opt-in: selection matching a conditional slot opens the pie | `Runtime._auto_open`, `AutoOpenSelection` param | already opt-in |
 

@@ -506,13 +506,13 @@ assert (gx, gy) == (40.0, -40.0), (gx, gy)
 pv.deleteLater()
 jpie = Pie("Json", slots=4)
 model.normalise(jpie)
-jpie.items[0] = [Binding("Std_New")]
+jpie.items[0] = [Binding("Std_New", icon="/tmp/i.svg")]
 jpie.placed = {1: (30, -60)}
 jpie.layout_lock = True
 back = dialog.PieMenuPreferences._pie_from_dict(
     _json.loads(_json.dumps(dialog.PieMenuPreferences._pie_dict(jpie))))
 assert back.placed == {1: (30, -60)}, back.placed
-assert back.layout_lock is True
+assert back.layout_lock is True and back.items[0][0].icon == "/tmp/i.svg"
 print("PASS placed json")
 
 # ---- the Edit > Preferences page round-trips its params ----------------------

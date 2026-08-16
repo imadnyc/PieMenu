@@ -93,6 +93,7 @@ class Binding:
     rule: dict = field(default_factory=dict)
     label: str = ""                 # display override ("Loft", not AdditiveLoft)
     accel: str = ""                 # one letter that fires the slot directly
+    icon: str = ""                  # icon file override, "" = command's own
 
 
 def is_pie_command(cmd):
@@ -452,6 +453,10 @@ def save_pie(pie):
                 bg.SetString("Accel", b.accel[:1].upper())
             else:
                 bg.RemString("Accel")
+            if b.icon:
+                bg.SetString("Icon", b.icon)
+            else:
+                bg.RemString("Icon")
 
 
 def set_last_used(name, index, cmd):
@@ -508,7 +513,8 @@ def load_pie(name):
                 bindings.append(Binding(cmd,
                                         decode_rule(bg.GetString("Rule", "")),
                                         bg.GetString("Label", ""),
-                                        bg.GetString("Accel", "")))
+                                        bg.GetString("Accel", ""),
+                                        bg.GetString("Icon", "")))
         pie.items[i] = bindings or None
     return pie
 

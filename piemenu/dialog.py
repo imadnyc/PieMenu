@@ -1142,7 +1142,8 @@ class PreviewWidget(QtWidgets.QWidget):
                     painter.drawEllipse(rect)
                 else:
                     painter.drawRoundedRect(rect, tile_radius, tile_radius)
-                icon = command_icon(first.cmd, self.actions)
+                icon = QtGui.QIcon(first.icon) if first.icon \
+                    else command_icon(first.cmd, self.actions)
                 never_used = (self._stats and not is_pie_command(first.cmd)
                               and first.cmd not in self._stats)
                 if never_used:
@@ -2134,7 +2135,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
                  "show_names", "alt_size", "door_hover", "door_instant",
                  "placed", "layout_lock")}
         data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule),
-                           "label": b.label, "accel": b.accel}
+                           "label": b.label, "accel": b.accel,
+                           "icon": b.icon}
                           for b in (slot or [])] for slot in pie.items]
         data["requires"] = model.pie_requires(pie)
         return data
@@ -2160,7 +2162,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
             bindings = [Binding(e["cmd"],
                                 model.decode_rule(e.get("rule", "")),
                                 e.get("label", ""),
-                                str(e.get("accel", ""))[:1].upper())
+                                str(e.get("accel", ""))[:1].upper(),
+                                str(e.get("icon", "")))
                         for e in slot if e.get("cmd")]
             pie.items[i] = bindings or None
         return pie
@@ -2547,6 +2550,11 @@ class PieMenuPreferences(QtWidgets.QDialog):
                                              lambda: self._changed(True)))
             menu.addAction("Rename label…",
                            lambda: self._rename_label(i, j))
+            menu.addAction("Icon…", lambda: self._pick_icon(i, j))
+            clear_icon = menu.addAction(
+                "Use the command's icon",
+                lambda: self._set_icon(i, j, ""))
+            clear_icon.setEnabled(bool(slot[j].icon))
             menu.addSeparator()
             up = menu.addAction("Move up", lambda: self._move_binding(i, j, -1))
             up.setEnabled(j > 0)
@@ -2564,10 +2572,26 @@ class PieMenuPreferences(QtWidgets.QDialog):
         if pie.items[index]:
             menu.addAction("Clear this slot",
                            lambda: self._clear_slot(index))
+            menu.addAction("Copy slot", lambda: self._copy_slot(index))
+        if _slot_clipboard:
+            menu.addAction("Paste slot", lambda: self._paste_slot(index))
         if index in pie.placed:
             menu.addAction("Reset position",
                            lambda: self._reset_position(index))
         menu.exec_(global_pos)
+
+    def _copy_slot(self, index):
+        global _slot_clipboard
+        _slot_clipboard = [Binding(b.cmd, dict(b.rule), b.label, b.accel,
+                                   b.icon)
+                           for b in self.pie().items[index]]
+
+    def _paste_slot(self, index):
+        self.pie().items[index] = [Binding(b.cmd, dict(b.rule), b.label,
+                                           b.accel, b.icon)
+                                   for b in _slot_clipboard]
+        self.slot = index
+        self._changed(True)
 
     def _reset_position(self, index):
         self.pie().placed.pop(index, None)
@@ -2617,6 +2641,17 @@ class PieMenuPreferences(QtWidgets.QDialog):
         if ok:
             binding.label = text.strip()
             self._changed(True)
+
+    def _pick_icon(self, i, j):
+        path, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Icon for this binding", "",
+            "Images (*.svg *.png *.xpm *.jpg)")
+        if path:
+            self._set_icon(i, j, path)
+
+    def _set_icon(self, i, j, path):
+        self.pie().items[i][j].icon = path
+        self._changed(True)
 
     def _swap(self, i, j):
         items = self.pie().items
@@ -2941,6 +2976,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
 
 
 _open_dialog = None
+_slot_clipboard = None      # a copied slot: list of Bindings
 
 
 def open_preferences(parent=None, on_change=None):
