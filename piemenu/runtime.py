@@ -40,15 +40,43 @@ def _param():
     return App.ParamGet(MAIN)
 
 
+_behaviour_cache = None
+_behaviour_watch = None
+
+
+class _BehaviourWatch:
+    """Attached to the PieMenu param group: any write drops the cache,
+    so edits from anywhere (dialog, parameter editor, tests) stay live."""
+
+    def slotParamChanged(self, *_args):
+        invalidate_behaviour()
+
+
 def behaviour():
-    p = _param()
-    return {
-        "toggle": p.GetBool("GlobalKeyToggle", True),
-        "rclick": p.GetBool("RightClickTrigger", False),
-        "rclick_delay": p.GetInt("DelayRightClick", 0) or 350,
-        "autoopen": p.GetBool("AutoOpenSelection", False),
-        "opaque": p.GetBool("OpaquePies", False),
-    }
+    # cached: the dispatcher asks on every application event, and param
+    # reads per event were the single biggest cost in the whole addon
+    global _behaviour_cache, _behaviour_watch
+    if _behaviour_cache is None:
+        p = _param()
+        if _behaviour_watch is None:
+            try:
+                _behaviour_watch = _BehaviourWatch()
+                p.AttachManager(_behaviour_watch)
+            except Exception:  # noqa: BLE001 -- no observers headless
+                _behaviour_watch = None
+        _behaviour_cache = {
+            "toggle": p.GetBool("GlobalKeyToggle", True),
+            "rclick": p.GetBool("RightClickTrigger", False),
+            "rclick_delay": p.GetInt("DelayRightClick", 0) or 350,
+            "autoopen": p.GetBool("AutoOpenSelection", False),
+            "opaque": p.GetBool("OpaquePies", False),
+        }
+    return _behaviour_cache
+
+
+def invalidate_behaviour():
+    global _behaviour_cache
+    _behaviour_cache = None
 
 
 # the two built-in looks; explicit color overrides still beat them
@@ -1825,6 +1853,7 @@ class Runtime:
     def reload(self):
         _AVAILABLE["prefix"].clear()    # an addon may have just arrived
         _AVAILABLE["cmd"].clear()
+        invalidate_behaviour()
         self.pies = model.load_pies()   # a saved Smart carries its settings
         self.binds = model.load_binds()
         self._keys = {}

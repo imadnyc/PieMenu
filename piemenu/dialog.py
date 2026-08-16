@@ -1266,7 +1266,6 @@ class ShortcutsTable(QtWidgets.QWidget):
         outer.setSpacing(2)
         self.search = QtWidgets.QLineEdit()
         self.search.setPlaceholderText("Filter keys and pies…")
-        self.search.setClearButtonEnabled(True)
         self.search.setMaximumWidth(240)
         self.search.textChanged.connect(self._apply_filter)
         outer.addWidget(self.search, 0, QtCore.Qt.AlignRight)
@@ -1737,7 +1736,6 @@ class PieMenuPreferences(QtWidgets.QDialog):
         left.addLayout(bar)
         self.pie_filter = QtWidgets.QLineEdit()
         self.pie_filter.setPlaceholderText("Filter…")
-        self.pie_filter.setClearButtonEnabled(True)
         self.pie_filter.textChanged.connect(self._filter_pies)
         left.addWidget(self.pie_filter)
         self.pie_list = QtWidgets.QListWidget()
@@ -1890,7 +1888,8 @@ class PieMenuPreferences(QtWidgets.QDialog):
         auto = menu.addAction("Auto-open on selection")
         auto.setCheckable(True)
         auto.setChecked(p.GetBool("AutoOpenSelection", False))
-        auto.toggled.connect(lambda v: p.SetBool("AutoOpenSelection", v))
+        auto.toggled.connect(lambda v: (p.SetBool("AutoOpenSelection", v),
+                                        runtime.invalidate_behaviour()))
         auto.setToolTip("When the selection changes and the workbench's "
                         "pie has a matching conditional slot, open it at "
                         "the cursor unasked.")
@@ -2896,3 +2895,4 @@ class PreferencePage:
         p = App.ParamGet(runtime.MAIN)
         p.SetString("Theme", self._THEMES[self.theme.currentIndex()])
         p.SetBool("AutoOpenSelection", self.auto_open.isChecked())
+        runtime.invalidate_behaviour()

@@ -384,7 +384,10 @@ disp = runtime.Dispatcher(opener, lambda k: dict(gmaps.get(k, {})),
                           mode_of=lambda n: run_of[n])
 
 # a persistent pie: press opens, release leaves it up, press again toggles
+# (behaviour() is cached now; direct param pokes invalidate by hand, the
+# way any external writer without a GUI event loop must)
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", True)
+runtime.invalidate_behaviour()
 assert press(disp)
 assert len(opened) == 1 and opened[0].visible
 assert release(disp)
@@ -393,10 +396,12 @@ press(disp)
 assert len(opened) == 1 and not opened[0].visible    # toggled shut
 
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", False)
+runtime.invalidate_behaviour()
 press(disp)
 press(disp)                          # second press keeps the open pie as-is
 assert len(opened) == 2 and opened[1].visible
 App.ParamGet(runtime.MAIN).SetBool("GlobalKeyToggle", True)
+runtime.invalidate_behaviour()
 
 opened.clear()                       # a gesture pie: press opens NOW,
 gmaps["F6"] = {"press": "Main"}      # release commits the aim
@@ -753,6 +758,7 @@ print("PASS themes and styles")
 
 # ---- the opaque fallback paints without crashing ----------------------------
 App.ParamGet("User parameter:BaseApp/PieMenu").SetBool("OpaquePies", True)
+runtime.invalidate_behaviour()
 w = runtime.PieWidget(pies, "Main", {}, fire)
 w.popup_at(QtCore.QPoint(400, 400))
 assert w._opaque
@@ -760,6 +766,7 @@ w.grab()                                     # exercises the paint path
 w.close()
 w.deleteLater()
 App.ParamGet("User parameter:BaseApp/PieMenu").RemBool("OpaquePies")
+runtime.invalidate_behaviour()
 print("PASS opaque fallback")
 
 # ---- Run: binds fire one command, no pie -----------------------------------
