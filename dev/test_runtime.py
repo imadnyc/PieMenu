@@ -299,6 +299,57 @@ w._show_pill(w.buttons[1])                   # long names elide, no overflow
 assert pill.text().endswith("…") and pill.width() <= 160, pill.text()
 w.deleteLater()
 
+# always-visible labels: every shown slot wears a pill, radially outward,
+# clear of the buttons and of each other; the hover pill stands down
+pies["Main"].labels_always = True
+w = runtime.PieWidget(pies, "Main", {"Face": 1}, fire)
+assert w._labels_always
+pills = [c for c in w.findChildren(runtime.HaloLabel)
+         if c.parentWidget() is w and c is not w._name_label]
+shown = [b for b in w.buttons if not b.isHidden()]
+assert len(pills) == len(shown), (len(pills), len(shown))
+rect = w.rect()
+for i, p in enumerate(pills):
+    assert rect.contains(p.geometry()), (p.text(), p.geometry())
+    for b in shown:
+        assert not p.geometry().intersects(b.geometry()), p.text()
+    for q in pills[i + 1:]:
+        assert not p.geometry().intersects(q.geometry()), \
+            (p.text(), q.text())
+QtWidgets.QApplication.sendEvent(
+    shown[0], QtCore.QEvent(QtCore.QEvent.Enter))
+assert w._hover_pill is None                 # no duplicate on hover
+w.deleteLater()
+pies["Main"].labels_always = False
+hover_pie = Pie("HoverFire", slots=4, run_on="hover")
+model.normalise(hover_pie)
+hover_pie.items[0] = [Binding("Std_New")]
+hw = runtime.PieWidget({"HoverFire": hover_pie}, "HoverFire", {}, fire)
+assert hw._labels_always                     # hover-fire forces labels on
+hw.deleteLater()
+
+# two rings: the ring step widens so inner-ring pills clear the outer ring
+ring2 = Pie("TwoRing", slots=12, per_ring=8, radius=95, labels_always=True)
+model.normalise(ring2)
+for i, cmd in enumerate(["Std_New", "Std_Undo", "Std_Save", "Std_Cut",
+                         "Std_Copy", "Std_Paste", "Std_Refresh", "Std_Redo",
+                         "Std_Open", "Std_Print", "Std_Quit", "Std_About"]):
+    ring2.items[i] = [Binding(cmd)]
+rw = runtime.PieWidget({"TwoRing": ring2}, "TwoRing", {}, fire)
+r_pills = [c for c in rw.findChildren(runtime.HaloLabel)
+           if c.parentWidget() is rw and c is not rw._name_label]
+r_shown = [b for b in rw.buttons if not b.isHidden()]
+assert len(r_pills) == len(r_shown) == 12
+for i, p in enumerate(r_pills):
+    for b in r_shown:
+        assert not p.geometry().intersects(b.geometry()), \
+            (p.text(), b.property("aimname"))
+    for q in r_pills[i + 1:]:
+        assert not p.geometry().intersects(q.geometry()), \
+            (p.text(), q.text())
+rw.deleteLater()
+print("PASS hover labels")
+
 # color overrides: params win, empty follows the theme
 P = App.ParamGet(runtime.MAIN)
 P.SetString("OutlineColor", "#ff0000")

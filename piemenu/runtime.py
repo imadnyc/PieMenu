@@ -583,16 +583,61 @@ class PieWidget(QtWidgets.QWidget):
         pad = 24
         self.buttons = [self._slot_button(pie.items[i], i)
                         for i in range(len(pos))]
+        # always-visible name pills, fanned radially outward of each slot;
+        # multi-ring pies spread their rings to hold them (ring_step)
+        self._labels_always = model.always_labels(pie)
+        pills = []
+        if self._labels_always:
+            rects = [QtCore.QRectF(x - b.width() / 2, y - b.height() / 2,
+                                   b.width(), b.height())
+                     for (x, y), b in zip(pos, self.buttons)
+                     if not b.isHidden()]
+            for (x, y), btn in zip(pos, self.buttons):
+                if btn.isHidden():
+                    continue
+                pill = HaloLabel("", self, self._halo, 10, chip=self._chip)
+                pill.setText(pill.fontMetrics().elidedText(
+                    btn.property("aimname") or "", QtCore.Qt.ElideRight, 140))
+                pill.adjustSize()
+                r = math.hypot(x, y)
+                ux, uy = (x / r, y / r) if r > 1 else (0.0, 1.0)
+                # radially outward first: push until the pill clears the
+                # button on one axis (rects only meet when both overlap).
+                # A side slot's pill reaches radially by its whole WIDTH
+                # though, which can hit the next ring out -- so fall back
+                # to straight above/below (the rings spread by ring_step
+                # to leave that lane free).
+                half_w = (btn.width() + pill.width()) / 2 + 4
+                half_h = (btn.height() + pill.height()) / 2 + 4
+                t = min(half_w / abs(ux) if abs(ux) > 1e-6 else math.inf,
+                        half_h / abs(uy) if abs(uy) > 1e-6 else math.inf)
+                vertical = (x, y + half_h if y >= 0 else y - half_h)
+                for px, py in ((x + ux * t, y + uy * t), vertical):
+                    rect = QtCore.QRectF(px - pill.width() / 2,
+                                         py - pill.height() / 2,
+                                         pill.width(), pill.height())
+                    if not any(rect.intersects(b) for b in rects):
+                        break
+                pills.append((px, py, pill))
         min_x = min(x - b.width() / 2 for (x, _), b in zip(pos, self.buttons)) - pad
         max_x = max(x + b.width() / 2 for (x, _), b in zip(pos, self.buttons)) + pad
         min_y = min(y - b.height() / 2 for (_, y), b in zip(pos, self.buttons)) - pad
         max_y = max(y + b.height() / 2 for (_, y), b in zip(pos, self.buttons)) + pad
+        for px, py, pill in pills:   # the bounds hold the pills too
+            min_x = min(min_x, px - pill.width() / 2 - 4)
+            max_x = max(max_x, px + pill.width() / 2 + 4)
+            min_y = min(min_y, py - pill.height() / 2 - 4)
+            max_y = max(max_y, py + pill.height() / 2 + 4)
         # the cursor anchor must sit at (0,0) of the layout
         self._origin = (-min_x, -min_y)
         self.resize(int(max_x - min_x), int(max_y - min_y))
         for (x, y), btn in zip(pos, self.buttons):
             btn.move(int(x - min_x - btn.width() / 2),
                      int(y - min_y - btn.height() / 2))
+        for px, py, pill in pills:
+            pill.move(int(px - min_x - pill.width() / 2),
+                      int(py - min_y - pill.height() / 2))
+            pill.setVisible(True)
         # circle pies resolve the aim by direction: remember each slot's
         # ring and angle (screen coords, y down). Grids stay distance-based.
         self._sectors = []
@@ -1171,8 +1216,10 @@ class PieWidget(QtWidgets.QWidget):
         — the centre is the aim readout's turf, and in hover-fire pies
         you are never idly hovering (the dwell is already running).
         Gesture pies keep the aim readout as the authority."""
-        # buttons install this mid-build, before self.buttons exists
+        # buttons install this mid-build, before self.buttons exists;
+        # with always-visible labels the hover pill would be a duplicate
         if self.run_mode != "release" \
+                and not getattr(self, "_labels_always", False) \
                 and obj in getattr(self, "buttons", ()):
             etype = event.type()
             if etype == QtCore.QEvent.Enter:

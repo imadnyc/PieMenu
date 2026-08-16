@@ -216,6 +216,9 @@ class Pie:
     # slots not listed keep the computed layout
     placed: dict = field(default_factory=dict)
     layout_lock: bool = False       # preview drags are refused
+    # circle pies: name pills always visible, not only on hover.  Forced
+    # on for hover-fire pies, where hovering is already the trigger.
+    labels_always: bool = False
     # grid: anchor -> its own offset from the cursor (falls back to radius),
     # so blocks can be spaced independently and never collide
     anchor_offsets: dict = field(default_factory=dict)
@@ -236,6 +239,20 @@ def normalise(pie):
     return pie
 
 
+def always_labels(pie):
+    """Do this pie's slots wear their name pills permanently?  Chosen,
+    or forced for hover-fire pies (hovering to read would run the tool);
+    circle family only -- grid cells leave no room between them."""
+    return (pie.labels_always or pie.run_on == "hover") \
+        and pie.family == "circle"
+
+
+def ring_step(pie):
+    """Distance between rings.  Always-visible label pills live in the
+    gap, so the rings spread by one pill row to make room for them."""
+    return pie.button + pie.spacing + 10 + (26 if always_labels(pie) else 0)
+
+
 def ring_plan(pie, n=None):
     """How many slots each ring takes, in order, covering n slots."""
     n = slot_count(pie) if n is None else n
@@ -244,7 +261,7 @@ def ring_plan(pie, n=None):
     plan, taken, ring = [], 0, 0
     while taken < n:
         if pie.ring_mode == "auto":
-            radius = pie.radius + ring * (pie.button + pie.spacing + 10)
+            radius = pie.radius + ring * ring_step(pie)
             count = int(span * radius / pitch)
         elif pie.ring_mode == "custom" and pie.ring_counts:
             count = pie.ring_counts[min(ring, len(pie.ring_counts) - 1)]
@@ -280,7 +297,7 @@ def positions(pie):
             in_ring = plan[ring]
             div = in_ring if pie.arc >= 360 else max(1, in_ring - 1)
             a = start + (span / div) * k
-            r = pie.radius + ring * (pie.button + pie.spacing + 10)
+            r = pie.radius + ring * ring_step(pie)
             if pie.stagger and k % 2:
                 r += pie.stagger_by
             out.append((math.cos(a) * r, math.sin(a) * r))
@@ -402,7 +419,7 @@ def _grp(path=""):
 
 
 _BOOLS = ("default", "stagger", "door_hover",
-          "door_instant", "layout_lock")
+          "door_instant", "layout_lock", "labels_always")
 _INTS = ("slots", "per_ring", "radius", "arc", "arc_face", "stagger_by",
          "cols", "rows", "button", "spacing", "delay", "alt_size")
 _STRINGS = ("family", "icon", "open_on", "run_on", "ring_mode", "accent",

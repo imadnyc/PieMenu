@@ -93,8 +93,9 @@ tools looks right even if you've never opened Sketcher this session:
 ![a constraints pie](docs/pie-icons.png)
 
 Hovering a slot names it in a small pill beside it — no labels glued
-under the icons, and nothing to read at the centre mid-dwell in
-hover-fire pies:
+under the icons. Circle pies can keep every pill visible (the Labels
+checkbox), and hover-fire pies always do: pointing at a slot to read
+its name would run it.
 
 ![hover names the slot](docs/pie-hover-name.png)
 

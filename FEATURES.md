@@ -68,6 +68,7 @@ fail and point at the rest. Params live under
 | Overlay text | centre name + hints on a flat pill of the theme's window color, digit/accel tags bare; all follow the theme's text color (palette when following FreeCAD) | `runtime.HaloLabel`, `_halo`/`_chip` in `build` | swap back to QLabel |
 | Opaque fallback | without a compositor translucent pies render black; the OpaquePies switch (Colors…) paints a solid rounded panel | `_opaque` in `PieWidget`, checkbox in `colors_dialog`, `OpaquePies` param | delete those |
 | Hover names | hovering a slot shows its name in a pill outward of the slot (never colliding, long names elide to …); replaces the old under-icon labels; gesture pies keep the centre aim readout | `PieWidget.eventFilter`/`_show_pill` | delete both, aim keeps its own path |
+| Always-visible labels | circle pies can wear every pill permanently (Labels checkbox); forced on for hover-fire pies, where pointing at a slot to read it would run it; bounds grow to hold the pills | `Pie.labels_always`, pill block in `build`, labels row in `_fill_settings` | delete those, hover pill remains |
 | Gesture arrow | minimal centre→cursor arrow in hold mode | `PieWidget.paintEvent` tail | delete the paint block |
 
 ## Preferences

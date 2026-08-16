@@ -2105,7 +2105,7 @@ class PieMenuPreferences(QtWidgets.QDialog):
                  "stagger_by", "cols", "rows", "anchors", "anchor_offsets",
                  "button", "spacing", "accent", "run_on", "delay",
                  "alt_size", "door_hover", "door_instant",
-                 "placed", "layout_lock")}
+                 "placed", "layout_lock", "labels_always")}
         data["items"] = [[{"cmd": b.cmd, "rule": model.encode_rule(b.rule),
                            "label": b.label, "accel": b.accel,
                            "icon": b.icon}
@@ -2826,6 +2826,23 @@ class PieMenuPreferences(QtWidgets.QDialog):
         instant.toggled.connect(lambda v: self._set("door_instant", v))
         GifTip(doors, "door-dwell")
         GifTip(instant, "door-dwell")
+        labels = row("Labels", QtWidgets.QCheckBox("always visible"))
+        if pie.run_on == "hover":
+            labels.setChecked(True)
+            labels.setEnabled(False)
+            labels.setToolTip("Hover pies fire on hover — pointing at a "
+                              "slot to read its name would run it, so "
+                              "the name pills stay visible.")
+        elif pie.family != "circle":
+            labels.setEnabled(False)
+            labels.setToolTip("Grid cells leave no room for permanent "
+                              "pills — hover a slot to see its name.")
+        else:
+            labels.setChecked(pie.labels_always)
+            labels.setToolTip("Off: a slot shows its name pill while "
+                              "hovered. On: every slot wears its pill.")
+            labels.toggled.connect(
+                lambda v: self._set("labels_always", v))
 
         opened = QtWidgets.QGroupBox("Opened by")
         ob = QtWidgets.QVBoxLayout(opened)
