@@ -1595,6 +1595,9 @@ class Dispatcher(QtCore.QObject):
             name = MOUSE_KEYS.get(event.button())
             if name is not None and self.held == name:
                 return self._release(name)
+        if etype == QtCore.QEvent.ContextMenu \
+                and self._capture_menu(obj, event):
+            return True
         if App is not None and behaviour()["rclick"]:
             if etype == QtCore.QEvent.MouseButtonPress \
                     and event.button() == QtCore.Qt.RightButton:
@@ -1606,6 +1609,48 @@ class Dispatcher(QtCore.QObject):
                 self._swallow_context = False
                 return True
         return False
+
+    def _capture_menu(self, obj, event):
+        """Right-click a toolbar button: offer to add that command to a
+        pie, right where you found it (capture by pointing).  FreeCAD's
+        own toolbar menu stays on the toolbar's empty space."""
+        rt = runtime
+        if rt is None or not isinstance(obj, QtWidgets.QToolButton) \
+                or not isinstance(obj.parentWidget(), QtWidgets.QToolBar):
+            return False
+        action = obj.defaultAction()
+        cmd = action.objectName() if action is not None else ""
+        if not cmd or cmd.startswith("qt_") or is_pie_command(cmd):
+            return False
+        label = action.text().replace("&", "") or cmd
+        menu = QtWidgets.QMenu(obj)
+        header = menu.addAction(f"Add “{label}” to…")
+        header.setEnabled(False)
+        for name in sorted(rt.pies):
+            if name == model.SMART_NAME:
+                continue                 # Smart fills itself
+            free = next((i for i, s in enumerate(rt.pies[name].items)
+                         if not s), None)
+            act = menu.addAction(name if free is not None
+                                 else f"{name} (full)")
+            if free is None:
+                act.setEnabled(False)
+            else:
+                act.triggered.connect(
+                    lambda _=False, p=name, i=free, c=cmd:
+                    self._capture_add(p, i, c))
+        menu.exec_(event.globalPos())
+        return True
+
+    @staticmethod
+    def _capture_add(pie_name, index, cmd):
+        rt = runtime
+        pie = rt.pies.get(pie_name) if rt is not None else None
+        if pie is None or index >= len(pie.items) or pie.items[index]:
+            return
+        pie.items[index] = [model.Binding(cmd)]
+        model.save_pie(pie)
+        rt.reload()
 
     def _typing_focus(self):
         """Never hijack keys aimed at a text field or a modal dialog."""
