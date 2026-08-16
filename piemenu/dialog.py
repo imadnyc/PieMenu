@@ -1098,6 +1098,10 @@ class PreviewWidget(QtWidgets.QWidget):
         painter.setRenderHint(QtGui.QPainter.Antialiasing)
         pal = self.palette()
         accent = pal.color(QtGui.QPalette.Highlight)
+        # palette Mid can melt into a light window; text-at-low-alpha
+        # contrasts with the backdrop in every theme by construction
+        faint = pal.color(QtGui.QPalette.WindowText)
+        faint.setAlpha(120)
         size = pie.button
         tile_radius = {"square": 0, "rounded": 4,
                        "squircle": max(4, int(size * 0.32)),
@@ -1115,8 +1119,7 @@ class PreviewWidget(QtWidgets.QWidget):
             on_axis = self._drag_snapped and min(angle % 45,
                                                  45 - angle % 45) < 0.5
             painter.setPen(QtGui.QPen(
-                accent if on_axis else pal.color(QtGui.QPalette.Mid),
-                1, QtCore.Qt.DashLine))
+                accent if on_axis else faint, 1, QtCore.Qt.DashLine))
             painter.drawLine(int(cx), int(cy), int(tx), int(ty))
             if on_axis:
                 painter.drawLine(int(cx), int(cy),
@@ -1125,7 +1128,7 @@ class PreviewWidget(QtWidgets.QWidget):
             rect = QtCore.QRect(x, y, size, size)
             slot = pie.items[i] if i < len(pie.items) else None
             if not slot:
-                pen = QtGui.QPen(pal.color(QtGui.QPalette.Mid))
+                pen = QtGui.QPen(faint)
                 pen.setStyle(QtCore.Qt.DashLine)
                 painter.setPen(pen)
                 painter.setBrush(QtCore.Qt.NoBrush)
@@ -1185,7 +1188,7 @@ class PreviewWidget(QtWidgets.QWidget):
                                         + QtCore.QPoint(0, 0), 4, 4)
             if i in pie.placed:      # hand-placed: a small corner tick
                 painter.setPen(QtCore.Qt.NoPen)
-                painter.setBrush(pal.color(QtGui.QPalette.Mid))
+                painter.setBrush(faint)
                 painter.drawEllipse(
                     rect.bottomLeft() + QtCore.QPoint(2, -2), 2, 2)
             if i == self.selected:
@@ -1197,8 +1200,8 @@ class PreviewWidget(QtWidgets.QWidget):
                 painter.setBrush(QtCore.Qt.NoBrush)
                 painter.drawRoundedRect(rect.adjusted(-5, -5, 5, 5), 8, 8)
         # the cursor anchor: where the pie opens relative to the hand
-        painter.setPen(QtGui.QPen(pal.color(QtGui.QPalette.Mid), 1))
-        painter.setBrush(pal.color(QtGui.QPalette.Mid))
+        painter.setPen(QtGui.QPen(faint, 1))
+        painter.setBrush(faint)
         painter.drawEllipse(QtCore.QPoint(int(self.width() / 2),
                                           int(self.height() / 2)), 3, 3)
         if self._mock_chooser is not None:
