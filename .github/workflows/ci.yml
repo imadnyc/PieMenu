@@ -19,6 +19,6 @@ jobs:
       - name: lint
         run: nix develop -c ruff check piemenu dev
       - name: smoke
-        run: nix run .#smoke
+        run: nix run -L .#smoke
       - name: e2e
-        run: nix run .#e2e
+        run: nix run -L .#e2e
